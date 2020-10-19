@@ -1,0 +1,102 @@
+"""
+
+Copyright (c) 2020 Alex Forencich
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+
+"""
+
+import enum
+
+# Burst types
+# AWBURST/ARBURST
+class AxiBurstType(enum.IntEnum):
+    FIXED = 0b00
+    INCR  = 0b01
+    WRAP  = 0b10
+
+# Burst sizes (per beat)
+# AWSIZE/ARSIZE
+class AxiBurstSize(enum.IntEnum):
+    SIZE_1   = 0b000
+    SIZE_2   = 0b001
+    SIZE_4   = 0b010
+    SIZE_8   = 0b011
+    SIZE_16  = 0b100
+    SIZE_32  = 0b101
+    SIZE_64  = 0b110
+    SIZE_128 = 0b111
+
+# Lock types
+# AWLOCK/ARLOCK
+class AxiLockType(enum.IntEnum):
+    NORMAL    = 0b0
+    EXCLUSIVE = 0b1
+
+# Cache control
+# AWCACHE/ARCACHE
+class AxiCacheBit(enum.IntFlag):
+    B  = 0b0001
+    M  = 0b0010
+    RA = 0b0100
+    WA = 0b1000
+
+# ARCACHE
+ARCACHE_DEVICE_NON_BUFFERABLE = 0b0000
+ARCACHE_DEVICE_BUFFERABLE = 0b0001
+ARCACHE_NORMAL_NON_CACHEABLE_NON_BUFFERABLE = 0b0010
+ARCACHE_NORMAL_NON_CACHEABLE_BUFFERABLE = 0b0011
+ARCACHE_WRITE_THROUGH_NO_ALLOC = 0b1010
+ARCACHE_WRITE_THROUGH_READ_ALLOC = 0b1110
+ARCACHE_WRITE_THROUGH_WRITE_ALLOC = 0b1010
+ARCACHE_WRITE_THROUGH_READ_AND_WRITE_ALLOC = 0b1110
+ARCACHE_WRITE_BACK_NO_ALLOC = 0b1011
+ARCACHE_WRITE_BACK_READ_ALLOC = 0b1111
+ARCACHE_WRITE_BACK_WRITE_ALLOC = 0b1011
+ARCACHE_WRITE_BACK_READ_AND_WRITE_ALLOC = 0b1111
+
+# AWCACHE
+AWCACHE_DEVICE_NON_BUFFERABLE = 0b0000
+AWCACHE_DEVICE_BUFFERABLE = 0b0001
+AWCACHE_NORMAL_NON_CACHEABLE_NON_BUFFERABLE = 0b0010
+AWCACHE_NORMAL_NON_CACHEABLE_BUFFERABLE = 0b0011
+AWCACHE_WRITE_THROUGH_NO_ALLOC = 0b0110
+AWCACHE_WRITE_THROUGH_READ_ALLOC = 0b0110
+AWCACHE_WRITE_THROUGH_WRITE_ALLOC = 0b1110
+AWCACHE_WRITE_THROUGH_READ_AND_WRITE_ALLOC = 0b1110
+AWCACHE_WRITE_BACK_NO_ALLOC = 0b0111
+AWCACHE_WRITE_BACK_READ_ALLOC = 0b0111
+AWCACHE_WRITE_BACK_WRITE_ALLOC = 0b1111
+AWCACHE_WRITE_BACK_READ_AND_WRITE_ALLOC = 0b1111
+
+# Protection bits
+# AWPROT/ARPROT
+class AxiProt(enum.IntFlag):
+    PRIVILEGED  = 0b001
+    NONSECURE   = 0b010
+    INSTRUCTION = 0b100
+
+# Operation status responses
+# BRESP/RRESP
+class AxiResp(enum.IntEnum):
+    OKAY   = 0b00
+    EXOKAY = 0b01
+    SLVERR = 0b10
+    DECERR = 0b11
+
