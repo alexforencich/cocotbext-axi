@@ -391,6 +391,7 @@ class AxiStreamSink(BusDriver):
             if compact:
                 frame.compact()
             return frame
+        return None
 
     def read(self, count=-1):
         while True:
