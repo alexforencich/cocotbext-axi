@@ -750,13 +750,9 @@ class AxiMaster(object):
         self.read_if = AxiMasterRead(entity, name, clock, reset)
 
     def init_read(self, address, length, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, token=None):
-        if not self.read_if:
-            raise Exception()
         self.read_if.init_read(address, length, burst, size, lock, cache, prot, qos, region, user, token)
 
     def init_write(self, address, data, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, token=None):
-        if not self.write_if:
-            raise Exception()
         self.write_if.init_write(address, data, burst, size, lock, cache, prot, qos, region, user, token)
 
     def idle(self):
@@ -767,42 +763,26 @@ class AxiMaster(object):
             await RisingEdge(self.clock)
 
     async def wait_read(self):
-        if not self.read_if:
-            raise Exception()
         await self.read_if.wait()
 
     async def wait_write(self):
-        if not self.write_if:
-            raise Exception()
         await self.write_if.wait()
 
     def read_data_ready(self, token=None):
-        if not self.read_if:
-            raise Exception()
         return self.read_if.read_data_ready(token)
 
     def get_read_data(self, token=None):
-        if not self.read_if:
-            raise Exception()
         return self.read_if.get_read_data(token)
 
     def write_resp_ready(self, token=None):
-        if not self.write_if:
-            raise Exception()
         return self.write_if.write_resp_ready(token)
 
     def get_write_resp(self, token=None):
-        if not self.write_if:
-            raise Exception()
         return self.write_if.get_write_resp(token)
 
     async def read(self, address, length, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        if not self.read_if:
-            raise Exception()
         return await self.read_if.read(address, length, burst, size, lock, cache, prot, qos, region, user)
 
     async def write(self, address, data, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        if not self.write_if:
-            raise Exception()
         return await self.write_if.write(address, data, burst, size, lock, cache, prot, qos, region, user)
 

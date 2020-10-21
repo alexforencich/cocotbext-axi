@@ -499,13 +499,9 @@ class AxiLiteMaster(object):
         self.read_if = AxiLiteMasterRead(entity, name, clock, reset)
 
     def init_read(self, address, length, prot=AxiProt.NONSECURE, token=None):
-        if not self.read_if:
-            raise Exception()
         self.read_if.init_read(address, length, prot, token)
 
     def init_write(self, address, data, prot=AxiProt.NONSECURE, token=None):
-        if not self.write_if:
-            raise Exception()
         self.write_if.init_write(address, data, prot, token)
 
     def idle(self):
@@ -516,42 +512,26 @@ class AxiLiteMaster(object):
             await RisingEdge(self.clock)
 
     async def wait_read(self):
-        if not self.read_if:
-            raise Exception()
         await self.read_if.wait()
 
     async def wait_write(self):
-        if not self.write_if:
-            raise Exception()
         await self.write_if.wait()
 
     def read_data_ready(self, token=None):
-        if not self.read_if:
-            raise Exception()
         return self.read_if.read_data_ready(token)
 
     def get_read_data(self, token=None):
-        if not self.read_if:
-            raise Exception()
         return self.read_if.get_read_data(token)
 
     def write_resp_ready(self, token=None):
-        if not self.write_if:
-            raise Exception()
         return self.write_if.write_resp_ready(token)
 
     def get_write_resp(self, token=None):
-        if not self.write_if:
-            raise Exception()
         return self.write_if.get_write_resp(token)
 
     async def read(self, address, length, prot=AxiProt.NONSECURE):
-        if not self.read_if:
-            raise Exception()
         return await self.read_if.read(address, length, prot)
 
     async def write(self, address, data, prot=AxiProt.NONSECURE):
-        if not self.write_if:
-            raise Exception()
         return await self.write_if.write(address, data, prot)
 
