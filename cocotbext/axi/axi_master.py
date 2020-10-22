@@ -23,36 +23,24 @@ THE SOFTWARE.
 """
 
 import cocotb
-from cocotb.triggers import RisingEdge, ReadOnly, Event
-from cocotb.drivers import BusDriver
+from cocotb.triggers import RisingEdge, Event
+from cocotb.log import SimLog
 
 from collections import deque
 
 from .constants import *
+from .axi_channels import *
 
 
-class AxiMasterWrite(BusDriver):
-
-    _signals = [
-        # Write address channel
-        "awid", "awaddr", "awlen", "awsize", "awburst", "awprot", "awvalid", "awready",
-        # Write data channel
-        "wdata", "wstrb", "wlast", "wvalid", "wready",
-        # Write response channel
-        "bid", "bresp", "bvalid", "bready",
-    ]
-
-    _optional_signals = [
-        # Write address channel
-        "awlock", "awcache", "awqos", "awregion", "awuser",
-        # Write data channel
-        "wuser",
-        # Write response channel
-        "buser",
-    ]
-
+class AxiMasterWrite(object):
     def __init__(self, entity, name, clock, reset=None):
-        super().__init__(entity, name, clock)
+        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+
+        self.reset = reset
+
+        self.aw_channel = AxiAWSource(entity, name, clock, reset)
+        self.w_channel = AxiWSource(entity, name, clock, reset)
+        self.b_channel = AxiBSink(entity, name, clock, reset)
 
         self.active_tokens = set()
 
@@ -62,80 +50,30 @@ class AxiMasterWrite(BusDriver):
         self.write_resp_sync = Event()
         self.write_resp_set = set()
 
-        self.id_queue = deque(range(2**len(self.bus.awid)))
+        self.id_queue = deque(range(2**len(self.aw_channel.bus.awid)))
         self.id_sync = Event()
 
-        self.int_write_addr_queue = deque()
-        self.int_write_data_queue = deque()
         self.int_write_resp_command_queue = deque()
         self.int_write_resp_command_sync = Event()
         self.int_write_resp_queue_list = {}
-        self.int_write_resp_sync_list = {}
 
         self.in_flight_operations = 0
 
-        self.width = len(self.bus.wdata)
+        self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
         self.byte_width = self.width // self.byte_size
-        self.strb_mask = 2**len(self.bus.wstrb)-1
+        self.strb_mask = 2**self.byte_width-1
 
         self.max_burst_len = 256
         self.max_burst_size = (self.byte_width-1).bit_length()
 
-        assert self.byte_width == len(self.bus.wstrb)
+        assert self.byte_width == len(self.w_channel.bus.wstrb)
         assert self.byte_width * self.byte_size == self.width
 
-        self.reset = reset
-
-        self.bus.awid.setimmediatevalue(0)
-        self.bus.awaddr.setimmediatevalue(0)
-        assert len(self.bus.awlen) == 8
-        self.bus.awlen.setimmediatevalue(0)
-        assert len(self.bus.awsize) == 3
-        self.bus.awsize.setimmediatevalue(0)
-        assert len(self.bus.awburst) == 2
-        self.bus.awburst.setimmediatevalue(0)
-        if hasattr(self.bus, "awlock"):
-            assert len(self.bus.awlock) == 1
-            self.bus.awlock.setimmediatevalue(0)
-        if hasattr(self.bus, "awcache"):
-            assert len(self.bus.awcache) == 4
-            self.bus.awcache.setimmediatevalue(0)
-        assert len(self.bus.awprot) == 3
-        self.bus.awprot.setimmediatevalue(0)
-        if hasattr(self.bus, "awqos"):
-            assert len(self.bus.awqos) == 4
-            self.bus.awqos.setimmediatevalue(0)
-        if hasattr(self.bus, "awregion"):
-            assert len(self.bus.awregion) == 4
-            self.bus.awregion.setimmediatevalue(0)
-        if hasattr(self.bus, "awuser"):
-            self.bus.awuser.setimmediatevalue(0)
-        assert len(self.bus.awvalid) == 1
-        self.bus.awvalid.setimmediatevalue(0)
-        assert len(self.bus.awready) == 1
-
-        self.bus.wdata.setimmediatevalue(0)
-        self.bus.wstrb.setimmediatevalue(0)
-        assert len(self.bus.wlast) == 1
-        self.bus.wlast.setimmediatevalue(0)
-        if hasattr(self.bus, "wuser"):
-            self.bus.wuser.setimmediatevalue(0)
-        assert len(self.bus.wvalid) == 1
-        self.bus.wvalid.setimmediatevalue(0)
-        assert len(self.bus.wready) == 1
-
-        assert len(self.bus.bid) == len(self.bus.awid)
-        assert len(self.bus.bresp) == 2
-        assert len(self.bus.bvalid) == 1
-        assert len(self.bus.bready) == 1
-        self.bus.bready.setimmediatevalue(0)
+        assert len(self.b_channel.bus.bid) == len(self.aw_channel.bus.awid)
 
         cocotb.fork(self._process_write())
         cocotb.fork(self._process_write_resp())
-        cocotb.fork(self._process_write_addr_if())
-        cocotb.fork(self._process_write_data_if())
-        cocotb.fork(self._process_write_resp_if())
 
     def init_write(self, address, data, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, token=None):
         if token is not None:
@@ -257,12 +195,32 @@ class AxiMasterWrite(BusDriver):
                     burst_length = (min(burst_length*num_bytes, 0x1000-(cur_addr&0xfff))+num_bytes-1)//num_bytes # 4k align
 
                     burst_list.append((awid, burst_length))
-                    self.int_write_addr_queue.append((cur_addr, awid, burst_length-1, size, burst, lock, cache, prot, qos, region, user))
+
+                    aw = self.aw_channel._transaction_obj()
+                    aw.awid = awid
+                    aw.awaddr = cur_addr
+                    aw.awlen = burst_length-1
+                    aw.awsize = size
+                    aw.awburst = burst
+                    aw.awlock = lock
+                    aw.awcache = cache
+                    aw.awprot = prot
+                    aw.awqos = qos
+                    aw.awregion = region
+                    aw.awuser = user
+
+                    self.aw_channel.send(aw)
 
                     self.log.info(f"Write burst start awid {awid:#x} awaddr: {cur_addr:#010x} awlen: {burst_length-1} awsize: {size}")
 
                 n += 1
-                self.int_write_data_queue.append((val, strb, n >= burst_length, 0))
+
+                w = self.w_channel._transaction_obj()
+                w.wdata = val
+                w.wstrb = strb
+                w.wlast = n >= burst_length
+
+                self.w_channel.send(w)
 
                 cur_addr += num_bytes
                 cycle_offset = (cycle_offset + num_bytes) % self.byte_width
@@ -283,13 +241,20 @@ class AxiMasterWrite(BusDriver):
 
             for bid, burst_length in burst_list:
                 self.int_write_resp_queue_list.setdefault(bid, deque())
-                self.int_write_resp_sync_list.setdefault(bid, Event())
-                if not self.int_write_resp_queue_list[bid]:
-                    self.int_write_resp_sync_list[bid].clear()
-                    await self.int_write_resp_sync_list[bid].wait()
+                while True:
+                    if self.int_write_resp_queue_list[bid]:
+                        break
 
-                burst_id, burst_resp, burst_user = self.int_write_resp_queue_list[bid].popleft()
-                burst_resp = AxiResp(burst_resp)
+                    await self.b_channel.wait()
+                    b = self.b_channel.recv()
+
+                    self.int_write_resp_queue_list[int(b.bid)].append(b)
+
+                b = self.int_write_resp_queue_list[bid].popleft()
+
+                burst_id = int(b.bid)
+                burst_resp = AxiResp(b.bresp)
+                burst_user = int(b.buser)
 
                 if burst_resp != AxiResp.OKAY:
                     resp = burst_resp
@@ -312,115 +277,15 @@ class AxiMasterWrite(BusDriver):
                 self.write_resp_set.add(token)
             self.in_flight_operations -= 1
 
-    async def _process_write_addr_if(self):
-        while True:
-            await ReadOnly()
 
-            # read handshake signals
-            awready_sample = self.bus.awready.value
-            awvalid_sample = self.bus.awvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.awvalid <= 0
-                continue
-
-            await RisingEdge(self.clock)
-
-            if (awready_sample and awvalid_sample) or (not awvalid_sample):
-                if self.int_write_addr_queue:
-                    addr, awid, length, size, burst, lock, cache, prot, qos, region, user = self.int_write_addr_queue.popleft()
-                    self.bus.awaddr <= addr
-                    self.bus.awid <= awid
-                    self.bus.awlen <= length
-                    self.bus.awsize <= size
-                    self.bus.awburst <= burst
-                    if hasattr(self.bus, "awlock"):
-                        self.bus.awlock <= lock
-                    if hasattr(self.bus, "awcache"):
-                        self.bus.awcache <= cache
-                    self.bus.awprot <= prot
-                    if hasattr(self.bus, "awqos"):
-                        self.bus.awqos <= qos
-                    if hasattr(self.bus, "awregion"):
-                        self.bus.awregion <= region
-                    if hasattr(self.bus, "awuser"):
-                        self.bus.awuser <= user
-                    self.bus.awvalid <= 1
-                else:
-                    self.bus.awvalid <= 0
-
-    async def _process_write_data_if(self):
-        while True:
-            await ReadOnly()
-
-            # read handshake signals
-            wready_sample = self.bus.wready.value
-            wvalid_sample = self.bus.wvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.wvalid <= 0
-                continue
-
-            await RisingEdge(self.clock)
-
-            if (wready_sample and wvalid_sample) or (not wvalid_sample):
-                if self.int_write_data_queue:
-                    data, strb, last, user = self.int_write_data_queue.popleft()
-                    self.bus.wdata <= data
-                    self.bus.wstrb <= strb
-                    self.bus.wlast <= last
-                    if hasattr(self.bus, "awuser"):
-                        self.bus.awuser <= user
-                    self.bus.wvalid <= 1
-                else:
-                    self.bus.wvalid <= 0
-
-    async def _process_write_resp_if(self):
-        while True:
-            await ReadOnly()
-
-            # read handshake signals
-            bready_sample = self.bus.bready.value
-            bvalid_sample = self.bus.bvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.bready <= 0
-                continue
-
-            if bready_sample and bvalid_sample:
-                bid = self.bus.bid.value.integer
-                bresp = self.bus.bresp.value.integer
-                buser = self.bus.buser.value.integer if hasattr(self.bus, "buser") else None
-                self.int_write_resp_queue_list.setdefault(bid, deque())
-                self.int_write_resp_queue_list[bid].append((bid, bresp, buser))
-                self.int_write_resp_sync_list.setdefault(bid, Event())
-                self.int_write_resp_sync_list[bid].set()
-
-            await RisingEdge(self.clock)
-            self.bus.bready <= 1
-
-
-class AxiMasterRead(BusDriver):
-
-    _signals = [
-        # Read address channel
-        "arid", "araddr", "arlen", "arsize", "arburst", "arprot", "arvalid", "arready",
-        # Read data channel
-        "rid", "rdata", "rresp", "rlast", "rvalid", "rready",
-    ]
-
-    _optional_signals = [
-        # Read address channel
-        "arlock", "arcache", "arqos", "arregion", "aruser",
-        # Read data channel
-        "ruser",
-    ]
-
+class AxiMasterRead(object):
     def __init__(self, entity, name, clock, reset=None):
-        super().__init__(entity, name, clock)
+        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+
+        self.reset = reset
+
+        self.ar_channel = AxiARSource(entity, name, clock, reset)
+        self.r_channel = AxiRSink(entity, name, clock, reset)
 
         self.active_tokens = set()
 
@@ -430,18 +295,16 @@ class AxiMasterRead(BusDriver):
         self.read_data_sync = Event()
         self.read_data_set = set()
 
-        self.id_queue = deque(range(2**len(self.bus.arid)))
+        self.id_queue = deque(range(2**len(self.ar_channel.bus.arid)))
         self.id_sync = Event()
 
-        self.int_read_addr_queue = deque()
         self.int_read_resp_command_queue = deque()
         self.int_read_resp_command_sync = Event()
         self.int_read_resp_queue_list = {}
-        self.int_read_resp_sync_list = {}
 
         self.in_flight_operations = 0
 
-        self.width = len(self.bus.rdata)
+        self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
         self.byte_width = self.width // self.byte_size
 
@@ -450,47 +313,10 @@ class AxiMasterRead(BusDriver):
 
         assert self.byte_width * self.byte_size == self.width
 
-        self.reset = reset
-
-        self.bus.arid.setimmediatevalue(0)
-        self.bus.araddr.setimmediatevalue(0)
-        assert len(self.bus.arlen) == 8
-        self.bus.arlen.setimmediatevalue(0)
-        assert len(self.bus.arsize) == 3
-        self.bus.arsize.setimmediatevalue(0)
-        assert len(self.bus.arburst) == 2
-        self.bus.arburst.setimmediatevalue(0)
-        if hasattr(self.bus, "arlock"):
-            assert len(self.bus.arlock) == 1
-            self.bus.arlock.setimmediatevalue(0)
-        if hasattr(self.bus, "arcache"):
-            assert len(self.bus.arcache) == 4
-            self.bus.arcache.setimmediatevalue(0)
-        assert len(self.bus.arprot) == 3
-        self.bus.arprot.setimmediatevalue(0)
-        if hasattr(self.bus, "arqos"):
-            assert len(self.bus.arqos) == 4
-            self.bus.arqos.setimmediatevalue(0)
-        if hasattr(self.bus, "arregion"):
-            assert len(self.bus.arregion) == 4
-            self.bus.arregion.setimmediatevalue(0)
-        if hasattr(self.bus, "aruser"):
-            self.bus.aruser.setimmediatevalue(0)
-        assert len(self.bus.arvalid) == 1
-        self.bus.arvalid.setimmediatevalue(0)
-        assert len(self.bus.arready) == 1
-
-        assert len(self.bus.rid) == len(self.bus.arid)
-        assert len(self.bus.rresp) == 2
-        assert len(self.bus.rlast) == 1
-        assert len(self.bus.rvalid) == 1
-        assert len(self.bus.rready) == 1
-        self.bus.rready.setimmediatevalue(0)
+        assert len(self.r_channel.bus.rid) == len(self.ar_channel.bus.arid)
 
         cocotb.fork(self._process_read())
         cocotb.fork(self._process_read_resp())
-        cocotb.fork(self._process_read_addr_if())
-        cocotb.fork(self._process_read_resp_if())
 
     def init_read(self, address, length, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, token=None):
         if token is not None:
@@ -591,7 +417,21 @@ class AxiMasterRead(BusDriver):
                     burst_length = (min(burst_length*num_bytes, 0x1000-(cur_addr&0xfff))+num_bytes-1)//num_bytes # 4k align
 
                     burst_list.append((arid, burst_length))
-                    self.int_read_addr_queue.append((cur_addr, arid, burst_length-1, size, burst, lock, cache, prot, qos, region, user))
+
+                    ar = self.r_channel._transaction_obj()
+                    ar.arid = arid
+                    ar.araddr = cur_addr
+                    ar.arlen = burst_length-1
+                    ar.arsize = size
+                    ar.arburst = burst
+                    ar.arlock = lock
+                    ar.arcache = cache
+                    ar.arprot = prot
+                    ar.arqos = qos
+                    ar.arregion = region
+                    ar.aruser = user
+
+                    self.ar_channel.send(ar)
 
                     self.log.info(f"Read burst start arid {arid:#x} araddr: {cur_addr:#010x} arlen: {burst_length-1} arsize: {size}")
 
@@ -599,7 +439,6 @@ class AxiMasterRead(BusDriver):
 
             self.int_read_resp_command_queue.append((address, length, size, cycles, prot, burst_list, token))
             self.int_read_resp_command_sync.set()
-
 
     async def _process_read_resp(self):
         while True:
@@ -628,13 +467,22 @@ class AxiMasterRead(BusDriver):
             for rid, burst_length in burst_list:
                 for k in range(burst_length):
                     self.int_read_resp_queue_list.setdefault(rid, deque())
-                    self.int_read_resp_sync_list.setdefault(rid, Event())
-                    if not self.int_read_resp_queue_list[rid]:
-                        self.int_read_resp_sync_list[rid].clear()
-                        await self.int_read_resp_sync_list[rid].wait()
+                    while True:
+                        if self.int_read_resp_queue_list[rid]:
+                            break
 
-                    cycle_id, cycle_data, cycle_resp, cycle_last, cycle_user = self.int_read_resp_queue_list[rid].popleft()
-                    cycle_resp = AxiResp(cycle_resp)
+                        await self.r_channel.wait()
+                        r = self.r_channel.recv()
+
+                        self.int_read_resp_queue_list[int(r.rid)].append(r)
+
+                    r = self.int_read_resp_queue_list[rid].popleft()
+
+                    cycle_id = int(r.rid)
+                    cycle_data = int(r.rdata)
+                    cycle_resp = AxiResp(r.rresp)
+                    cycle_last = int(r.rlast)
+                    cycle_user = int(r.ruser)
 
                     if cycle_resp != AxiResp.OKAY:
                         resp = cycle_resp
@@ -673,71 +521,6 @@ class AxiMasterRead(BusDriver):
             if token is not None:
                 self.read_data_set.add(token)
             self.in_flight_operations -= 1
-
-    async def _process_read_addr_if(self):
-        while True:
-            await ReadOnly()
-
-            # read handshake signals
-            arready_sample = self.bus.arready.value
-            arvalid_sample = self.bus.arvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.arvalid <= 0
-                continue
-
-            await RisingEdge(self.clock)
-
-            if (arready_sample and arvalid_sample) or (not arvalid_sample):
-                if self.int_read_addr_queue:
-                    addr, arid, length, size, burst, lock, cache, prot, qos, region, user = self.int_read_addr_queue.popleft()
-                    self.bus.araddr <= addr
-                    self.bus.arid <= arid
-                    self.bus.arlen <= length
-                    self.bus.arsize <= size
-                    self.bus.arburst <= burst
-                    if hasattr(self.bus, "arlock"):
-                        self.bus.arlock <= lock
-                    if hasattr(self.bus, "arcache"):
-                        self.bus.arcache <= cache
-                    self.bus.arprot <= prot
-                    if hasattr(self.bus, "arqos"):
-                        self.bus.arqos <= qos
-                    if hasattr(self.bus, "arregion"):
-                        self.bus.arregion <= region
-                    if hasattr(self.bus, "aruser"):
-                        self.bus.aruser <= user
-                    self.bus.arvalid <= 1
-                else:
-                    self.bus.arvalid <= 0
-
-    async def _process_read_resp_if(self):
-        while True:
-            await ReadOnly()
-
-            # read handshake signals
-            rready_sample = self.bus.rready.value
-            rvalid_sample = self.bus.rvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.rready <= 0
-                continue
-
-            if rready_sample and rvalid_sample:
-                rid = self.bus.rid.value.integer
-                rdata = self.bus.rdata.value.integer
-                rresp = self.bus.rresp.value.integer
-                rlast = self.bus.rlast.value.integer
-                ruser = self.bus.ruser.value.integer if hasattr(self.bus, "ruser") else None
-                self.int_read_resp_queue_list.setdefault(rid, deque())
-                self.int_read_resp_queue_list[rid].append((rid, rdata, rresp, rlast, ruser))
-                self.int_read_resp_sync_list.setdefault(rid, Event())
-                self.int_read_resp_sync_list[rid].set()
-
-            await RisingEdge(self.clock)
-            self.bus.rready <= 1
 
 
 class AxiMaster(object):
@@ -785,4 +568,5 @@ class AxiMaster(object):
 
     async def write(self, address, data, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
         return await self.write_if.write(address, data, burst, size, lock, cache, prot, qos, region, user)
+
 

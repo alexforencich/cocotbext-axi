@@ -23,27 +23,24 @@ THE SOFTWARE.
 """
 
 import cocotb
-from cocotb.triggers import RisingEdge, ReadOnly, Event
-from cocotb.drivers import BusDriver
+from cocotb.triggers import RisingEdge, Event
+from cocotb.log import SimLog
 
 from collections import deque
 
 from .constants import *
+from .axil_channels import *
 
 
-class AxiLiteMasterWrite(BusDriver):
-
-    _signals = [
-        # Write address channel
-        "awaddr", "awprot", "awvalid", "awready",
-        # Write data channel
-        "wdata", "wstrb", "wvalid", "wready",
-        # Write response channel
-        "bresp", "bvalid", "bready",
-    ]
-
+class AxiLiteMasterWrite(object):
     def __init__(self, entity, name, clock, reset=None):
-        super().__init__(entity, name, clock)
+        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+
+        self.reset = reset
+
+        self.aw_channel = AxiLiteAWSource(entity, name, clock, reset)
+        self.w_channel = AxiLiteWSource(entity, name, clock, reset)
+        self.b_channel = AxiLiteBSink(entity, name, clock, reset)
 
         self.active_tokens = set()
 
@@ -51,47 +48,20 @@ class AxiLiteMasterWrite(BusDriver):
         self.write_resp_sync = Event()
         self.write_resp_set = set()
 
-        self.int_write_addr_queue = deque()
-        self.int_write_data_queue = deque()
         self.int_write_resp_command_queue = deque()
         self.int_write_resp_command_sync = Event()
-        self.int_write_resp_queue = deque()
-        self.int_write_resp_sync = Event()
 
         self.in_flight_operations = 0
 
-        self.width = len(self.bus.wdata)
+        self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
         self.byte_width = self.width // self.byte_size
-        self.strb_mask = 2**len(self.bus.wstrb)-1
+        self.strb_mask = 2**self.byte_width-1
 
-        assert self.byte_width == len(self.bus.wstrb)
+        assert self.byte_width == len(self.w_channel.bus.wstrb)
         assert self.byte_width * self.byte_size == self.width
 
-        self.reset = reset
-
-        self.bus.awaddr.setimmediatevalue(0)
-        assert len(self.bus.awprot) == 3
-        self.bus.awprot.setimmediatevalue(0)
-        assert len(self.bus.awvalid) == 1
-        self.bus.awvalid.setimmediatevalue(0)
-        assert len(self.bus.awready) == 1
-
-        self.bus.wdata.setimmediatevalue(0)
-        self.bus.wstrb.setimmediatevalue(0)
-        assert len(self.bus.wvalid) == 1
-        self.bus.wvalid.setimmediatevalue(0)
-        assert len(self.bus.wready) == 1
-
-        assert len(self.bus.bresp) == 2
-        assert len(self.bus.bvalid) == 1
-        assert len(self.bus.bready) == 1
-        self.bus.bready.setimmediatevalue(0)
-
         cocotb.fork(self._process_write_resp())
-        cocotb.fork(self._process_write_addr_if())
-        cocotb.fork(self._process_write_data_if())
-        cocotb.fork(self._process_write_resp_if())
 
     def init_write(self, address, data, prot=AxiProt.NONSECURE, token=None):
         if token is not None:
@@ -135,8 +105,16 @@ class AxiLiteMasterWrite(BusDriver):
                 val |= bytearray(data)[offset] << j*8
                 offset += 1
 
-            self.int_write_addr_queue.append((word_addr + start + k*self.byte_width, prot))
-            self.int_write_data_queue.append((val, strb))
+            aw = self.aw_channel._transaction_obj()
+            aw.awaddr = word_addr + k*self.byte_width
+            aw.awprot = prot
+
+            w = self.w_channel._transaction_obj()
+            w.wdata = val
+            w.wstrb = strb
+
+            self.aw_channel.send(aw)
+            self.w_channel.send(w)
 
     def idle(self):
         return not self.in_flight_operations
@@ -193,12 +171,10 @@ class AxiLiteMasterWrite(BusDriver):
             resp = AxiResp.OKAY
 
             for k in range(cycles):
-                if not self.int_write_resp_queue:
-                    self.int_write_resp_sync.clear()
-                    await self.int_write_resp_sync.wait()
+                await self.b_channel.wait()
+                b = self.b_channel.recv()
 
-                cycle_resp = self.int_write_resp_queue.popleft()
-                cycle_resp = AxiResp(cycle_resp)
+                cycle_resp = AxiResp(b.bresp)
 
                 if cycle_resp != AxiResp.OKAY:
                     resp = cycle_resp
@@ -211,87 +187,15 @@ class AxiLiteMasterWrite(BusDriver):
                 self.write_resp_set.add(token)
             self.in_flight_operations -= 1
 
-    async def _process_write_addr_if(self):
-        while True:
-            await ReadOnly()
 
-            # read handshake signals
-            awready_sample = self.bus.awready.value
-            awvalid_sample = self.bus.awvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.awvalid <= 0
-                continue
-
-            await RisingEdge(self.clock)
-
-            if (awready_sample and awvalid_sample) or (not awvalid_sample):
-                if self.int_write_addr_queue:
-                    addr, prot = self.int_write_addr_queue.popleft()
-                    self.bus.awaddr <= addr
-                    self.bus.awprot <= prot
-                    self.bus.awvalid <= 1
-                else:
-                    self.bus.awvalid <= 0
-
-    async def _process_write_data_if(self):
-        while True:
-            await ReadOnly()
-
-            # read handshake signals
-            wready_sample = self.bus.wready.value
-            wvalid_sample = self.bus.wvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.wvalid <= 0
-                continue
-
-            await RisingEdge(self.clock)
-
-            if (wready_sample and wvalid_sample) or (not wvalid_sample):
-                if self.int_write_data_queue:
-                    data, strb = self.int_write_data_queue.popleft()
-                    self.bus.wdata <= data
-                    self.bus.wstrb <= strb
-                    self.bus.wvalid <= 1
-                else:
-                    self.bus.wvalid <= 0
-
-    async def _process_write_resp_if(self):
-        while True:
-            await ReadOnly()
-
-            # read handshake signals
-            bready_sample = self.bus.bready.value
-            bvalid_sample = self.bus.bvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.bready <= 0
-                continue
-
-            if bready_sample and bvalid_sample:
-                bresp = self.bus.bresp.value.integer
-                self.int_write_resp_queue.append(bresp)
-                self.int_write_resp_sync.set()
-
-            await RisingEdge(self.clock)
-            self.bus.bready <= 1
-
-
-class AxiLiteMasterRead(BusDriver):
-
-    _signals = [
-        # Read address channel
-        "araddr", "arprot", "arvalid", "arready",
-        # Read data channel
-        "rdata", "rresp", "rvalid", "rready",
-    ]
-
+class AxiLiteMasterRead(object):
     def __init__(self, entity, name, clock, reset=None):
-        super().__init__(entity, name, clock)
+        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+
+        self.reset = reset
+
+        self.ar_channel = AxiLiteARSource(entity, name, clock, reset)
+        self.r_channel = AxiLiteRSink(entity, name, clock, reset)
 
         self.active_tokens = set()
 
@@ -299,37 +203,18 @@ class AxiLiteMasterRead(BusDriver):
         self.read_data_sync = Event()
         self.read_data_set = set()
 
-        self.int_read_addr_queue = deque()
         self.int_read_resp_command_queue = deque()
         self.int_read_resp_command_sync = Event()
-        self.int_read_resp_queue = deque()
-        self.int_read_resp_sync = Event()
 
         self.in_flight_operations = 0
 
-        self.width = len(self.bus.rdata)
+        self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
         self.byte_width = self.width // self.byte_size
 
         assert self.byte_width * self.byte_size == self.width
 
-        self.reset = reset
-
-        self.bus.araddr.setimmediatevalue(0)
-        assert len(self.bus.arprot) == 3
-        self.bus.arprot.setimmediatevalue(0)
-        assert len(self.bus.arvalid) == 1
-        self.bus.arvalid.setimmediatevalue(0)
-        assert len(self.bus.arready) == 1
-
-        assert len(self.bus.rresp) == 2
-        assert len(self.bus.rvalid) == 1
-        assert len(self.bus.rready) == 1
-        self.bus.rready.setimmediatevalue(0)
-
         cocotb.fork(self._process_read_resp())
-        cocotb.fork(self._process_read_addr_if())
-        cocotb.fork(self._process_read_resp_if())
 
     def init_read(self, address, length, prot=AxiProt.NONSECURE, token=None):
         if token is not None:
@@ -349,7 +234,11 @@ class AxiLiteMasterRead(BusDriver):
         self.log.info(f"Read start addr: {address:#010x} prot: {prot} length: {length}")
 
         for k in range(cycles):
-            self.int_read_addr_queue.append((word_addr + k*self.byte_width, prot))
+            ar = self.ar_channel._transaction_obj()
+            ar.araddr = word_addr + k*self.byte_width
+            ar.arprot = prot
+
+            self.ar_channel.send(ar)
 
     def idle(self):
         return not self.in_flight_operations
@@ -413,12 +302,11 @@ class AxiLiteMasterRead(BusDriver):
             resp = AxiResp.OKAY
 
             for k in range(cycles):
-                if not self.int_read_resp_queue:
-                    self.int_read_resp_sync.clear()
-                    await self.int_read_resp_sync.wait()
+                await self.r_channel.wait()
+                r = self.r_channel.recv()
 
-                cycle_data, cycle_resp = self.int_read_resp_queue.popleft()
-                cycle_resp = AxiResp(cycle_resp)
+                cycle_data = int(r.rdata)
+                cycle_resp = AxiResp(r.rresp)
 
                 if cycle_resp != AxiResp.OKAY:
                     resp = cycle_resp
@@ -441,52 +329,6 @@ class AxiLiteMasterRead(BusDriver):
             if token is not None:
                 self.read_data_set.add(token)
             self.in_flight_operations -= 1
-
-    async def _process_read_addr_if(self):
-        while True:
-            await ReadOnly()
-
-            # read handshake signals
-            arready_sample = self.bus.arready.value
-            arvalid_sample = self.bus.arvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.arvalid <= 0
-                continue
-
-            await RisingEdge(self.clock)
-
-            if (arready_sample and arvalid_sample) or (not arvalid_sample):
-                if self.int_read_addr_queue:
-                    addr, prot = self.int_read_addr_queue.popleft()
-                    self.bus.araddr <= addr
-                    self.bus.arprot <= prot
-                    self.bus.arvalid <= 1
-                else:
-                    self.bus.arvalid <= 0
-
-    async def _process_read_resp_if(self):
-        while True:
-            await ReadOnly()
-
-            # read handshake signals
-            rready_sample = self.bus.rready.value
-            rvalid_sample = self.bus.rvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.rready <= 0
-                continue
-
-            if rready_sample and rvalid_sample:
-                rdata = self.bus.rdata.value.integer
-                rresp = self.bus.rresp.value.integer
-                self.int_read_resp_queue.append((rdata, rresp))
-                self.int_read_resp_sync.set()
-
-            await RisingEdge(self.clock)
-            self.bus.rready <= 1
 
 
 class AxiLiteMaster(object):

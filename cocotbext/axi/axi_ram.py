@@ -23,37 +23,19 @@ THE SOFTWARE.
 """
 
 import cocotb
-from cocotb.triggers import RisingEdge, ReadOnly, Event
-from cocotb.drivers import BusDriver
+from cocotb.triggers import Event
+from cocotb.log import SimLog
 
 import mmap
 from collections import deque
 
 from .constants import *
+from .axi_channels import *
 
 
-class AxiRamWrite(BusDriver):
-
-    _signals = [
-        # Write address channel
-        "awid", "awaddr", "awlen", "awsize", "awburst", "awprot", "awvalid", "awready",
-        # Write data channel
-        "wdata", "wstrb", "wlast", "wvalid", "wready",
-        # Write response channel
-        "bid", "bresp", "bvalid", "bready",
-    ]
-
-    _optional_signals = [
-        # Write address channel
-        "awlock", "awcache", "awqos", "awregion", "awuser",
-        # Write data channel
-        "wuser",
-        # Write response channel
-        "buser",
-    ]
-
+class AxiRamWrite(object):
     def __init__(self, entity, name, clock, reset=None, size=1024, mem=None):
-        super().__init__(entity, name, clock)
+        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
 
         if type(mem) is mmap.mmap:
             self.mem = mem
@@ -61,60 +43,25 @@ class AxiRamWrite(BusDriver):
             self.mem = mmap.mmap(-1, size)
         self.size = len(self.mem)
 
-        self.int_write_addr_queue = deque()
-        self.int_write_addr_sync = Event()
-        self.int_write_data_queue = deque()
-        self.int_write_data_sync = Event()
-        self.int_write_resp_queue = deque()
-        self.int_write_resp_sync = Event()
+        self.reset = reset
+
+        self.aw_channel = AxiAWSink(entity, name, clock, reset)
+        self.w_channel = AxiWSink(entity, name, clock, reset)
+        self.b_channel = AxiBSource(entity, name, clock, reset)
 
         self.in_flight_operations = 0
 
-        self.width = len(self.bus.wdata)
+        self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
         self.byte_width = self.width // self.byte_size
-        self.strb_mask = 2**len(self.bus.wstrb)-1
+        self.strb_mask = 2**self.byte_width-1
 
-        assert self.byte_width == len(self.bus.wstrb)
+        assert self.byte_width == len(self.w_channel.bus.wstrb)
         assert self.byte_width * self.byte_size == self.width
 
-        self.reset = reset
-
-        assert len(self.bus.awlen) == 8
-        assert len(self.bus.awsize) == 3
-        assert len(self.bus.awburst) == 2
-        if hasattr(self.bus, "awlock"):
-            assert len(self.bus.awlock) == 1
-        if hasattr(self.bus, "awcache"):
-            assert len(self.bus.awcache) == 4
-        assert len(self.bus.awprot) == 3
-        if hasattr(self.bus, "awqos"):
-            assert len(self.bus.awqos) == 4
-        if hasattr(self.bus, "awregion"):
-            assert len(self.bus.awregion) == 4
-        assert len(self.bus.awvalid) == 1
-        assert len(self.bus.awready) == 1
-        self.bus.awready.setimmediatevalue(0)
-
-        assert len(self.bus.wlast) == 1
-        assert len(self.bus.wvalid) == 1
-        assert len(self.bus.wready) == 1
-        self.bus.wready.setimmediatevalue(0)
-
-        assert len(self.bus.bid) == len(self.bus.awid)
-        self.bus.bid.setimmediatevalue(0)
-        assert len(self.bus.bresp) == 2
-        self.bus.bresp.setimmediatevalue(0)
-        assert len(self.bus.bvalid) == 1
-        if hasattr(self.bus, "buser"):
-            self.bus.buser.setimmediatevalue(0)
-        self.bus.bvalid.setimmediatevalue(0)
-        assert len(self.bus.bready) == 1
+        assert len(self.b_channel.bus.bid) == len(self.aw_channel.bus.awid)
 
         cocotb.fork(self._process_write())
-        cocotb.fork(self._process_write_addr_if())
-        cocotb.fork(self._process_write_data_if())
-        cocotb.fork(self._process_write_resp_if())
 
     def read_mem(self, address, length):
         self.mem.seek(address)
@@ -126,12 +73,15 @@ class AxiRamWrite(BusDriver):
 
     async def _process_write(self):
         while True:
-            if not self.int_write_addr_queue:
-                self.int_write_addr_sync.clear()
-                await self.int_write_addr_sync.wait()
+            await self.aw_channel.wait()
+            aw = self.aw_channel.recv()
 
-            awid, addr, length, size, burst, prot = self.int_write_addr_queue.popleft()
-            prot = AxiProt(prot)
+            awid = int(aw.awid)
+            addr = int(aw.awaddr)
+            length = int(aw.awlen)
+            size = int(aw.awsize)
+            burst = int(aw.awburst)
+            prot = AxiProt(int(aw.awprot))
 
             self.log.info(f"Write burst awid: {awid:#x} awaddr: {addr:#010x} awlen: {length} awsize: {size} awprot: {prot}")
 
@@ -156,11 +106,12 @@ class AxiRamWrite(BusDriver):
             for n in range(length):
                 cur_word_addr = (cur_addr // self.byte_width) * self.byte_width
 
-                if not self.int_write_data_queue:
-                    self.int_write_data_sync.clear()
-                    await self.int_write_data_sync.wait()
+                await self.w_channel.wait()
+                w = self.w_channel.recv()
 
-                data, strb, last = self.int_write_data_queue.popleft()
+                data = int(w.wdata)
+                strb = int(w.wstrb)
+                last = int(w.wlast)
 
                 # todo latency
 
@@ -185,101 +136,16 @@ class AxiRamWrite(BusDriver):
                         if cur_addr == upper_wrap_boundary:
                             cur_addr = lower_wrap_boundary
 
-            self.int_write_resp_queue.append((awid, AxiResp.OKAY))
-            self.int_write_resp_sync.set()
+            b = self.b_channel._transaction_obj()
+            b.bid = awid
+            b.bresp = AxiResp.OKAY
 
-    async def _process_write_addr_if(self):
-        while True:
-            await ReadOnly()
-
-            # read handshake signals
-            awready_sample = self.bus.awready.value
-            awvalid_sample = self.bus.awvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.awready <= 0
-                continue
-
-            if awready_sample and awvalid_sample:
-                awid = self.bus.awid.value.integer
-                awaddr = self.bus.awaddr.value.integer
-                awlen = self.bus.awlen.value.integer
-                awsize = self.bus.awsize.value.integer
-                awburst = self.bus.awburst.value.integer
-                awprot = self.bus.awprot.value.integer
-                self.int_write_addr_queue.append((awid, awaddr, awlen, awsize, awburst, awprot))
-                self.int_write_addr_sync.set()
-
-            await RisingEdge(self.clock)
-            self.bus.awready <= 1
-
-    async def _process_write_data_if(self):
-        while True:
-            await ReadOnly()
-
-            # read handshake signals
-            wready_sample = self.bus.wready.value
-            wvalid_sample = self.bus.wvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.wready <= 0
-                continue
-
-            if wready_sample and wvalid_sample:
-                wdata = self.bus.wdata.value.integer
-                wstrb = self.bus.wstrb.value.integer
-                wlast = self.bus.wlast.value.integer
-                self.int_write_data_queue.append((wdata, wstrb, wlast))
-                self.int_write_data_sync.set()
-
-            await RisingEdge(self.clock)
-            self.bus.wready <= 1
-
-    async def _process_write_resp_if(self):
-        while True:
-            await ReadOnly()
-
-            # read handshake signals
-            bready_sample = self.bus.bready.value
-            bvalid_sample = self.bus.bvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.bvalid <= 0
-                continue
-
-            await RisingEdge(self.clock)
-
-            if (bready_sample and bvalid_sample) or (not bvalid_sample):
-                if self.int_write_resp_queue:
-                    bid, bresp = self.int_write_resp_queue.popleft()
-                    self.bus.bid <= bid
-                    self.bus.bresp <= bresp
-                    self.bus.bvalid <= 1
-                else:
-                    self.bus.bvalid <= 0
+            self.b_channel.send(b)
 
 
-class AxiRamRead(BusDriver):
-
-    _signals = [
-        # Read address channel
-        "arid", "araddr", "arlen", "arsize", "arburst", "arprot", "arvalid", "arready",
-        # Read data channel
-        "rid", "rdata", "rresp", "rlast", "rvalid", "rready",
-    ]
-
-    _optional_signals = [
-        # Read address channel
-        "arlock", "arcache", "arqos", "arregion",  "aruser",
-        # Read data channel
-        "ruser",
-    ]
-
+class AxiRamRead(object):
     def __init__(self, entity, name, clock, reset=None, size=1024, mem=None):
-        super().__init__(entity, name, clock)
+        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
 
         if type(mem) is mmap.mmap:
             self.mem = mem
@@ -287,55 +153,25 @@ class AxiRamRead(BusDriver):
             self.mem = mmap.mmap(-1, size)
         self.size = len(self.mem)
 
-        self.int_read_addr_queue = deque()
-        self.int_read_addr_sync = Event()
+        self.reset = reset
+
+        self.ar_channel = AxiARSink(entity, name, clock, reset)
+        self.r_channel = AxiRSource(entity, name, clock, reset)
+
         self.int_read_resp_command_queue = deque()
         self.int_read_resp_command_sync = Event()
-        self.int_read_resp_queue = deque()
-        self.int_read_resp_sync = Event()
 
         self.in_flight_operations = 0
 
-        self.width = len(self.bus.rdata)
+        self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
         self.byte_width = self.width // self.byte_size
 
         assert self.byte_width * self.byte_size == self.width
 
-        self.reset = reset
-
-        assert len(self.bus.arlen) == 8
-        assert len(self.bus.arsize) == 3
-        assert len(self.bus.arburst) == 2
-        if hasattr(self.bus, "arlock"):
-            assert len(self.bus.arlock) == 1
-        if hasattr(self.bus, "arcache"):
-            assert len(self.bus.arcache) == 4
-        assert len(self.bus.arprot) == 3
-        if hasattr(self.bus, "arqos"):
-            assert len(self.bus.arqos) == 4
-        if hasattr(self.bus, "arregion"):
-            assert len(self.bus.arregion) == 4
-        assert len(self.bus.arvalid) == 1
-        assert len(self.bus.arready) == 1
-        self.bus.arready.setimmediatevalue(0)
-
-        assert len(self.bus.rid) == len(self.bus.arid)
-        self.bus.rid.setimmediatevalue(0)
-        self.bus.rdata.setimmediatevalue(0)
-        assert len(self.bus.rresp) == 2
-        self.bus.rresp.setimmediatevalue(0)
-        assert len(self.bus.rlast) == 1
-        self.bus.rlast.setimmediatevalue(0)
-        if hasattr(self.bus, "ruser"):
-            self.bus.ruser.setimmediatevalue(0)
-        assert len(self.bus.rvalid) == 1
-        self.bus.rvalid.setimmediatevalue(0)
-        assert len(self.bus.rready) == 1
+        assert len(self.r_channel.bus.rid) == len(self.ar_channel.bus.arid)
 
         cocotb.fork(self._process_read())
-        cocotb.fork(self._process_read_addr_if())
-        cocotb.fork(self._process_read_resp_if())
 
     def read_mem(self, address, length):
         self.mem.seek(address)
@@ -347,12 +183,15 @@ class AxiRamRead(BusDriver):
 
     async def _process_read(self):
         while True:
-            if not self.int_read_addr_queue:
-                self.int_read_addr_sync.clear()
-                await self.int_read_addr_sync.wait()
+            await self.ar_channel.wait()
+            ar = self.ar_channel.recv()
 
-            arid, addr, length, size, burst, prot = self.int_read_addr_queue.popleft()
-            prot = AxiProt(prot)
+            arid = int(ar.arid)
+            addr = int(ar.araddr)
+            length = int(ar.arlen)
+            size = int(ar.arsize)
+            burst = int(ar.arburst)
+            prot = AxiProt(ar.arprot)
 
             self.log.info(f"Read burst arid: {arid:#x} araddr: {addr:#010x} arlen: {length} arsize: {size} arprot: {prot}")
 
@@ -381,8 +220,13 @@ class AxiRamRead(BusDriver):
 
                 data = self.mem.read(self.byte_width)
 
-                self.int_read_resp_queue.append((arid, int.from_bytes(data, 'little'), AxiResp.OKAY, n == length-1))
-                self.int_read_resp_sync.set()
+                r = self.r_channel._transaction_obj()
+                r.rid = arid
+                r.rdata = int.from_bytes(data, 'little')
+                r.rlast = n == length-1
+                r.rresp = AxiResp.OKAY
+
+                self.r_channel.send(r)
 
                 self.log.info(f"Read word arid: {arid:#x} addr: {cur_addr:#010x} data: {' '.join((f'{c:02x}' for c in data))}")
 
@@ -392,58 +236,6 @@ class AxiRamRead(BusDriver):
                     if burst == AxiBurstType.WRAP:
                         if cur_addr == upper_wrap_boundary:
                             cur_addr = lower_wrap_boundary
-
-    async def _process_read_addr_if(self):
-        while True:
-            await ReadOnly()
-
-            # read handshake signals
-            arready_sample = self.bus.arready.value
-            arvalid_sample = self.bus.arvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.arready <= 0
-                continue
-
-            if arready_sample and arvalid_sample:
-                arid = self.bus.arid.value.integer
-                araddr = self.bus.araddr.value.integer
-                arlen = self.bus.arlen.value.integer
-                arsize = self.bus.arsize.value.integer
-                arburst = self.bus.arburst.value.integer
-                arprot = self.bus.arprot.value.integer
-                self.int_read_addr_queue.append((arid, araddr, arlen, arsize, arburst, arprot))
-                self.int_read_addr_sync.set()
-
-            await RisingEdge(self.clock)
-            self.bus.arready <= 1
-
-    async def _process_read_resp_if(self):
-        while True:
-            await ReadOnly()
-
-            # read handshake signals
-            rready_sample = self.bus.rready.value
-            rvalid_sample = self.bus.rvalid.value
-
-            if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
-                self.bus.rvalid <= 0
-                continue
-
-            await RisingEdge(self.clock)
-
-            if (rready_sample and rvalid_sample) or (not rvalid_sample):
-                if self.int_read_resp_queue:
-                    rid, rdata, rresp, rlast = self.int_read_resp_queue.popleft()
-                    self.bus.rid <= rid
-                    self.bus.rdata <= rdata
-                    self.bus.rresp <= rresp
-                    self.bus.rlast <= rlast
-                    self.bus.rvalid <= 1
-                else:
-                    self.bus.rvalid <= 0
 
 
 class AxiRam(object):
