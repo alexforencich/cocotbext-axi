@@ -24,7 +24,8 @@ THE SOFTWARE.
 
 import cocotb
 from cocotb.triggers import RisingEdge, ReadOnly, Timer, First, Event
-from cocotb.drivers import BusDriver
+from cocotb.bus import Bus
+from cocotb.log import SimLog
 
 from collections import deque
 
@@ -205,13 +206,19 @@ class AxiStreamFrame(object):
         return self.tdata.__iter__()
 
 
-class AxiStreamSource(BusDriver):
+class AxiStreamSource(object):
 
     _signals = ["tdata"]
     _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tid", "tdest", "tuser"]
 
-    def __init__(self, entity, name, clock, reset=None):
-        super().__init__(entity, name, clock)
+    def __init__(self, entity, name, clock, reset=None, *args, **kwargs):
+        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+        self.entity = entity
+        self.clock = clock
+        self.reset = reset
+        self.bus = Bus(self.entity, name, self._signals, optional_signals=self._optional_signals, **kwargs)
+
+        super().__init__(*args, **kwargs)
 
         self.active = False
         self.queue = deque()
@@ -350,13 +357,19 @@ class AxiStreamSource(BusDriver):
                     self.active = bool(frame)
 
 
-class AxiStreamSink(BusDriver):
+class AxiStreamSink(object):
 
     _signals = ["tdata"]
     _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tid", "tdest", "tuser"]
 
-    def __init__(self, entity, name, clock, reset=None):
-        super().__init__(entity, name, clock)
+    def __init__(self, entity, name, clock, reset=None, *args, **kwargs):
+        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+        self.entity = entity
+        self.clock = clock
+        self.reset = reset
+        self.bus = Bus(self.entity, name, self._signals, optional_signals=self._optional_signals, **kwargs)
+
+        super().__init__(*args, **kwargs)
 
         self.active = False
         self.queue = deque()
