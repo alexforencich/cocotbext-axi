@@ -335,7 +335,6 @@ class AxiLiteMaster(object):
     def __init__(self, entity, name, clock, reset=None):
         self.write_if = None
         self.read_if = None
-        self.clock = clock
 
         self.write_if = AxiLiteMasterWrite(entity, name, clock, reset)
         self.read_if = AxiLiteMasterRead(entity, name, clock, reset)
@@ -351,7 +350,8 @@ class AxiLiteMaster(object):
 
     async def wait(self):
         while not self.idle():
-            await RisingEdge(self.clock)
+            await self.write_if.wait()
+            await self.read_if.wait()
 
     async def wait_read(self):
         await self.read_if.wait()
