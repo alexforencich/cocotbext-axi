@@ -64,10 +64,10 @@ class StreamSource(object):
         self.ready = None
         self.valid = None
 
-        if hasattr(self.bus, self._ready_signal):
+        if self._ready_signal is not None and hasattr(self.bus, self._ready_signal):
             self.ready = getattr(self.bus, self._ready_signal)
 
-        if hasattr(self.bus, self._valid_signal):
+        if self._valid_signal is not None and hasattr(self.bus, self._valid_signal):
             self.valid = getattr(self.bus, self._valid_signal)
             self.valid.setimmediatevalue(0)
 
@@ -177,11 +177,11 @@ class StreamSink(object):
 
         super().__init__(*args, **kwargs)
 
-        if hasattr(self.bus, self._ready_signal):
+        if self._ready_signal is not None and hasattr(self.bus, self._ready_signal):
             self.ready = getattr(self.bus, self._ready_signal)
             self.ready.setimmediatevalue(0)
 
-        if hasattr(self.bus, self._valid_signal):
+        if self._valid_signal is not None and hasattr(self.bus, self._valid_signal):
             self.valid = getattr(self.bus, self._valid_signal)
 
         for sig in self._signals+self._optional_signals:
@@ -269,10 +269,10 @@ class StreamMonitor(object):
 
         super().__init__(*args, **kwargs)
 
-        if hasattr(self.bus, self._ready_signal):
+        if self._ready_signal is not None and hasattr(self.bus, self._ready_signal):
             self.ready = getattr(self.bus, self._ready_signal)
 
-        if hasattr(self.bus, self._valid_signal):
+        if self._valid_signal is not None and hasattr(self.bus, self._valid_signal):
             self.valid = getattr(self.bus, self._valid_signal)
 
         for sig in self._signals+self._optional_signals:
