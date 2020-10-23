@@ -177,6 +177,9 @@ class StreamSink(object):
 
         super().__init__(*args, **kwargs)
 
+        self.ready = None
+        self.valid = None
+
         if self._ready_signal is not None and hasattr(self.bus, self._ready_signal):
             self.ready = getattr(self.bus, self._ready_signal)
             self.ready.setimmediatevalue(0)
@@ -268,6 +271,9 @@ class StreamMonitor(object):
         self.bus = Bus(self.entity, name, self._signals, optional_signals=self._optional_signals, **kwargs)
 
         super().__init__(*args, **kwargs)
+
+        self.ready = None
+        self.valid = None
 
         if self._ready_signal is not None and hasattr(self.bus, self._ready_signal):
             self.ready = getattr(self.bus, self._ready_signal)
