@@ -31,7 +31,19 @@ from collections import deque
 
 
 class StreamTransaction(object):
-    pass
+
+    _signals = ["data"]
+
+    def __init__(self, *args, **kwargs):
+        for sig in self._signals:
+            if sig in kwargs:
+                setattr(self, sig, kwargs[sig])
+                del kwargs[sig]
+
+        super().__init__(*args, **kwargs)
+
+    def __repr__(self):
+        return f"{type(self).__name__}({', '.join(f'{s}={int(getattr(self, s))}' for s in self._signals)})"
 
 
 class StreamSource(object):
