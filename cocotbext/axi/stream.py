@@ -377,7 +377,10 @@ def define_stream(name, signals, optional_signals=None, valid_signal=None, ready
         if s not in (ready_signal, valid_signal):
             filtered_signals.append(s)
 
-    transaction = type(name+"Transaction", (StreamTransaction,), {s: 0 for s in filtered_signals})
+    attrib = {s: 0 for s in filtered_signals}
+    attrib['_signals'] = filtered_signals
+
+    transaction = type(name+"Transaction", (StreamTransaction,), attrib)
 
     attrib = {}
     attrib['_signals'] = signals
