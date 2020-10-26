@@ -146,18 +146,17 @@ class StreamSource(object):
             await RisingEdge(self.clock)
 
             if (ready_sample and valid_sample) or (not valid_sample):
-                if self.drive_obj:
-                    if not self.pause:
-                        self.bus.drive(self.drive_obj)
-                        self.drive_obj = None
-                        self.drive_sync.set()
-                        if self.valid is not None:
-                            self.valid <= 1
+                if self.drive_obj and not self.pause:
+                    self.bus.drive(self.drive_obj)
+                    self.drive_obj = None
+                    self.drive_sync.set()
+                    if self.valid is not None:
+                        self.valid <= 1
                     self.active = True
                 else:
                     if self.valid is not None:
                         self.valid <= 0
-                    self.active = False
+                    self.active = bool(self.drive_obj)
 
     async def _run(self):
         while True:
