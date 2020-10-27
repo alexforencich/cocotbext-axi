@@ -93,7 +93,10 @@ class StreamSource(object):
                     getattr(self.bus, sig).setimmediatevalue(v)
 
         self.active = False
+
         self.pause = False
+        self._pause_generator = None
+        self._pause_cr = None
 
         cocotb.fork(self._run_source())
         cocotb.fork(self._run())
@@ -126,6 +129,19 @@ class StreamSource(object):
         self.queue = deque()
         self.drive_obj = None
         self.drive_sync.set()
+
+    def set_pause_generator(self, generator=None):
+        if self._pause_cr is not None:
+            self._pause_cr.kill()
+            self._pause_cr = None
+
+        self._pause_generator = generator
+
+        if self._pause_generator is not None:
+            self._pause_cr = cocotb.fork(self._run_pause())
+
+    def clear_pause_generator(self):
+        self.set_pause_generator(None)
 
     async def _run_source(self):
         while True:
@@ -165,6 +181,11 @@ class StreamSource(object):
                 await self.queue_sync.wait()
 
             await self.drive(self.queue.popleft())
+
+    async def _run_pause(self):
+        for val in self._pause_generator:
+            self.pause = val
+            await RisingEdge(self.clock)
 
 
 class StreamSink(object):
@@ -207,6 +228,8 @@ class StreamSink(object):
         self.queue_sync = Event()
 
         self.pause = False
+        self._pause_generator = None
+        self._pause_cr = None
 
         cocotb.fork(self._run_sink())
 
@@ -237,6 +260,19 @@ class StreamSink(object):
         self.queue.append(obj)
         self.queue_sync.set()
 
+    def set_pause_generator(self, generator=None):
+        if self._pause_cr is not None:
+            self._pause_cr.kill()
+            self._pause_cr = None
+
+        self._pause_generator = generator
+
+        if self._pause_generator is not None:
+            self._pause_cr = cocotb.fork(self._run_pause())
+
+    def clear_pause_generator(self):
+        self.set_pause_generator(None)
+
     async def _run_sink(self):
         while True:
             await ReadOnly()
@@ -260,6 +296,11 @@ class StreamSink(object):
             await RisingEdge(self.clock)
             if self.ready is not None:
                 self.ready <= (not self.pause)
+
+    async def _run_pause(self):
+        for val in self._pause_generator:
+            self.pause = val
+            await RisingEdge(self.clock)
 
 
 class StreamMonitor(object):

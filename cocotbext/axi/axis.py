@@ -223,6 +223,10 @@ class AxiStreamSource(object):
         self.active = False
         self.queue = deque()
 
+        self.pause = False
+        self._pause_generator = None
+        self._pause_cr = None
+
         self.queue_occupancy_bytes = 0
         self.queue_occupancy_frames = 0
 
@@ -273,6 +277,19 @@ class AxiStreamSource(object):
         while not self.idle():
             await RisingEdge(self.clock)
 
+    def set_pause_generator(self, generator=None):
+        if self._pause_cr is not None:
+            self._pause_cr.kill()
+            self._pause_cr = None
+
+        self._pause_generator = generator
+
+        if self._pause_generator is not None:
+            self._pause_cr = cocotb.fork(self._run_pause())
+
+    def clear_pause_generator(self):
+        self.set_pause_generator(None)
+
     async def _run(self):
         frame = None
         self.active = False
@@ -314,7 +331,7 @@ class AxiStreamSource(object):
             await RisingEdge(self.clock)
 
             if (tready_sample and tvalid_sample) or not tvalid_sample:
-                if frame: # and not pause
+                if frame and not self.pause:
                     tdata_val = 0
                     tlast_val = 0
                     tkeep_val = 0
@@ -356,6 +373,11 @@ class AxiStreamSource(object):
                         self.bus.tlast <= 0
                     self.active = bool(frame)
 
+    async def _run_pause(self):
+        for val in self._pause_generator:
+            self.pause = val
+            await RisingEdge(self.clock)
+
 
 class AxiStreamSink(object):
 
@@ -375,6 +397,10 @@ class AxiStreamSink(object):
         self.queue = deque()
         self.sync = Event()
         self.read_queue = []
+
+        self.pause = False
+        self._pause_generator = None
+        self._pause_cr = None
 
         self.queue_occupancy_bytes = 0
         self.queue_occupancy_frames = 0
@@ -435,6 +461,19 @@ class AxiStreamSink(object):
             await First(self.sync.wait(), Timer(timeout, timeout_unit))
         else:
             await self.sync.wait()
+
+    def set_pause_generator(self, generator=None):
+        if self._pause_cr is not None:
+            self._pause_cr.kill()
+            self._pause_cr = None
+
+        self._pause_generator = generator
+
+        if self._pause_generator is not None:
+            self._pause_cr = cocotb.fork(self._run_pause())
+
+    def clear_pause_generator(self):
+        self.set_pause_generator(None)
 
     async def _run(self):
         frame = AxiStreamFrame()
@@ -504,5 +543,10 @@ class AxiStreamSink(object):
             elif self.queue_occupancy_limit_frames and self.queue_occupancy_frames > self.queue_occupancy_limit_frames:
                 self.bus.tready <= 0
             else:
-                self.bus.tready <= 1 # not pause
+                self.bus.tready <= (not self.pause)
+
+    async def _run_pause(self):
+        for val in self._pause_generator:
+            self.pause = val
+            await RisingEdge(self.clock)
 
