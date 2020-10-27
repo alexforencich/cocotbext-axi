@@ -468,15 +468,15 @@ class AxiStreamSink(object):
             if tready_sample and tvalid_sample:
                 for offset in range(self.byte_width):
 
-                    frame.tdata.append((self.bus.tdata.value >> (offset * self.byte_size)) & self.byte_mask)
+                    frame.tdata.append((self.bus.tdata.value.integer >> (offset * self.byte_size)) & self.byte_mask)
                     if hasattr(self.bus, "tkeep"):
-                        frame.tkeep.append((self.bus.tkeep.value >> offset) & 1)
+                        frame.tkeep.append((self.bus.tkeep.value.integer >> offset) & 1)
                     if hasattr(self.bus, "tid"):
-                        frame.tid.append(self.bus.tid.value)
+                        frame.tid.append(self.bus.tid.value.integer)
                     if hasattr(self.bus, "tdest"):
-                        frame.tdest.append(self.bus.tdest.value)
+                        frame.tdest.append(self.bus.tdest.value.integer)
                     if hasattr(self.bus, "tuser"):
-                        frame.tuser.append(self.bus.tuser.value)
+                        frame.tuser.append(self.bus.tuser.value.integer)
 
                 if not hasattr(self.bus, "tlast") or self.bus.tlast.value:
                     if self.byte_size == 8:
