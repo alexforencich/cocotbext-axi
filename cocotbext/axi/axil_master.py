@@ -44,6 +44,8 @@ class AxiLiteMasterWrite(object):
 
         self.active_tokens = set()
 
+        self.write_command_queue = deque()
+        self.write_command_sync = Event()
         self.write_resp_queue = deque()
         self.write_resp_sync = Event()
         self.write_resp_set = set()
@@ -61,6 +63,7 @@ class AxiLiteMasterWrite(object):
         assert self.byte_width == len(self.w_channel.bus.wstrb)
         assert self.byte_width * self.byte_size == self.width
 
+        cocotb.fork(self._process_write())
         cocotb.fork(self._process_write_resp())
 
     def init_write(self, address, data, prot=AxiProt.NONSECURE, token=None):
@@ -71,50 +74,8 @@ class AxiLiteMasterWrite(object):
 
         self.in_flight_operations += 1
 
-        word_addr = (address // self.byte_width) * self.byte_width
-
-        start_offset = address % self.byte_width
-        end_offset = ((address + len(data) - 1) % self.byte_width) + 1
-
-        strb_start = (self.strb_mask << start_offset) & self.strb_mask
-        strb_end = self.strb_mask >> (self.byte_width - end_offset)
-
-        cycles = (len(data) + (address % self.byte_width) + self.byte_width-1) // self.byte_width
-
-        self.int_write_resp_command_queue.append((address, len(data), cycles, prot, token))
-        self.int_write_resp_command_sync.set()
-
-        offset = 0
-
-        self.log.info(f"Write start addr: {address:#010x} prot: {prot} data: {' '.join((f'{c:02x}' for c in data))}")
-
-        for k in range(cycles):
-            start = 0
-            stop = self.byte_width
-            strb = self.strb_mask
-
-            if k == 0:
-                start = start_offset
-                strb &= strb_start
-            if k == cycles-1:
-                stop = end_offset
-                strb &= strb_end
-
-            val = 0
-            for j in range(start, stop):
-                val |= bytearray(data)[offset] << j*8
-                offset += 1
-
-            aw = self.aw_channel._transaction_obj()
-            aw.awaddr = word_addr + k*self.byte_width
-            aw.awprot = prot
-
-            w = self.w_channel._transaction_obj()
-            w.wdata = val
-            w.wstrb = strb
-
-            self.aw_channel.send(aw)
-            self.w_channel.send(w)
+        self.write_command_queue.append((address, data, prot, token))
+        self.write_command_sync.set()
 
     def idle(self):
         return not self.in_flight_operations
@@ -160,6 +121,59 @@ class AxiLiteMasterWrite(object):
         await self.wait_for_token(token)
         return self.get_write_resp(token)
 
+    async def _process_write(self):
+        while True:
+            if not self.write_command_queue:
+                self.write_command_sync.clear()
+                await self.write_command_sync.wait()
+
+            address, data, prot, token = self.write_command_queue.popleft()
+
+            word_addr = (address // self.byte_width) * self.byte_width
+
+            start_offset = address % self.byte_width
+            end_offset = ((address + len(data) - 1) % self.byte_width) + 1
+
+            strb_start = (self.strb_mask << start_offset) & self.strb_mask
+            strb_end = self.strb_mask >> (self.byte_width - end_offset)
+
+            cycles = (len(data) + (address % self.byte_width) + self.byte_width-1) // self.byte_width
+
+            self.int_write_resp_command_queue.append((address, len(data), cycles, prot, token))
+            self.int_write_resp_command_sync.set()
+
+            offset = 0
+
+            self.log.info(f"Write start addr: {address:#010x} prot: {prot} data: {' '.join((f'{c:02x}' for c in data))}")
+
+            for k in range(cycles):
+                start = 0
+                stop = self.byte_width
+                strb = self.strb_mask
+
+                if k == 0:
+                    start = start_offset
+                    strb &= strb_start
+                if k == cycles-1:
+                    stop = end_offset
+                    strb &= strb_end
+
+                val = 0
+                for j in range(start, stop):
+                    val |= bytearray(data)[offset] << j*8
+                    offset += 1
+
+                aw = self.aw_channel._transaction_obj()
+                aw.awaddr = word_addr + k*self.byte_width
+                aw.awprot = prot
+
+                w = self.w_channel._transaction_obj()
+                w.wdata = val
+                w.wstrb = strb
+
+                await self.aw_channel.drive(aw)
+                self.w_channel.send(w)
+
     async def _process_write_resp(self):
         while True:
             if not self.int_write_resp_command_queue:
@@ -199,6 +213,8 @@ class AxiLiteMasterRead(object):
 
         self.active_tokens = set()
 
+        self.read_command_queue = deque()
+        self.read_command_sync = Event()
         self.read_data_queue = deque()
         self.read_data_sync = Event()
         self.read_data_set = set()
@@ -214,6 +230,7 @@ class AxiLiteMasterRead(object):
 
         assert self.byte_width * self.byte_size == self.width
 
+        cocotb.fork(self._process_read())
         cocotb.fork(self._process_read_resp())
 
     def init_read(self, address, length, prot=AxiProt.NONSECURE, token=None):
@@ -224,21 +241,8 @@ class AxiLiteMasterRead(object):
 
         self.in_flight_operations += 1
 
-        word_addr = (address // self.byte_width) * self.byte_width
-
-        cycles = (length + self.byte_width-1 + (address % self.byte_width)) // self.byte_width
-
-        self.int_read_resp_command_queue.append((address, length, cycles, prot, token))
-        self.int_read_resp_command_sync.set()
-
-        self.log.info(f"Read start addr: {address:#010x} prot: {prot} length: {length}")
-
-        for k in range(cycles):
-            ar = self.ar_channel._transaction_obj()
-            ar.araddr = word_addr + k*self.byte_width
-            ar.arprot = prot
-
-            self.ar_channel.send(ar)
+        self.read_command_queue.append((address, length, prot, token))
+        self.read_command_sync.set()
 
     def idle(self):
         return not self.in_flight_operations
@@ -283,6 +287,30 @@ class AxiLiteMasterRead(object):
         self.init_read(address, length, prot, token)
         await self.wait_for_token(token)
         return self.get_read_data(token)
+
+    async def _process_read(self):
+        while True:
+            if not self.read_command_queue:
+                self.read_command_sync.clear()
+                await self.read_command_sync.wait()
+
+            address, length, prot, token = self.read_command_queue.popleft()
+
+            word_addr = (address // self.byte_width) * self.byte_width
+
+            cycles = (length + self.byte_width-1 + (address % self.byte_width)) // self.byte_width
+
+            self.int_read_resp_command_queue.append((address, length, cycles, prot, token))
+            self.int_read_resp_command_sync.set()
+
+            self.log.info(f"Read start addr: {address:#010x} prot: {prot} length: {length}")
+
+            for k in range(cycles):
+                ar = self.ar_channel._transaction_obj()
+                ar.araddr = word_addr + k*self.byte_width
+                ar.arprot = prot
+
+                await self.ar_channel.drive(ar)
 
     async def _process_read_resp(self):
         while True:

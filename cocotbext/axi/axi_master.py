@@ -209,7 +209,7 @@ class AxiMasterWrite(object):
                     aw.awregion = region
                     aw.awuser = user
 
-                    self.aw_channel.send(aw)
+                    await self.aw_channel.drive(aw)
 
                     self.log.info(f"Write burst start awid {awid:#x} awaddr: {cur_addr:#010x} awlen: {burst_length-1} awsize: {size}")
 
@@ -431,7 +431,7 @@ class AxiMasterRead(object):
                     ar.arregion = region
                     ar.aruser = user
 
-                    self.ar_channel.send(ar)
+                    await self.ar_channel.drive(ar)
 
                     self.log.info(f"Read burst start arid {arid:#x} araddr: {cur_addr:#010x} arlen: {burst_length-1} arsize: {size}")
 
