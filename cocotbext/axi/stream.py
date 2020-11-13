@@ -39,6 +39,8 @@ class StreamTransaction(object):
             if sig in kwargs:
                 setattr(self, sig, kwargs[sig])
                 del kwargs[sig]
+            else:
+                setattr(self, sig, 0)
 
         super().__init__(*args, **kwargs)
 
