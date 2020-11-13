@@ -119,7 +119,7 @@ class AxiLiteMasterWrite(object):
         token = object()
         self.init_write(address, data, prot, token)
         await self.wait_for_token(token)
-        return self.get_write_resp(token)
+        return self.get_write_resp(token)[1:2]
 
     async def _process_write(self):
         while True:
@@ -286,7 +286,7 @@ class AxiLiteMasterRead(object):
         token = object()
         self.init_read(address, length, prot, token)
         await self.wait_for_token(token)
-        return self.get_read_data(token)
+        return self.get_read_data(token)[1:2]
 
     async def _process_read(self):
         while True:

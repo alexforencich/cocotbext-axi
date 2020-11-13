@@ -128,7 +128,7 @@ class AxiMasterWrite(object):
         token = object()
         self.init_write(address, data, burst, size, lock, cache, prot, qos, region, user, token)
         await self.wait_for_token(token)
-        return self.get_write_resp(token)
+        return self.get_write_resp(token)[1:3]
 
     async def _process_write(self):
         while True:
@@ -371,7 +371,7 @@ class AxiMasterRead(object):
         token = object()
         self.init_read(address, length, burst, size, lock, cache, prot, qos, region, user, token)
         await self.wait_for_token(token)
-        return self.get_read_data(token)
+        return self.get_read_data(token)[1:3]
 
     async def _process_read(self):
         while True:
