@@ -23,7 +23,7 @@ THE SOFTWARE.
 """
 
 import cocotb
-from cocotb.triggers import RisingEdge, ReadOnly, Event
+from cocotb.triggers import RisingEdge, ReadOnly, Event, First, Timer
 from cocotb.bus import Bus
 from cocotb.log import SimLog
 
