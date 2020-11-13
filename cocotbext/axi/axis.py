@@ -450,6 +450,14 @@ class AxiStreamSink(object):
     def empty(self):
         return not self.queue
 
+    def full(self):
+        if self.queue_occupancy_limit_bytes and self.queue_occupancy_bytes > self.queue_occupancy_limit_bytes:
+            return True
+        elif self.queue_occupancy_limit_frames and self.queue_occupancy_frames > self.queue_occupancy_limit_frames:
+            return True
+        else:
+            return False
+
     def idle(self):
         return not self.active
 
@@ -538,12 +546,7 @@ class AxiStreamSink(object):
 
             await RisingEdge(self.clock)
 
-            if self.queue_occupancy_limit_bytes and self.queue_occupancy_bytes > self.queue_occupancy_limit_bytes:
-                self.bus.tready <= 0
-            elif self.queue_occupancy_limit_frames and self.queue_occupancy_frames > self.queue_occupancy_limit_frames:
-                self.bus.tready <= 0
-            else:
-                self.bus.tready <= (not self.pause)
+            self.bus.tready <= (not self.full() and not self.pause)
 
     async def _run_pause(self):
         for val in self._pause_generator:
