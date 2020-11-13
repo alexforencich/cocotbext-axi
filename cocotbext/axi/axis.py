@@ -484,12 +484,7 @@ class AxiStreamSink(object):
         self.set_pause_generator(None)
 
     async def _run(self):
-        frame = AxiStreamFrame()
-        frame.tdata = []
-        frame.tkeep = []
-        frame.tid = []
-        frame.tdest = []
-        frame.tuser = []
+        frame = AxiStreamFrame([], [], [], [], [])
         self.active = False
 
         while True:
@@ -501,12 +496,7 @@ class AxiStreamSink(object):
 
             if self.reset is not None and self.reset.value:
                 await RisingEdge(self.clock)
-                frame = AxiStreamFrame()
-                frame.tdata = []
-                frame.tkeep = []
-                frame.tid = []
-                frame.tdest = []
-                frame.tuser = []
+                frame = AxiStreamFrame([], [], [], [], [])
                 self.active = False
                 if hasattr(self.bus, "tready"):
                     self.bus.tready <= 0
@@ -537,12 +527,7 @@ class AxiStreamSink(object):
                     self.queue.append(frame)
                     self.sync.set()
 
-                    frame = AxiStreamFrame()
-                    frame.tdata = []
-                    frame.tkeep = []
-                    frame.tid = []
-                    frame.tdest = []
-                    frame.tuser = []
+                    frame = AxiStreamFrame([], [], [], [], [])
 
             await RisingEdge(self.clock)
 
