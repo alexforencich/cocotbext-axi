@@ -121,6 +121,31 @@ class AxiLiteMasterWrite(object):
         await self.wait_for_token(token)
         return self.get_write_resp(token)[1:2]
 
+    async def write_words(self, address, data, ws=2, prot=AxiProt.NONSECURE):
+        words = data
+        data = bytearray()
+        for w in words:
+            data.extend(w.to_bytes(ws, 'little'))
+        await self.write(address, data, prot)
+
+    async def write_dwords(self, address, data, prot=AxiProt.NONSECURE):
+        await self.write_words(address, data, 4, prot)
+
+    async def write_qwords(self, address, data, prot=AxiProt.NONSECURE):
+        await self.write_words(address, data, 8, prot)
+
+    async def write_byte(self, address, data, prot=AxiProt.NONSECURE):
+        await self.write(address, [data], prot)
+
+    async def write_word(self, address, data, ws=2, prot=AxiProt.NONSECURE):
+        await self.write_words(address, [data], ws, prot)
+
+    async def write_dword(self, address, data, prot=AxiProt.NONSECURE):
+        await self.write_dwords(address, [data], prot)
+
+    async def write_qword(self, address, data, prot=AxiProt.NONSECURE):
+        await self.write_qwords(address, [data], prot)
+
     async def _process_write(self):
         while True:
             if not self.write_command_queue:
@@ -288,6 +313,31 @@ class AxiLiteMasterRead(object):
         await self.wait_for_token(token)
         return self.get_read_data(token)[1:2]
 
+    async def read_words(self, address, count, ws=2, prot=AxiProt.NONSECURE):
+        data = await self.read(address, count*ws, prot)
+        words = []
+        for k in range(count):
+            words.append(int.from_bytes(data[0][ws*k:ws*(k+1)], 'little'))
+        return words
+
+    async def read_dwords(self, address, count, prot=AxiProt.NONSECURE):
+        return await self.read_words(address, count, 4, prot)
+
+    async def read_qwords(self, address, count, prot=AxiProt.NONSECURE):
+        return await self.read_words(address, count, 8, prot)
+
+    async def read_byte(self, address, prot=AxiProt.NONSECURE):
+        return (await self.read(address, 1, prot))[0]
+
+    async def read_word(self, address, ws=2, prot=AxiProt.NONSECURE):
+        return (await self.read_words(address, 1, ws, prot))[0]
+
+    async def read_dword(self, address, prot=AxiProt.NONSECURE):
+        return (await self.read_dwords(address, 1, prot))[0]
+
+    async def read_qword(self, address, prot=AxiProt.NONSECURE):
+        return (await self.read_qwords(address, 1, prot))[0]
+
     async def _process_read(self):
         while True:
             if not self.read_command_queue:
@@ -402,6 +452,48 @@ class AxiLiteMaster(object):
     async def read(self, address, length, prot=AxiProt.NONSECURE):
         return await self.read_if.read(address, length, prot)
 
+    async def read_words(self, address, count, ws=2, prot=AxiProt.NONSECURE):
+        return await self.read_if.read_words(address, count, ws, prot)
+
+    async def read_dwords(self, address, count, prot=AxiProt.NONSECURE):
+        return await self.read_if.read_dwords(address, count, prot)
+
+    async def read_qwords(self, address, count, prot=AxiProt.NONSECURE):
+        return await self.read_if.read_qwords(address, count, prot)
+
+    async def read_byte(self, address, prot=AxiProt.NONSECURE):
+        return await self.read_if.read_byte(address, prot)
+
+    async def read_word(self, address, ws=2, prot=AxiProt.NONSECURE):
+        return await self.read_if.read_word(address, ws, prot)
+
+    async def read_dword(self, address, prot=AxiProt.NONSECURE):
+        return await self.read_if.read_dword(address, prot)
+
+    async def read_qword(self, address, prot=AxiProt.NONSECURE):
+        return await self.read_if.read_qword(address, prot)
+
     async def write(self, address, data, prot=AxiProt.NONSECURE):
         return await self.write_if.write(address, data, prot)
+
+    async def write_words(self, address, data, ws=2, prot=AxiProt.NONSECURE):
+        return await self.write_if.write_words(address, data, ws, prot)
+
+    async def write_dwords(self, address, data, prot=AxiProt.NONSECURE):
+        return await self.write_if.write_dwords(address, data, prot)
+
+    async def write_qwords(self, address, data, prot=AxiProt.NONSECURE):
+        return await self.write_if.write_qwords(address, data, prot)
+
+    async def write_byte(self, address, data, prot=AxiProt.NONSECURE):
+        return await self.write_if.write_byte(address, data, prot)
+
+    async def write_word(self, address, data, ws=2, prot=AxiProt.NONSECURE):
+        return await self.write_if.write_word(address, data, ws, prot)
+
+    async def write_dword(self, address, data, prot=AxiProt.NONSECURE):
+        return await self.write_if.write_dword(address, data, prot)
+
+    async def write_qword(self, address, data, prot=AxiProt.NONSECURE):
+        return await self.write_if.write_qword(address, data, prot)
 
