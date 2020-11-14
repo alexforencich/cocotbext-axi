@@ -320,17 +320,17 @@ class AxiStreamSource(object):
                     self.bus.tuser <= 0
                 continue
 
-            if frame is None and self.queue:
-                frame = self.queue.popleft()
-                self.queue_occupancy_bytes -= len(frame)
-                self.queue_occupancy_frames -= 1
-                self.log.info(f"TX frame: {frame}")
-                frame.normalize()
-                self.active = True
-
             await RisingEdge(self.clock)
 
             if (tready_sample and tvalid_sample) or not tvalid_sample:
+                if frame is None and self.queue:
+                    frame = self.queue.popleft()
+                    self.queue_occupancy_bytes -= len(frame)
+                    self.queue_occupancy_frames -= 1
+                    self.log.info(f"TX frame: {frame}")
+                    frame.normalize()
+                    self.active = True
+
                 if frame and not self.pause:
                     tdata_val = 0
                     tlast_val = 0
@@ -338,8 +338,6 @@ class AxiStreamSource(object):
                     tid_val = 0
                     tdest_val = 0
                     tuser_val = 0
-
-                    offset = 0
 
                     for offset in range(self.byte_width):
                         tdata_val |= (frame.tdata.pop(0) & self.byte_mask) << (offset * self.byte_size)
