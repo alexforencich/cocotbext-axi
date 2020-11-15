@@ -126,7 +126,7 @@ class AxiRamWrite(object):
 
                 data = data.to_bytes(self.byte_width, 'little')
 
-                self.log.info(f"Write word awid: {awid:#x} addr: {cur_addr:#010x} wstrb: {strb:#04x} data: {' '.join((f'{c:02x}' for c in data))}")
+                self.log.debug(f"Write word awid: {awid:#x} addr: {cur_addr:#010x} wstrb: {strb:#04x} data: {' '.join((f'{c:02x}' for c in data))}")
 
                 for i in range(self.byte_width):
                     if strb & (1 << i):
@@ -241,7 +241,7 @@ class AxiRamRead(object):
 
                 self.r_channel.send(r)
 
-                self.log.info(f"Read word arid: {arid:#x} addr: {cur_addr:#010x} data: {' '.join((f'{c:02x}' for c in data))}")
+                self.log.debug(f"Read word arid: {arid:#x} addr: {cur_addr:#010x} data: {' '.join((f'{c:02x}' for c in data))}")
 
                 if burst != AxiBurstType.FIXED:
                     cur_addr += num_bytes
