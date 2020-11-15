@@ -32,6 +32,7 @@ from collections import deque
 
 from .constants import *
 from .axil_channels import *
+from .utils import hexdump, hexdump_str
 
 
 class AxiLiteRamWrite(object):
@@ -69,6 +70,12 @@ class AxiLiteRamWrite(object):
     def write_mem(self, address, data):
         self.mem.seek(address)
         self.mem.write(bytes(data))
+
+    def hexdump(self, address, length, prefix=""):
+        hexdump(self.mem, address, length, prefix=prefix)
+
+    def hexdump_str(self, address, length, prefix=""):
+        return hexdump_str(self.mem, address, length, prefix=prefix)
 
     async def _process_write(self):
         while True:
@@ -140,6 +147,12 @@ class AxiLiteRamRead(object):
         self.mem.seek(address)
         self.mem.write(bytes(data))
 
+    def hexdump(self, address, length, prefix=""):
+        hexdump(self.mem, address, length, prefix=prefix)
+
+    def hexdump_str(self, address, length, prefix=""):
+        return hexdump_str(self.mem, address, length, prefix=prefix)
+
     async def _process_read(self):
         while True:
             await self.ar_channel.wait()
@@ -184,4 +197,10 @@ class AxiLiteRam(object):
     def write_mem(self, address, data):
         self.mem.seek(address)
         self.mem.write(bytes(data))
+
+    def hexdump(self, address, length, prefix=""):
+        hexdump(self.mem, address, length, prefix=prefix)
+
+    def hexdump_str(self, address, length, prefix=""):
+        return hexdump_str(self.mem, address, length, prefix=prefix)
 
