@@ -40,7 +40,7 @@ class TB(object):
     def __init__(self, dut):
         self.dut = dut
 
-        cocotb.fork(Clock(dut.clk, 10, units="ns").start())
+        cocotb.fork(Clock(dut.clk, 2, units="ns").start())
 
         self.axil_master = AxiLiteMaster(dut, "axil", dut.clk, dut.rst)
         self.axil_ram = AxiLiteRam(dut, "axil", dut.clk, dut.rst, size=2**16)
