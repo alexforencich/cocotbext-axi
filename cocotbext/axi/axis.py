@@ -459,7 +459,7 @@ class AxiStreamSink(object):
     def idle(self):
         return not self.active
 
-    async def wait(self, timeout=0, timeout_unit=None):
+    async def wait(self, timeout=0, timeout_unit='ns'):
         if not self.empty():
             return
         self.sync.clear()
