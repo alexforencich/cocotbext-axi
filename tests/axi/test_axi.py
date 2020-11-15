@@ -227,7 +227,7 @@ def test_axi(request, data_width):
         "sim_build_"+request.node.name.replace('[', '-').replace(']', ''))
 
     cocotb_test.simulator.run(
-        work_dir=tests_dir,
+        python_search=[tests_dir],
         verilog_sources=verilog_sources,
         toplevel=toplevel,
         module=module,
