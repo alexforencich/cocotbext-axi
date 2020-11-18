@@ -24,12 +24,14 @@ THE SOFTWARE.
 """
 
 import itertools
+import logging
 import os
 
 import cocotb_test.simulator
 import pytest
 
 import cocotb
+from cocotb.log import SimLog
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
 from cocotb.regression import TestFactory
@@ -39,6 +41,9 @@ from cocotbext.axi import AxiStreamFrame, AxiStreamSource, AxiStreamSink
 class TB(object):
     def __init__(self, dut):
         self.dut = dut
+
+        self.log = SimLog(f"cocotb.tb")
+        self.log.setLevel(logging.DEBUG)
 
         cocotb.fork(Clock(dut.clk, 2, units="ns").start())
 

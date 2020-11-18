@@ -31,6 +31,7 @@ import cocotb_test.simulator
 import pytest
 
 import cocotb
+from cocotb.log import SimLog
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 from cocotb.regression import TestFactory
@@ -40,6 +41,9 @@ from cocotbext.axi import AxiMaster, AxiRam
 class TB(object):
     def __init__(self, dut):
         self.dut = dut
+
+        self.log = SimLog(f"cocotb.tb")
+        self.log.setLevel(logging.DEBUG)
 
         cocotb.fork(Clock(dut.clk, 2, units="ns").start())
 
@@ -93,7 +97,7 @@ async def run_test_write(dut, idle_inserter=None, backpressure_inserter=None, si
 
     for length in list(range(1,byte_width*2))+[1024]:
         for offset in list(range(byte_width))+list(range(4096-byte_width,4096)):
-            print(f"length {length}, offset {offset}")
+            tb.log.info(f"length {length}, offset {offset}")
             addr = offset+0x1000
             test_data = bytearray([x%256 for x in range(length)])
 
@@ -101,7 +105,7 @@ async def run_test_write(dut, idle_inserter=None, backpressure_inserter=None, si
 
             await tb.axi_master.write(addr, test_data, size=size)
 
-            tb.axi_ram.hexdump((addr&0xfffffff0)-16, (((addr&0xf)+length-1)&0xfffffff0)+48)
+            tb.log.debug(tb.axi_ram.hexdump_str((addr&0xfffffff0)-16, (((addr&0xf)+length-1)&0xfffffff0)+48))
 
             assert tb.axi_ram.read_mem(addr, length) == test_data
             assert tb.axi_ram.read_mem(addr-1, 1) == b'\xaa'
@@ -127,7 +131,7 @@ async def run_test_read(dut, idle_inserter=None, backpressure_inserter=None, siz
 
     for length in list(range(1,byte_width*2))+[1024]:
         for offset in list(range(byte_width))+list(range(4096-byte_width,4096)):
-            print(f"length {length}, offset {offset}")
+            tb.log.info(f"length {length}, offset {offset}")
             addr = offset+0x1000
             test_data = bytearray([x%256 for x in range(length)])
 
