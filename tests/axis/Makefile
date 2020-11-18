@@ -63,8 +63,7 @@ else ifeq ($(SIM), verilator)
 	COMPILE_ARGS += -GUSER_WIDTH=$(PARAM_USER_WIDTH)
 
 	ifeq ($(WAVES), 1)
-		COMPILE_ARGS += --trace
-		#COMPILE_ARGS += --trace-fst
+		COMPILE_ARGS += --trace-fst
 	endif
 endif
 

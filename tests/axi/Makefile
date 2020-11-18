@@ -75,8 +75,7 @@ else ifeq ($(SIM), verilator)
 	COMPILE_ARGS += -GRUSER_WIDTH=$(PARAM_RUSER_WIDTH)
 
 	ifeq ($(WAVES), 1)
-		COMPILE_ARGS += --trace
-		#COMPILE_ARGS += --trace-fst
+		COMPILE_ARGS += --trace-fst
 	endif
 endif
 
