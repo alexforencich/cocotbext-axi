@@ -30,6 +30,7 @@ import mmap
 import queue
 from collections import deque
 
+from .version import __version__
 from .constants import *
 from .axil_channels import *
 from .utils import hexdump, hexdump_str
@@ -38,6 +39,11 @@ from .utils import hexdump, hexdump_str
 class AxiLiteRamWrite(object):
     def __init__(self, entity, name, clock, reset=None, size=1024, mem=None):
         self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+
+        self.log.info("AXI lite RAM model")
+        self.log.info("cocotbext-axi version %s", __version__)
+        self.log.info("Copyright (c) 2020 Alex Forencich")
+        self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
         if type(mem) is mmap.mmap:
             self.mem = mem

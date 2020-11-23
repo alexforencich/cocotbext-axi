@@ -29,6 +29,8 @@ from cocotb.log import SimLog
 
 from collections import deque
 
+from .version import __version__
+
 class AxiStreamFrame(object):
     def __init__(self, tdata=b'', tkeep=None, tid=None, tdest=None, tuser=None):
         self.tdata = bytearray()
@@ -218,6 +220,11 @@ class AxiStreamSource(object):
         self.reset = reset
         self.bus = Bus(self.entity, name, self._signals, optional_signals=self._optional_signals, **kwargs)
 
+        self.log.info("AXI stream source")
+        self.log.info("cocotbext-axi version %s", __version__)
+        self.log.info("Copyright (c) 2020 Alex Forencich")
+        self.log.info("https://github.com/alexforencich/cocotbext-axi")
+
         super().__init__(*args, **kwargs)
 
         self.active = False
@@ -388,6 +395,11 @@ class AxiStreamSink(object):
         self.clock = clock
         self.reset = reset
         self.bus = Bus(self.entity, name, self._signals, optional_signals=self._optional_signals, **kwargs)
+
+        self.log.info("AXI stream sink")
+        self.log.info("cocotbext-axi version %s", __version__)
+        self.log.info("Copyright (c) 2020 Alex Forencich")
+        self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
         super().__init__(*args, **kwargs)
 

@@ -28,6 +28,7 @@ from cocotb.log import SimLog
 
 from collections import deque
 
+from .version import __version__
 from .constants import *
 from .axi_channels import *
 
@@ -35,6 +36,11 @@ from .axi_channels import *
 class AxiMasterWrite(object):
     def __init__(self, entity, name, clock, reset=None):
         self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+
+        self.log.info("AXI master model")
+        self.log.info("cocotbext-axi version %s", __version__)
+        self.log.info("Copyright (c) 2020 Alex Forencich")
+        self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
         self.reset = reset
 

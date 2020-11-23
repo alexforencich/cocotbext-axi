@@ -22,6 +22,8 @@ THE SOFTWARE.
 
 """
 
+from .version import __version__
+
 from .constants import *
 
 from .axis import AxiStreamFrame, AxiStreamSource, AxiStreamSink
