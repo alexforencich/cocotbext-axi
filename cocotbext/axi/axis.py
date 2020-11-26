@@ -541,7 +541,8 @@ class AxiStreamSink(object):
 
             await RisingEdge(self.clock)
 
-            self.bus.tready <= (not self.full() and not self.pause)
+            if hasattr(self.bus, "tready"):
+                self.bus.tready <= (not self.full() and not self.pause)
 
     async def _run_pause(self):
         for val in self._pause_generator:
