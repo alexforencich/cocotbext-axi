@@ -37,7 +37,7 @@ class AxiRamWrite(object):
     def __init__(self, entity, name, clock, reset=None, size=1024, mem=None):
         self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
 
-        self.log.info("AXI RAM model")
+        self.log.info("AXI RAM model (write)")
         self.log.info("cocotbext-axi version %s", __version__)
         self.log.info("Copyright (c) 2020 Alex Forencich")
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
@@ -60,6 +60,13 @@ class AxiRamWrite(object):
         self.byte_size = 8
         self.byte_width = self.width // self.byte_size
         self.strb_mask = 2**self.byte_width-1
+
+        self.log.info("AXI RAM model configuration:")
+        self.log.info("  Memory size: %d bytes", len(self.mem))
+        self.log.info("  Address width: %d bits", len(self.aw_channel.bus.awaddr))
+        self.log.info("  ID width: %d bits", len(self.aw_channel.bus.awid))
+        self.log.info("  Byte size: %d bits", self.byte_size)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
 
         assert self.byte_width == len(self.w_channel.bus.wstrb)
         assert self.byte_width * self.byte_size == self.width
@@ -160,6 +167,11 @@ class AxiRamRead(object):
     def __init__(self, entity, name, clock, reset=None, size=1024, mem=None):
         self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
 
+        self.log.info("AXI RAM model (read)")
+        self.log.info("cocotbext-axi version %s", __version__)
+        self.log.info("Copyright (c) 2020 Alex Forencich")
+        self.log.info("https://github.com/alexforencich/cocotbext-axi")
+
         if type(mem) is mmap.mmap:
             self.mem = mem
         else:
@@ -176,6 +188,13 @@ class AxiRamRead(object):
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
         self.byte_width = self.width // self.byte_size
+
+        self.log.info("AXI RAM model configuration:")
+        self.log.info("  Memory size: %d bytes", len(self.mem))
+        self.log.info("  Address width: %d bits", len(self.ar_channel.bus.araddr))
+        self.log.info("  ID width: %d bits", len(self.ar_channel.bus.arid))
+        self.log.info("  Byte size: %d bits", self.byte_size)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
 
         assert self.byte_width * self.byte_size == self.width
 

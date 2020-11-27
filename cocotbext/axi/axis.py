@@ -261,6 +261,29 @@ class AxiStreamSource(object):
         self.byte_size = self.width // self.byte_width
         self.byte_mask = 2**self.byte_size-1
 
+        self.log.info("AXI stream source configuration:")
+        self.log.info("  Byte size: %d bits", self.byte_size)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
+        self.log.info("  tvalid: %s", "present" if hasattr(self.bus, "tvalid") else "not present")
+        self.log.info("  tready: %s", "present" if hasattr(self.bus, "tready") else "not present")
+        self.log.info("  tlast: %s", "present" if hasattr(self.bus, "tlast") else "not present")
+        if hasattr(self.bus, "tkeep"):
+            self.log.info("  tkeep width: %d bits", len(self.bus.tkeep))
+        else:
+            self.log.info("  tkeep: not present")
+        if hasattr(self.bus, "tid"):
+            self.log.info("  tid width: %d bits", len(self.bus.tid))
+        else:
+            self.log.info("  tid: not present")
+        if hasattr(self.bus, "tdest"):
+            self.log.info("  tdest width: %d bits", len(self.bus.tdest))
+        else:
+            self.log.info("  tdest: not present")
+        if hasattr(self.bus, "tuser"):
+            self.log.info("  tuser width: %d bits", len(self.bus.tuser))
+        else:
+            self.log.info("  tuser: not present")
+
         cocotb.fork(self._run())
 
     def send(self, frame):
@@ -430,6 +453,29 @@ class AxiStreamSink(object):
 
         self.byte_size = self.width // self.byte_width
         self.byte_mask = 2**self.byte_size-1
+
+        self.log.info("AXI stream sink configuration:")
+        self.log.info("  Byte size: %d bits", self.byte_size)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
+        self.log.info("  tvalid: %s", "present" if hasattr(self.bus, "tvalid") else "not present")
+        self.log.info("  tready: %s", "present" if hasattr(self.bus, "tready") else "not present")
+        self.log.info("  tlast: %s", "present" if hasattr(self.bus, "tlast") else "not present")
+        if hasattr(self.bus, "tkeep"):
+            self.log.info("  tkeep width: %d bits", len(self.bus.tkeep))
+        else:
+            self.log.info("  tkeep: not present")
+        if hasattr(self.bus, "tid"):
+            self.log.info("  tid width: %d bits", len(self.bus.tid))
+        else:
+            self.log.info("  tid: not present")
+        if hasattr(self.bus, "tdest"):
+            self.log.info("  tdest width: %d bits", len(self.bus.tdest))
+        else:
+            self.log.info("  tdest: not present")
+        if hasattr(self.bus, "tuser"):
+            self.log.info("  tuser width: %d bits", len(self.bus.tuser))
+        else:
+            self.log.info("  tuser: not present")
 
         cocotb.fork(self._run())
 

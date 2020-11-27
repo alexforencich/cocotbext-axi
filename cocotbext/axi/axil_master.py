@@ -37,7 +37,7 @@ class AxiLiteMasterWrite(object):
     def __init__(self, entity, name, clock, reset=None):
         self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
 
-        self.log.info("AXI lite master model")
+        self.log.info("AXI lite master (write)")
         self.log.info("cocotbext-axi version %s", __version__)
         self.log.info("Copyright (c) 2020 Alex Forencich")
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
@@ -65,6 +65,11 @@ class AxiLiteMasterWrite(object):
         self.byte_size = 8
         self.byte_width = self.width // self.byte_size
         self.strb_mask = 2**self.byte_width-1
+
+        self.log.info("AXI lite master configuration:")
+        self.log.info("  Address width: %d bits", len(self.aw_channel.bus.awaddr))
+        self.log.info("  Byte size: %d bits", self.byte_size)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
 
         assert self.byte_width == len(self.w_channel.bus.wstrb)
         assert self.byte_width * self.byte_size == self.width
@@ -239,6 +244,11 @@ class AxiLiteMasterRead(object):
     def __init__(self, entity, name, clock, reset=None):
         self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
 
+        self.log.info("AXI lite master (read)")
+        self.log.info("cocotbext-axi version %s", __version__)
+        self.log.info("Copyright (c) 2020 Alex Forencich")
+        self.log.info("https://github.com/alexforencich/cocotbext-axi")
+
         self.reset = reset
 
         self.ar_channel = AxiLiteARSource(entity, name, clock, reset)
@@ -260,6 +270,11 @@ class AxiLiteMasterRead(object):
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
         self.byte_width = self.width // self.byte_size
+
+        self.log.info("AXI lite master configuration:")
+        self.log.info("  Address width: %d bits", len(self.ar_channel.bus.araddr))
+        self.log.info("  Byte size: %d bits", self.byte_size)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
 
         assert self.byte_width * self.byte_size == self.width
 
