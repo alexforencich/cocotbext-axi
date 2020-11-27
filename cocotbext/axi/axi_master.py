@@ -34,7 +34,7 @@ from .axi_channels import AxiAWSource, AxiWSource, AxiBSink, AxiARSource, AxiRSi
 
 
 class AxiMasterWrite(object):
-    def __init__(self, entity, name, clock, reset=None):
+    def __init__(self, entity, name, clock, reset=None, max_burst_len=256):
         self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
 
         self.log.info("AXI master model")
@@ -70,7 +70,7 @@ class AxiMasterWrite(object):
         self.byte_width = self.width // self.byte_size
         self.strb_mask = 2**self.byte_width-1
 
-        self.max_burst_len = 256
+        self.max_burst_len = max(min(max_burst_len, 256), 1)
         self.max_burst_size = (self.byte_width-1).bit_length()
 
         assert self.byte_width == len(self.w_channel.bus.wstrb)
@@ -324,7 +324,7 @@ class AxiMasterWrite(object):
 
 
 class AxiMasterRead(object):
-    def __init__(self, entity, name, clock, reset=None):
+    def __init__(self, entity, name, clock, reset=None, max_burst_len=256):
         self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
 
         self.reset = reset
@@ -353,7 +353,7 @@ class AxiMasterRead(object):
         self.byte_size = 8
         self.byte_width = self.width // self.byte_size
 
-        self.max_burst_len = 256
+        self.max_burst_len = max(min(max_burst_len, 256), 1)
         self.max_burst_size = (self.byte_width-1).bit_length()
 
         assert self.byte_width * self.byte_size == self.width
@@ -607,12 +607,12 @@ class AxiMasterRead(object):
 
 
 class AxiMaster(object):
-    def __init__(self, entity, name, clock, reset=None):
+    def __init__(self, entity, name, clock, reset=None, max_burst_len=256):
         self.write_if = None
         self.read_if = None
 
-        self.write_if = AxiMasterWrite(entity, name, clock, reset)
-        self.read_if = AxiMasterRead(entity, name, clock, reset)
+        self.write_if = AxiMasterWrite(entity, name, clock, reset, max_burst_len)
+        self.read_if = AxiMasterRead(entity, name, clock, reset, max_burst_len)
 
     def init_read(self, address, length, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, token=None):
