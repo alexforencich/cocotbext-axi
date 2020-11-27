@@ -22,17 +22,14 @@ THE SOFTWARE.
 
 """
 
+import mmap
+
 import cocotb
-from cocotb.triggers import Event
 from cocotb.log import SimLog
 
-import mmap
-import queue
-from collections import deque
-
 from .version import __version__
-from .constants import *
-from .axil_channels import *
+from .constants import AxiProt, AxiResp
+from .axil_channels import AxiLiteAWSink, AxiLiteWSink, AxiLiteBSource, AxiLiteARSink, AxiLiteRSource
 from .utils import hexdump, hexdump_str
 
 
@@ -103,7 +100,8 @@ class AxiLiteRamWrite(object):
 
             data = data.to_bytes(self.byte_width, 'little')
 
-            self.log.info(f"Write data addr: {addr:#010x} prot: {prot} wstrb: {strb:#04x} data: {' '.join((f'{c:02x}' for c in data))}")
+            self.log.info("Write data awaddr: 0x%08x awprot: %s wstrb: 0x%02x data: %s",
+                addr, prot, strb, ' '.join((f'{c:02x}' for c in data)))
 
             for i in range(self.byte_width):
                 if strb & (1 << i):
@@ -120,7 +118,7 @@ class AxiLiteRamWrite(object):
 class AxiLiteRamRead(object):
     def __init__(self, entity, name, clock, reset=None, size=1024, mem=None):
         self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
-        
+
         self.reset = reset
 
         self.ar_channel = AxiLiteARSink(entity, name, clock, reset)
@@ -131,9 +129,6 @@ class AxiLiteRamRead(object):
         else:
             self.mem = mmap.mmap(-1, size)
         self.size = len(self.mem)
-
-        self.int_read_resp_command_queue = deque()
-        self.int_read_resp_command_sync = Event()
 
         self.in_flight_operations = 0
 
@@ -179,7 +174,8 @@ class AxiLiteRamRead(object):
 
             self.r_channel.send(r)
 
-            self.log.info(f"Read data addr: {addr:#010x} prot: {prot} data: {' '.join((f'{c:02x}' for c in data))}")
+            self.log.info("Read data araddr: 0x%08x arprot: %s data: %s",
+                addr, prot, ' '.join((f'{c:02x}' for c in data)))
 
 
 class AxiLiteRam(object):
@@ -209,4 +205,3 @@ class AxiLiteRam(object):
 
     def hexdump_str(self, address, length, prefix=""):
         return hexdump_str(self.mem, address, length, prefix=prefix)
-

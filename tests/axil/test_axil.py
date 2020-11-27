@@ -31,18 +31,18 @@ import cocotb_test.simulator
 import pytest
 
 import cocotb
-from cocotb.log import SimLog
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 from cocotb.regression import TestFactory
 
 from cocotbext.axi import AxiLiteMaster, AxiLiteRam
 
+
 class TB(object):
     def __init__(self, dut):
         self.dut = dut
 
-        self.log = SimLog(f"cocotb.tb")
+        self.log = logging.getLogger("cocotb.tb")
         self.log.setLevel(logging.DEBUG)
 
         cocotb.fork(Clock(dut.clk, 2, units="ns").start())
@@ -77,6 +77,7 @@ class TB(object):
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
 
+
 async def run_test_write(dut, data_in=None, idle_inserter=None, backpressure_inserter=None):
 
     tb = TB(dut)
@@ -88,17 +89,17 @@ async def run_test_write(dut, data_in=None, idle_inserter=None, backpressure_ins
     tb.set_idle_generator(idle_inserter)
     tb.set_backpressure_generator(backpressure_inserter)
 
-    for length in range(1,byte_width*2):
+    for length in range(1, byte_width*2):
         for offset in range(byte_width):
             tb.log.info(f"length {length}, offset {offset}")
             addr = offset+0x1000
-            test_data = bytearray([x%256 for x in range(length)])
+            test_data = bytearray([x % 256 for x in range(length)])
 
             tb.axil_ram.write_mem(addr-128, b'\xaa'*(length+256))
 
             await tb.axil_master.write(addr, test_data)
 
-            tb.log.debug(tb.axil_ram.hexdump_str((addr&0xfffffff0)-16, (((addr&0xf)+length-1)&0xfffffff0)+48))
+            tb.log.debug("%s", tb.axil_ram.hexdump_str((addr & 0xfffffff0)-16, (((addr & 0xf)+length-1) & 0xfffffff0)+48))
 
             assert tb.axil_ram.read_mem(addr, length) == test_data
             assert tb.axil_ram.read_mem(addr-1, 1) == b'\xaa'
@@ -106,6 +107,7 @@ async def run_test_write(dut, data_in=None, idle_inserter=None, backpressure_ins
 
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
+
 
 async def run_test_read(dut, data_in=None, idle_inserter=None, backpressure_inserter=None):
 
@@ -118,11 +120,11 @@ async def run_test_read(dut, data_in=None, idle_inserter=None, backpressure_inse
     tb.set_idle_generator(idle_inserter)
     tb.set_backpressure_generator(backpressure_inserter)
 
-    for length in range(1,byte_width*2):
+    for length in range(1, byte_width*2):
         for offset in range(byte_width):
             tb.log.info(f"length {length}, offset {offset}")
             addr = offset+0x1000
-            test_data = bytearray([x%256 for x in range(length)])
+            test_data = bytearray([x % 256 for x in range(length)])
 
             tb.axil_ram.write_mem(addr, test_data)
 
@@ -132,6 +134,7 @@ async def run_test_read(dut, data_in=None, idle_inserter=None, backpressure_inse
 
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
+
 
 async def run_stress_test(dut, idle_inserter=None, backpressure_inserter=None):
 
@@ -146,7 +149,7 @@ async def run_stress_test(dut, idle_inserter=None, backpressure_inserter=None):
         for k in range(count):
             length = random.randint(1, min(32, aperture))
             addr = offset+random.randint(0, aperture-length)
-            test_data = bytearray([x%256 for x in range(length)])
+            test_data = bytearray([x % 256 for x in range(length)])
 
             await Timer(random.randint(1, 100), 'ns')
 
@@ -168,8 +171,10 @@ async def run_stress_test(dut, idle_inserter=None, backpressure_inserter=None):
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
 
+
 def cycle_pause():
     return itertools.cycle([1, 1, 1, 0])
+
 
 if cocotb.SIM_NAME:
 
@@ -184,8 +189,11 @@ if cocotb.SIM_NAME:
     factory.generate_tests()
 
 
+# cocotb-test
+
 tests_dir = os.path.dirname(__file__)
 rtl_dir = os.path.abspath(os.path.join(tests_dir, '..', '..', 'rtl'))
+
 
 @pytest.mark.parametrize("data_width", [8, 16, 32])
 def test_axil(request, data_width):
@@ -203,7 +211,7 @@ def test_axil(request, data_width):
     parameters['ADDR_WIDTH'] = 32
     parameters['STRB_WIDTH'] = parameters['DATA_WIDTH'] // 8
 
-    extra_env = {f'PARAM_{k}' : str(v) for k, v in parameters.items()}
+    extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
 
     sim_build = os.path.join(tests_dir,
         "sim_build_"+request.node.name.replace('[', '-').replace(']', ''))
@@ -217,4 +225,3 @@ def test_axil(request, data_width):
         sim_build=sim_build,
         extra_env=extra_env,
     )
-

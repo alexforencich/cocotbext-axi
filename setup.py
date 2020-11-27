@@ -11,19 +11,19 @@ with open("README.md", "r") as f:
     long_description = f.read()
 
 setup(
-    name = "cocotbext-axi",
+    name="cocotbext-axi",
     author="Alex Forencich",
     author_email="alex@alexforencich.com",
     description="AXI modules for Cocotb",
     long_description=long_description,
     long_description_content_type='text/markdown',
     url="https://github.com/alexforencich/cocotbext-axi",
-    download_url = 'http://github.com/alexforencich/cocotbext-axi/tarball/master',
-    version = version,
-    packages = find_namespace_packages(include=['cocotbext.*']),
-    install_requires = ['cocotb'],
-    python_requires = '>=3.6',
-    classifiers = [
+    download_url='http://github.com/alexforencich/cocotbext-axi/tarball/master',
+    version=version,
+    packages=find_namespace_packages(include=['cocotbext.*']),
+    install_requires=['cocotb'],
+    python_requires='>=3.6',
+    classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",

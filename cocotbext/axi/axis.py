@@ -22,14 +22,15 @@ THE SOFTWARE.
 
 """
 
+from collections import deque
+
 import cocotb
 from cocotb.triggers import RisingEdge, ReadOnly, Timer, First, Event
 from cocotb.bus import Bus
 from cocotb.log import SimLog
 
-from collections import deque
-
 from .version import __version__
+
 
 class AxiStreamFrame(object):
     def __init__(self, tdata=b'', tkeep=None, tid=None, tdest=None, tuser=None):
@@ -194,12 +195,12 @@ class AxiStreamFrame(object):
 
     def __repr__(self):
         return (
-                f"{type(self).__name__}(tdata={repr(self.tdata)}, " +
-                f"tkeep={repr(self.tkeep)}, " +
-                f"tid={repr(self.tid)}, " +
-                f"tdest={repr(self.tdest)}, " +
-                f"tuser={repr(self.tuser)})"
-            )
+            f"{type(self).__name__}(tdata={repr(self.tdata)}, "
+            f"tkeep={repr(self.tkeep)}, "
+            f"tid={repr(self.tid)}, "
+            f"tdest={repr(self.tdest)}, "
+            f"tuser={repr(self.tuser)})"
+        )
 
     def __len__(self):
         return len(self.tdata)
@@ -334,7 +335,7 @@ class AxiStreamSource(object):
                     frame = self.queue.popleft()
                     self.queue_occupancy_bytes -= len(frame)
                     self.queue_occupancy_frames -= 1
-                    self.log.info(f"TX frame: {frame}")
+                    self.log.info("TX frame: %s", frame)
                     frame.normalize()
                     self.active = True
 
@@ -529,7 +530,7 @@ class AxiStreamSink(object):
                     if self.byte_size == 8:
                         frame.tdata = bytearray(frame.tdata)
 
-                    self.log.info(f"RX frame: {frame}")
+                    self.log.info("RX frame: %s", frame)
 
                     self.queue_occupancy_bytes += len(frame)
                     self.queue_occupancy_frames += 1

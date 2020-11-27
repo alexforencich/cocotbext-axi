@@ -24,7 +24,7 @@ THE SOFTWARE.
 
 from .version import __version__
 
-from .constants import *
+from .constants import AxiBurstType, AxiBurstSize, AxiLockType, AxiCacheBit, AxiProt, AxiResp
 
 from .axis import AxiStreamFrame, AxiStreamSource, AxiStreamSink
 
@@ -33,4 +33,3 @@ from .axil_ram import AxiLiteRamWrite, AxiLiteRamRead, AxiLiteRam
 
 from .axi_master import AxiMasterWrite, AxiMasterRead, AxiMaster
 from .axi_ram import AxiRamWrite, AxiRamRead, AxiRam
-

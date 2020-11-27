@@ -22,16 +22,14 @@ THE SOFTWARE.
 
 """
 
+import mmap
+
 import cocotb
-from cocotb.triggers import Event
 from cocotb.log import SimLog
 
-import mmap
-from collections import deque
-
 from .version import __version__
-from .constants import *
-from .axi_channels import *
+from .constants import AxiBurstType, AxiProt, AxiResp
+from .axi_channels import AxiAWSink, AxiWSink, AxiBSource, AxiARSink, AxiRSource
 from .utils import hexdump, hexdump_str
 
 
@@ -96,7 +94,8 @@ class AxiRamWrite(object):
             burst = int(aw.awburst)
             prot = AxiProt(int(aw.awprot))
 
-            self.log.info(f"Write burst awid: {awid:#x} awaddr: {addr:#010x} awlen: {length} awsize: {size} awprot: {prot}")
+            self.log.info("Write burst awid: 0x%x awaddr: 0x%08x awlen: %d awsize: %d awprot: %s",
+                awid, addr, length, size, prot)
 
             num_bytes = 2**size
             assert 0 < num_bytes <= self.byte_width
@@ -112,7 +111,7 @@ class AxiRamWrite(object):
 
             if burst == AxiBurstType.INCR:
                 # check 4k boundary crossing
-                assert 0x1000-(aligned_addr&0xfff) >= transfer_size
+                assert 0x1000-(aligned_addr & 0xfff) >= transfer_size
 
             cur_addr = aligned_addr
 
@@ -132,7 +131,8 @@ class AxiRamWrite(object):
 
                 data = data.to_bytes(self.byte_width, 'little')
 
-                self.log.debug(f"Write word awid: {awid:#x} addr: {cur_addr:#010x} wstrb: {strb:#04x} data: {' '.join((f'{c:02x}' for c in data))}")
+                self.log.debug("Write word awid: 0x%x addr: 0x%08x wstrb: 0x%02x data: %s",
+                    awid, cur_addr, strb, ' '.join((f'{c:02x}' for c in data)))
 
                 for i in range(self.byte_width):
                     if strb & (1 << i):
@@ -170,9 +170,6 @@ class AxiRamRead(object):
 
         self.ar_channel = AxiARSink(entity, name, clock, reset)
         self.r_channel = AxiRSource(entity, name, clock, reset)
-
-        self.int_read_resp_command_queue = deque()
-        self.int_read_resp_command_sync = Event()
 
         self.in_flight_operations = 0
 
@@ -212,7 +209,8 @@ class AxiRamRead(object):
             burst = int(ar.arburst)
             prot = AxiProt(ar.arprot)
 
-            self.log.info(f"Read burst arid: {arid:#x} araddr: {addr:#010x} arlen: {length} arsize: {size} arprot: {prot}")
+            self.log.info("Read burst arid: 0x%x araddr: 0x%08x arlen: %d arsize: %d arprot: %s",
+                arid, addr, length, size, prot)
 
             num_bytes = 2**size
             assert 0 < num_bytes <= self.byte_width
@@ -228,7 +226,7 @@ class AxiRamRead(object):
 
             if burst == AxiBurstType.INCR:
                 # check 4k boundary crossing
-                assert 0x1000-(aligned_addr&0xfff) >= transfer_size
+                assert 0x1000-(aligned_addr & 0xfff) >= transfer_size
 
             cur_addr = aligned_addr
 
@@ -247,7 +245,8 @@ class AxiRamRead(object):
 
                 self.r_channel.send(r)
 
-                self.log.debug(f"Read word arid: {arid:#x} addr: {cur_addr:#010x} data: {' '.join((f'{c:02x}' for c in data))}")
+                self.log.debug("Read word awid: 0x%x addr: 0x%08x data: %s",
+                    arid, cur_addr, ' '.join((f'{c:02x}' for c in data)))
 
                 if burst != AxiBurstType.FIXED:
                     cur_addr += num_bytes
@@ -284,4 +283,3 @@ class AxiRam(object):
 
     def hexdump_str(self, address, length, prefix=""):
         return hexdump_str(self.mem, address, length, prefix=prefix)
-

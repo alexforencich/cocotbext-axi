@@ -31,18 +31,18 @@ import cocotb_test.simulator
 import pytest
 
 import cocotb
-from cocotb.log import SimLog
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
 from cocotb.regression import TestFactory
 
 from cocotbext.axi import AxiStreamFrame, AxiStreamSource, AxiStreamSink
 
+
 class TB(object):
     def __init__(self, dut):
         self.dut = dut
 
-        self.log = SimLog(f"cocotb.tb")
+        self.log = logging.getLogger("cocotb.tb")
         self.log.setLevel(logging.DEBUG)
 
         cocotb.fork(Clock(dut.clk, 2, units="ns").start())
@@ -69,6 +69,7 @@ class TB(object):
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
 
+
 async def run_test(dut, payload_lengths=None, payload_data=None, idle_inserter=None, backpressure_inserter=None):
 
     tb = TB(dut)
@@ -84,7 +85,7 @@ async def run_test(dut, payload_lengths=None, payload_data=None, idle_inserter=N
 
     test_frames = []
 
-    for test_data in [payload_data(l) for l in payload_lengths()]:
+    for test_data in [payload_data(x) for x in payload_lengths()]:
         test_frame = AxiStreamFrame(test_data)
         test_frame.tid = cur_id
         test_frame.tdest = cur_id
@@ -108,16 +109,20 @@ async def run_test(dut, payload_lengths=None, payload_data=None, idle_inserter=N
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
 
+
 def cycle_pause():
     return itertools.cycle([1, 1, 1, 0])
+
 
 def size_list():
     data_width = int(os.getenv("PARAM_DATA_WIDTH"))
     byte_width = data_width // 8
-    return list(range(1,data_width*4+1))+[512]+[1]*64
+    return list(range(1, byte_width*4+1)) + [512] + [1]*64
+
 
 def incrementing_payload(length):
     return bytearray(itertools.islice(itertools.cycle(range(256)), length))
+
 
 if cocotb.SIM_NAME:
 
@@ -129,8 +134,11 @@ if cocotb.SIM_NAME:
     factory.generate_tests()
 
 
+# cocotb-test
+
 tests_dir = os.path.dirname(__file__)
 rtl_dir = os.path.abspath(os.path.join(tests_dir, '..', '..', 'rtl'))
+
 
 @pytest.mark.parametrize("data_width", [8, 16, 32])
 def test_axis(request, data_width):
@@ -150,7 +158,7 @@ def test_axis(request, data_width):
     parameters['DEST_WIDTH'] = 8
     parameters['USER_WIDTH'] = 1
 
-    extra_env = {f'PARAM_{k}' : str(v) for k, v in parameters.items()}
+    extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
 
     sim_build = os.path.join(tests_dir,
         "sim_build_"+request.node.name.replace('[', '-').replace(']', ''))
@@ -164,4 +172,3 @@ def test_axis(request, data_width):
         sim_build=sim_build,
         extra_env=extra_env,
     )
-

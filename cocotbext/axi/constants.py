@@ -24,12 +24,14 @@ THE SOFTWARE.
 
 import enum
 
+
 # Burst types
 # AWBURST/ARBURST
 class AxiBurstType(enum.IntEnum):
     FIXED = 0b00
     INCR  = 0b01
     WRAP  = 0b10
+
 
 # Burst sizes (per beat)
 # AWSIZE/ARSIZE
@@ -43,11 +45,13 @@ class AxiBurstSize(enum.IntEnum):
     SIZE_64  = 0b110
     SIZE_128 = 0b111
 
+
 # Lock types
 # AWLOCK/ARLOCK
 class AxiLockType(enum.IntEnum):
     NORMAL    = 0b0
     EXCLUSIVE = 0b1
+
 
 # Cache control
 # AWCACHE/ARCACHE
@@ -56,6 +60,7 @@ class AxiCacheBit(enum.IntFlag):
     M  = 0b0010
     RA = 0b0100
     WA = 0b1000
+
 
 # ARCACHE
 ARCACHE_DEVICE_NON_BUFFERABLE = 0b0000
@@ -85,12 +90,14 @@ AWCACHE_WRITE_BACK_READ_ALLOC = 0b0111
 AWCACHE_WRITE_BACK_WRITE_ALLOC = 0b1111
 AWCACHE_WRITE_BACK_READ_AND_WRITE_ALLOC = 0b1111
 
+
 # Protection bits
 # AWPROT/ARPROT
 class AxiProt(enum.IntFlag):
     PRIVILEGED  = 0b001
     NONSECURE   = 0b010
     INSTRUCTION = 0b100
+
 
 # Operation status responses
 # BRESP/RRESP
@@ -99,4 +106,3 @@ class AxiResp(enum.IntEnum):
     EXOKAY = 0b01
     SLVERR = 0b10
     DECERR = 0b11
-

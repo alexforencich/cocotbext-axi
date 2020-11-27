@@ -22,6 +22,7 @@ THE SOFTWARE.
 
 """
 
+
 def hexdump_line(data, offset):
     h = ""
     c = ""
@@ -30,18 +31,20 @@ def hexdump_line(data, offset):
         c += chr(ch) if 32 < ch < 127 else "."
     return f"{offset:08x}: {h:48} {c}"
 
+
 def hexdump(data, start=0, length=None, prefix="", offset=0):
     stop = min(start+length, len(data)) if length else len(data)
     for k in range(start, stop, 16):
-        print(prefix+hexdump_line(data[k:min(k+16,stop)], k+offset))
+        print(prefix+hexdump_line(data[k:min(k+16, stop)], k+offset))
+
 
 def hexdump_lines(data, start=0, length=None, prefix="", offset=0):
     lines = []
     stop = min(start+length, len(data)) if length else len(data)
     for k in range(start, stop, 16):
-        lines.append(prefix+hexdump_line(data[k:min(k+16,stop)], k+offset))
+        lines.append(prefix+hexdump_line(data[k:min(k+16, stop)], k+offset))
     return lines
+
 
 def hexdump_str(data, start=0, length=None, prefix="", offset=0):
     return "\n".join(hexdump_lines(data, start, length, prefix, offset))
-

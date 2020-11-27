@@ -411,4 +411,3 @@ def define_stream(name, signals, optional_signals=None, valid_signal=None, ready
     monitor = type(name+"Monitor", (StreamMonitor,), attrib)
 
     return transaction, source, sink, monitor
-

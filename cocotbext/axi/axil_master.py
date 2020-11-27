@@ -22,15 +22,15 @@ THE SOFTWARE.
 
 """
 
-import cocotb
-from cocotb.triggers import RisingEdge, Event
-from cocotb.log import SimLog
-
 from collections import deque
 
+import cocotb
+from cocotb.triggers import Event
+from cocotb.log import SimLog
+
 from .version import __version__
-from .constants import *
-from .axil_channels import *
+from .constants import AxiProt, AxiResp
+from .axil_channels import AxiLiteAWSource, AxiLiteWSource, AxiLiteBSink, AxiLiteARSource, AxiLiteRSink
 
 
 class AxiLiteMasterWrite(object):
@@ -175,7 +175,8 @@ class AxiLiteMasterWrite(object):
 
             offset = 0
 
-            self.log.info(f"Write start addr: {address:#010x} prot: {prot} data: {' '.join((f'{c:02x}' for c in data))}")
+            self.log.info("Write start addr: 0x%08x prot: %s data: %s",
+                address, prot, ' '.join((f'{c:02x}' for c in data)))
 
             for k in range(cycles):
                 start = 0
@@ -224,7 +225,8 @@ class AxiLiteMasterWrite(object):
                 if cycle_resp != AxiResp.OKAY:
                     resp = cycle_resp
 
-            self.log.info(f"Write complete addr: {addr:#010x} prot: {prot} resp: {resp!s} length: {length}")
+            self.log.info("Write complete addr: 0x%08x prot: %s resp: %s length: %d",
+                addr, prot, resp, length)
 
             self.write_resp_queue.append((addr, length, resp, token))
             self.write_resp_sync.set()
@@ -359,7 +361,8 @@ class AxiLiteMasterRead(object):
             self.int_read_resp_command_queue.append((address, length, cycles, prot, token))
             self.int_read_resp_command_sync.set()
 
-            self.log.info(f"Read start addr: {address:#010x} prot: {prot} length: {length}")
+            self.log.info("Read start addr: 0x%08x prot: %s length: %d",
+                address, prot, length)
 
             for k in range(cycles):
                 ar = self.ar_channel._transaction_obj()
@@ -375,8 +378,6 @@ class AxiLiteMasterRead(object):
                 await self.int_read_resp_command_sync.wait()
 
             addr, length, cycles, prot, token = self.int_read_resp_command_queue.popleft()
-
-            word_addr = (addr // self.byte_width) * self.byte_width
 
             start_offset = addr % self.byte_width
             end_offset = ((addr + length - 1) % self.byte_width) + 1
@@ -406,7 +407,8 @@ class AxiLiteMasterRead(object):
                 for j in range(start, stop):
                     data.extend(bytearray([(cycle_data >> j*8) & 0xff]))
 
-            self.log.info(f"Read complete addr: {addr:#010x} prot: {prot} resp: {resp!s} data: {' '.join((f'{c:02x}' for c in data))}")
+            self.log.info("Read complete addr: 0x%08x prot: %s resp: %s data: %s",
+                addr, prot, resp, ' '.join((f'{c:02x}' for c in data)))
 
             self.read_data_queue.append((addr, data, resp, token))
             self.read_data_sync.set()
@@ -502,4 +504,3 @@ class AxiLiteMaster(object):
 
     async def write_qword(self, address, data, prot=AxiProt.NONSECURE):
         return await self.write_if.write_qword(address, data, prot)
-
