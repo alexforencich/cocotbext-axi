@@ -22,7 +22,7 @@ THE SOFTWARE.
 
 """
 
-from collections import deque
+from collections import deque, namedtuple
 
 import cocotb
 from cocotb.triggers import Event
@@ -31,6 +31,20 @@ from cocotb.log import SimLog
 from .version import __version__
 from .constants import AxiBurstType, AxiLockType, AxiProt, AxiResp
 from .axi_channels import AxiAWSource, AxiWSource, AxiBSink, AxiARSource, AxiRSink
+
+# AXI master write helper objects
+AxiWriteCmd = namedtuple("AxiWriteCmd", ["address", "data", "burst", "size", "lock",
+    "cache", "prot", "qos", "region", "user", "token"])
+AxiWriteRespCmd = namedtuple("AxiWriteRespCmd", ["address", "length", "size", "cycles",
+    "prot", "burst_list", "token"])
+AxiWriteResp = namedtuple("AxiWriteResp", ["address", "length", "resp", "user", "token"])
+
+# AXI master read helper objects
+AxiReadCmd = namedtuple("AxiReadCmd", ["address", "length", "burst", "size", "lock",
+    "cache", "prot", "qos", "region", "user", "token"])
+AxiReadRespCmd = namedtuple("AxiReadRespCmd", ["address", "length", "size", "cycles",
+    "prot", "burst_list", "token"])
+AxiReadResp = namedtuple("AxiReadResp", ["address", "data", "resp", "user", "token"])
 
 
 class AxiMasterWrite(object):
@@ -99,7 +113,8 @@ class AxiMasterWrite(object):
 
         self.in_flight_operations += 1
 
-        self.write_command_queue.append((address, data, burst, size, lock, cache, prot, qos, region, user, token))
+        cmd = AxiWriteCmd(address, bytearray(data), burst, size, lock, cache, prot, qos, region, user, token)
+        self.write_command_queue.append(cmd)
         self.write_command_sync.set()
 
     def idle(self):
@@ -126,17 +141,17 @@ class AxiMasterWrite(object):
         if token is not None:
             if token in self.write_resp_set:
                 for resp in self.write_resp_queue:
-                    if resp[-1] == token:
+                    if resp.token == token:
                         self.write_resp_queue.remove(resp)
-                        self.active_tokens.remove(resp[-1])
-                        self.write_resp_set.remove(resp[-1])
+                        self.active_tokens.remove(resp.token)
+                        self.write_resp_set.remove(resp.token)
                         return resp
             return None
         if self.write_resp_queue:
             resp = self.write_resp_queue.popleft()
-            if resp[-1] is not None:
-                self.active_tokens.remove(resp[-1])
-                self.write_resp_set.remove(resp[-1])
+            if resp.token is not None:
+                self.active_tokens.remove(resp.token)
+                self.write_resp_set.remove(resp.token)
             return resp
         return None
 
@@ -145,7 +160,7 @@ class AxiMasterWrite(object):
         token = object()
         self.init_write(address, data, burst, size, lock, cache, prot, qos, region, user, token)
         await self.wait_for_token(token)
-        return self.get_write_resp(token)[1:3]
+        return self.get_write_resp(token)
 
     async def write_words(self, address, data, ws=2, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
@@ -185,23 +200,23 @@ class AxiMasterWrite(object):
                 self.write_command_sync.clear()
                 await self.write_command_sync.wait()
 
-            addr, data, burst, size, lock, cache, prot, qos, region, user, token = self.write_command_queue.popleft()
+            cmd = self.write_command_queue.popleft()
 
-            num_bytes = self.byte_width
-
-            if size is None:
+            if cmd.size is None:
                 size = self.max_burst_size
+                num_bytes = self.byte_width
             else:
-                num_bytes = 2**size
+                size = cmd.size
+                num_bytes = 2**cmd.size
                 assert 0 < num_bytes <= self.byte_width
 
-            aligned_addr = (addr // num_bytes) * num_bytes
-            word_addr = (addr // self.byte_width) * self.byte_width
+            aligned_addr = (cmd.address // num_bytes) * num_bytes
+            word_addr = (cmd.address // self.byte_width) * self.byte_width
 
-            start_offset = addr % self.byte_width
-            end_offset = ((addr + len(data) - 1) % self.byte_width) + 1
+            start_offset = cmd.address % self.byte_width
+            end_offset = ((cmd.address + len(cmd.data) - 1) % self.byte_width) + 1
 
-            cycles = (len(data) + (addr % num_bytes) + num_bytes-1) // num_bytes
+            cycles = (len(cmd.data) + (cmd.address % num_bytes) + num_bytes-1) // num_bytes
 
             cur_addr = aligned_addr
             offset = 0
@@ -213,7 +228,7 @@ class AxiMasterWrite(object):
             burst_length = 0
 
             self.log.info("Write start addr: 0x%08x prot: %s data: %s",
-                addr, prot, ' '.join((f'{c:02x}' for c in data)))
+                cmd.address, cmd.prot, ' '.join((f'{c:02x}' for c in cmd.data)))
 
             for k in range(cycles):
                 start = cycle_offset
@@ -228,7 +243,7 @@ class AxiMasterWrite(object):
 
                 val = 0
                 for j in range(start, stop):
-                    val |= bytearray(data)[offset] << j*8
+                    val |= cmd.data[offset] << j*8
                     offset += 1
 
                 if n >= burst_length:
@@ -253,18 +268,18 @@ class AxiMasterWrite(object):
                     aw.awaddr = cur_addr
                     aw.awlen = burst_length-1
                     aw.awsize = size
-                    aw.awburst = burst
-                    aw.awlock = lock
-                    aw.awcache = cache
-                    aw.awprot = prot
-                    aw.awqos = qos
-                    aw.awregion = region
-                    aw.awuser = user
+                    aw.awburst = cmd.burst
+                    aw.awlock = cmd.lock
+                    aw.awcache = cmd.cache
+                    aw.awprot = cmd.prot
+                    aw.awqos = cmd.qos
+                    aw.awregion = cmd.region
+                    aw.awuser = cmd.user
 
                     await self.aw_channel.drive(aw)
 
                     self.log.info("Write burst start awid: 0x%x awaddr: 0x%08x awlen: %d awsize: %d awprot: %s",
-                        awid, cur_addr, burst_length-1, size, prot)
+                        awid, cur_addr, burst_length-1, size, cmd.prot)
 
                 n += 1
 
@@ -278,7 +293,8 @@ class AxiMasterWrite(object):
                 cur_addr += num_bytes
                 cycle_offset = (cycle_offset + num_bytes) % self.byte_width
 
-            self.int_write_resp_command_queue.append((addr, len(data), size, cycles, prot, burst_list, token))
+            resp_cmd = AxiWriteRespCmd(cmd.address, len(cmd.data), size, cycles, cmd.prot, burst_list, cmd.token)
+            self.int_write_resp_command_queue.append(resp_cmd)
             self.int_write_resp_command_sync.set()
 
     async def _process_write_resp(self):
@@ -287,12 +303,12 @@ class AxiMasterWrite(object):
                 self.int_write_resp_command_sync.clear()
                 await self.int_write_resp_command_sync.wait()
 
-            addr, length, size, cycles, prot, burst_list, token = self.int_write_resp_command_queue.popleft()
+            cmd = self.int_write_resp_command_queue.popleft()
 
             resp = AxiResp.OKAY
             user = []
 
-            for bid, burst_length in burst_list:
+            for bid, burst_length in cmd.burst_list:
                 self.int_write_resp_queue_list.setdefault(bid, deque())
                 while True:
                     if self.int_write_resp_queue_list[bid]:
@@ -323,12 +339,12 @@ class AxiMasterWrite(object):
                 self.log.info("Write burst complete bid: 0x%x bresp: %s", burst_id, burst_resp)
 
             self.log.info("Write complete addr: 0x%08x prot: %s resp: %s length: %d",
-                addr, prot, resp, length)
+                cmd.address, cmd.prot, resp, cmd.length)
 
-            self.write_resp_queue.append((addr, length, resp, user, token))
+            self.write_resp_queue.append(AxiWriteResp(cmd.address, cmd.length, resp, user, cmd.token))
             self.write_resp_sync.set()
-            if token is not None:
-                self.write_resp_set.add(token)
+            if cmd.token is not None:
+                self.write_resp_set.add(cmd.token)
             self.in_flight_operations -= 1
 
 
@@ -395,7 +411,8 @@ class AxiMasterRead(object):
 
         self.in_flight_operations += 1
 
-        self.read_command_queue.append((address, length, burst, size, lock, cache, prot, qos, region, user, token))
+        cmd = AxiReadCmd(address, length, burst, size, lock, cache, prot, qos, region, user, token)
+        self.read_command_queue.append(cmd)
         self.read_command_sync.set()
 
     def idle(self):
@@ -422,17 +439,17 @@ class AxiMasterRead(object):
         if token is not None:
             if token in self.read_data_set:
                 for resp in self.read_data_queue:
-                    if resp[-1] == token:
+                    if resp.token == token:
                         self.read_data_queue.remove(resp)
-                        self.active_tokens.remove(resp[-1])
-                        self.read_data_set.remove(resp[-1])
+                        self.active_tokens.remove(resp.token)
+                        self.read_data_set.remove(resp.token)
                         return resp
             return None
         if self.read_data_queue:
             resp = self.read_data_queue.popleft()
-            if resp[-1] is not None:
-                self.active_tokens.remove(resp[-1])
-                self.read_data_set.remove(resp[-1])
+            if resp.token is not None:
+                self.active_tokens.remove(resp.token)
+                self.read_data_set.remove(resp.token)
             return resp
         return None
 
@@ -441,14 +458,14 @@ class AxiMasterRead(object):
         token = object()
         self.init_read(address, length, burst, size, lock, cache, prot, qos, region, user, token)
         await self.wait_for_token(token)
-        return self.get_read_data(token)[1:3]
+        return self.get_read_data(token)
 
     async def read_words(self, address, count, ws=2, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
         data = await self.read(address, count*ws, burst, size, lock, cache, prot, qos, region, user)
         words = []
         for k in range(count):
-            words.append(int.from_bytes(data[0][ws*k:ws*(k+1)], 'little'))
+            words.append(int.from_bytes(data.data[ws*k:ws*(k+1)], 'little'))
         return words
 
     async def read_dwords(self, address, count, burst=AxiBurstType.INCR, size=None,
@@ -461,7 +478,7 @@ class AxiMasterRead(object):
 
     async def read_byte(self, address, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return (await self.read(address, 1, burst, size, lock, cache, prot, qos, region, user))[0]
+        return (await self.read(address, 1, burst, size, lock, cache, prot, qos, region, user)).data[0]
 
     async def read_word(self, address, ws=2, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
@@ -481,19 +498,19 @@ class AxiMasterRead(object):
                 self.read_command_sync.clear()
                 await self.read_command_sync.wait()
 
-            addr, length, burst, size, lock, cache, prot, qos, region, user, token = self.read_command_queue.popleft()
+            cmd = self.read_command_queue.popleft()
 
-            num_bytes = self.byte_width
-
-            if size is None:
+            if cmd.size is None:
                 size = self.max_burst_size
+                num_bytes = self.byte_width
             else:
-                num_bytes = 2**size
+                size = cmd.size
+                num_bytes = 2**cmd.size
                 assert 0 < num_bytes <= self.byte_width
 
-            aligned_addr = (addr // num_bytes) * num_bytes
+            aligned_addr = (cmd.address // num_bytes) * num_bytes
 
-            cycles = (length + num_bytes-1 + (addr % num_bytes)) // num_bytes
+            cycles = (cmd.length + num_bytes-1 + (cmd.address % num_bytes)) // num_bytes
 
             burst_list = []
 
@@ -502,7 +519,7 @@ class AxiMasterRead(object):
 
             burst_length = 0
 
-            self.log.info("Read start addr: 0x%08x prot: %s", addr, prot)
+            self.log.info("Read start addr: 0x%08x prot: %s", cmd.address, cmd.prot)
 
             for k in range(cycles):
 
@@ -528,22 +545,23 @@ class AxiMasterRead(object):
                     ar.araddr = cur_addr
                     ar.arlen = burst_length-1
                     ar.arsize = size
-                    ar.arburst = burst
-                    ar.arlock = lock
-                    ar.arcache = cache
-                    ar.arprot = prot
-                    ar.arqos = qos
-                    ar.arregion = region
-                    ar.aruser = user
+                    ar.arburst = cmd.burst
+                    ar.arlock = cmd.lock
+                    ar.arcache = cmd.cache
+                    ar.arprot = cmd.prot
+                    ar.arqos = cmd.qos
+                    ar.arregion = cmd.region
+                    ar.aruser = cmd.user
 
                     await self.ar_channel.drive(ar)
 
                     self.log.info("Read burst start arid: 0x%x araddr: 0x%08x arlen: %d arsize: %d arprot: %s",
-                        arid, cur_addr, burst_length-1, size, prot)
+                        arid, cur_addr, burst_length-1, size, cmd.prot)
 
                 cur_addr += num_bytes
 
-            self.int_read_resp_command_queue.append((addr, length, size, cycles, prot, burst_list, token))
+            resp_cmd = AxiReadRespCmd(cmd.address, cmd.length, size, cycles, cmd.prot, burst_list, cmd.token)
+            self.int_read_resp_command_queue.append(resp_cmd)
             self.int_read_resp_command_sync.set()
 
     async def _process_read_resp(self):
@@ -552,14 +570,14 @@ class AxiMasterRead(object):
                 self.int_read_resp_command_sync.clear()
                 await self.int_read_resp_command_sync.wait()
 
-            addr, length, size, cycles, prot, burst_list, token = self.int_read_resp_command_queue.popleft()
+            cmd = self.int_read_resp_command_queue.popleft()
 
-            num_bytes = 2**size
+            num_bytes = 2**cmd.size
 
-            aligned_addr = (addr // num_bytes) * num_bytes
-            word_addr = (addr // self.byte_width) * self.byte_width
+            aligned_addr = (cmd.address // num_bytes) * num_bytes
+            word_addr = (cmd.address // self.byte_width) * self.byte_width
 
-            start_offset = addr % self.byte_width
+            start_offset = cmd.address % self.byte_width
 
             cycle_offset = aligned_addr - word_addr
             data = bytearray()
@@ -569,7 +587,7 @@ class AxiMasterRead(object):
 
             first = True
 
-            for rid, burst_length in burst_list:
+            for rid, burst_length in cmd.burst_list:
                 for k in range(burst_length):
                     self.int_read_resp_queue_list.setdefault(rid, deque())
                     while True:
@@ -617,15 +635,15 @@ class AxiMasterRead(object):
 
                 self.log.info("Read burst complete rid: 0x%x rresp: %s", cycle_id, resp)
 
-            data = data[:length]
+            data = data[:cmd.length]
 
             self.log.info("Read complete addr: 0x%08x prot: %s resp: %s data: %s",
-                addr, prot, resp, ' '.join((f'{c:02x}' for c in data)))
+                cmd.address, cmd.prot, resp, ' '.join((f'{c:02x}' for c in data)))
 
-            self.read_data_queue.append((addr, data, resp, user, token))
+            self.read_data_queue.append(AxiReadResp(cmd.address, data, resp, user, cmd.token))
             self.read_data_sync.set()
-            if token is not None:
-                self.read_data_set.add(token)
+            if cmd.token is not None:
+                self.read_data_set.add(cmd.token)
             self.in_flight_operations -= 1
 
 

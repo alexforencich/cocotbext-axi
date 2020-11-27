@@ -130,7 +130,7 @@ async def run_test_read(dut, data_in=None, idle_inserter=None, backpressure_inse
 
             data = await tb.axil_master.read(addr, length)
 
-            assert data[0] == test_data
+            assert data.data == test_data
 
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
@@ -158,7 +158,7 @@ async def run_stress_test(dut, idle_inserter=None, backpressure_inserter=None):
             await Timer(random.randint(1, 100), 'ns')
 
             data = await master.read(addr, length)
-            assert data[0] == test_data
+            assert data.data == test_data
 
     workers = []
 
