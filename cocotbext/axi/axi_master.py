@@ -22,7 +22,7 @@ THE SOFTWARE.
 
 """
 
-from collections import deque, namedtuple
+from collections import deque, namedtuple, Counter
 
 import cocotb
 from cocotb.triggers import Event
@@ -33,15 +33,15 @@ from .constants import AxiBurstType, AxiLockType, AxiProt, AxiResp
 from .axi_channels import AxiAWSource, AxiWSource, AxiBSink, AxiARSource, AxiRSink
 
 # AXI master write helper objects
-AxiWriteCmd = namedtuple("AxiWriteCmd", ["address", "data", "burst", "size", "lock",
-    "cache", "prot", "qos", "region", "user", "token"])
+AxiWriteCmd = namedtuple("AxiWriteCmd", ["address", "data", "awid", "burst", "size",
+    "lock", "cache", "prot", "qos", "region", "user", "token"])
 AxiWriteRespCmd = namedtuple("AxiWriteRespCmd", ["address", "length", "size", "cycles",
     "prot", "burst_list", "token"])
 AxiWriteResp = namedtuple("AxiWriteResp", ["address", "length", "resp", "user", "token"])
 
 # AXI master read helper objects
-AxiReadCmd = namedtuple("AxiReadCmd", ["address", "length", "burst", "size", "lock",
-    "cache", "prot", "qos", "region", "user", "token"])
+AxiReadCmd = namedtuple("AxiReadCmd", ["address", "length", "arid", "burst", "size",
+    "lock", "cache", "prot", "qos", "region", "user", "token"])
 AxiReadRespCmd = namedtuple("AxiReadRespCmd", ["address", "length", "size", "cycles",
     "prot", "burst_list", "token"])
 AxiReadResp = namedtuple("AxiReadResp", ["address", "data", "resp", "user", "token"])
@@ -70,8 +70,9 @@ class AxiMasterWrite(object):
         self.write_resp_sync = Event()
         self.write_resp_set = set()
 
-        self.id_queue = deque(range(2**len(self.aw_channel.bus.awid)))
-        self.id_sync = Event()
+        self.id_count = 2**len(self.aw_channel.bus.awid)
+        self.cur_id = 0
+        self.active_id = Counter()
 
         self.int_write_resp_command_queue = deque()
         self.int_write_resp_command_sync = Event()
@@ -104,12 +105,17 @@ class AxiMasterWrite(object):
         cocotb.fork(self._process_write())
         cocotb.fork(self._process_write_resp())
 
-    def init_write(self, address, data, burst=AxiBurstType.INCR, size=None,
+    def init_write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, token=None):
         if token is not None:
             if token in self.active_tokens:
                 raise Exception("Token is not unique")
             self.active_tokens.add(token)
+
+        if awid is None or awid < 0:
+            awid = None
+        elif awid > self.id_count:
+            raise ValueError("Requested ID exceeds maximum ID allowed for ID signal width")
 
         burst = AxiBurstType(burst)
 
@@ -123,7 +129,7 @@ class AxiMasterWrite(object):
 
         self.in_flight_operations += 1
 
-        cmd = AxiWriteCmd(address, bytearray(data), burst, size, lock, cache, prot, qos, region, user, token)
+        cmd = AxiWriteCmd(address, bytearray(data), awid, burst, size, lock, cache, prot, qos, region, user, token)
         self.write_command_queue.append(cmd)
         self.write_command_sync.set()
 
@@ -165,44 +171,44 @@ class AxiMasterWrite(object):
             return resp
         return None
 
-    async def write(self, address, data, burst=AxiBurstType.INCR, size=None,
+    async def write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
         token = object()
-        self.init_write(address, data, burst, size, lock, cache, prot, qos, region, user, token)
+        self.init_write(address, data, awid, burst, size, lock, cache, prot, qos, region, user, token)
         await self.wait_for_token(token)
         return self.get_write_resp(token)
 
-    async def write_words(self, address, data, ws=2, burst=AxiBurstType.INCR, size=None,
+    async def write_words(self, address, data, ws=2, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
         words = data
         data = bytearray()
         for w in words:
             data.extend(w.to_bytes(ws, 'little'))
-        await self.write(address, data, burst, size, lock, cache, prot, qos, region, user)
+        await self.write(address, data, awid, burst, size, lock, cache, prot, qos, region, user)
 
-    async def write_dwords(self, address, data, burst=AxiBurstType.INCR, size=None,
+    async def write_dwords(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        await self.write_words(address, data, 4, burst, size, lock, cache, prot, qos, region, user)
+        await self.write_words(address, data, 4, awid, burst, size, lock, cache, prot, qos, region, user)
 
-    async def write_qwords(self, address, data, burst=AxiBurstType.INCR, size=None,
+    async def write_qwords(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        await self.write_words(address, data, 8, burst, size, lock, cache, prot, qos, region, user)
+        await self.write_words(address, data, 8, awid, burst, size, lock, cache, prot, qos, region, user)
 
-    async def write_byte(self, address, data, burst=AxiBurstType.INCR, size=None,
+    async def write_byte(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        await self.write(address, [data], burst, size, lock, cache, prot, qos, region, user)
+        await self.write(address, [data], awid, burst, size, lock, cache, prot, qos, region, user)
 
-    async def write_word(self, address, data, ws=2, burst=AxiBurstType.INCR, size=None,
+    async def write_word(self, address, data, ws=2, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        await self.write_words(address, [data], ws, burst, size, lock, cache, prot, qos, region, user)
+        await self.write_words(address, [data], ws, awid, burst, size, lock, cache, prot, qos, region, user)
 
-    async def write_dword(self, address, data, burst=AxiBurstType.INCR, size=None,
+    async def write_dword(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        await self.write_dwords(address, [data], burst, size, lock, cache, prot, qos, region, user)
+        await self.write_dwords(address, [data], awid, burst, size, lock, cache, prot, qos, region, user)
 
-    async def write_qword(self, address, data, burst=AxiBurstType.INCR, size=None,
+    async def write_qword(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        await self.write_qwords(address, [data], burst, size, lock, cache, prot, qos, region, user)
+        await self.write_qwords(address, [data], awid, burst, size, lock, cache, prot, qos, region, user)
 
     async def _process_write(self):
         while True:
@@ -231,8 +237,14 @@ class AxiMasterWrite(object):
             burst_list = []
             burst_length = 0
 
-            self.log.info("Write start addr: 0x%08x prot: %s data: %s",
-                cmd.address, cmd.prot, ' '.join((f'{c:02x}' for c in cmd.data)))
+            if cmd.awid is not None:
+                awid = cmd.awid
+            else:
+                awid = self.cur_id
+                self.cur_id = (self.cur_id+1) % self.id_count
+
+            self.log.info("Write start addr: 0x%08x awid: 0x%x prot: %s data: %s",
+                cmd.address, awid, cmd.prot, ' '.join((f'{c:02x}' for c in cmd.data)))
 
             for k in range(cycles):
                 start = cycle_offset
@@ -251,12 +263,6 @@ class AxiMasterWrite(object):
                     offset += 1
 
                 if n >= burst_length:
-                    if not self.id_queue:
-                        self.id_sync.clear()
-                        await self.id_sync.wait()
-
-                    awid = self.id_queue.popleft()
-
                     transfer_count += 1
                     n = 0
 
@@ -280,6 +286,7 @@ class AxiMasterWrite(object):
                     aw.awregion = cmd.region
                     aw.awuser = cmd.user
 
+                    self.active_id[awid] += 1
                     await self.aw_channel.drive(aw)
 
                     self.log.info("Write burst start awid: 0x%x awaddr: 0x%08x awlen: %d awsize: %d awprot: %s",
@@ -321,6 +328,9 @@ class AxiMasterWrite(object):
                     await self.b_channel.wait()
                     b = self.b_channel.recv()
 
+                    if self.active_id[int(b.bid)] <= 0:
+                        raise Exception(f"Unexpected burst ID {bid}")
+
                     self.int_write_resp_queue_list[int(b.bid)].append(b)
 
                 b = self.int_write_resp_queue_list[bid].popleft()
@@ -335,10 +345,10 @@ class AxiMasterWrite(object):
                 if burst_user is not None:
                     user.append(burst_user)
 
-                if bid in self.id_queue:
+                if self.active_id[bid] <= 0:
                     raise Exception(f"Unexpected burst ID {bid}")
-                self.id_queue.append(bid)
-                self.id_sync.set()
+
+                self.active_id[bid] -= 1
 
                 self.log.info("Write burst complete bid: 0x%x bresp: %s", burst_id, burst_resp)
 
@@ -374,8 +384,9 @@ class AxiMasterRead(object):
         self.read_data_sync = Event()
         self.read_data_set = set()
 
-        self.id_queue = deque(range(2**len(self.ar_channel.bus.arid)))
-        self.id_sync = Event()
+        self.id_count = 2**len(self.ar_channel.bus.arid)
+        self.cur_id = 0
+        self.active_id = Counter()
 
         self.int_read_resp_command_queue = deque()
         self.int_read_resp_command_sync = Event()
@@ -406,12 +417,17 @@ class AxiMasterRead(object):
         cocotb.fork(self._process_read())
         cocotb.fork(self._process_read_resp())
 
-    def init_read(self, address, length, burst=AxiBurstType.INCR, size=None,
+    def init_read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, token=None):
         if token is not None:
             if token in self.active_tokens:
                 raise Exception("Token is not unique")
             self.active_tokens.add(token)
+
+        if arid is None or arid < 0:
+            arid = None
+        elif arid > self.id_count:
+            raise ValueError("Requested ID exceeds maximum ID allowed for ID signal width")
 
         burst = AxiBurstType(burst)
 
@@ -425,7 +441,7 @@ class AxiMasterRead(object):
 
         self.in_flight_operations += 1
 
-        cmd = AxiReadCmd(address, length, burst, size, lock, cache, prot, qos, region, user, token)
+        cmd = AxiReadCmd(address, length, arid, burst, size, lock, cache, prot, qos, region, user, token)
         self.read_command_queue.append(cmd)
         self.read_command_sync.set()
 
@@ -467,14 +483,14 @@ class AxiMasterRead(object):
             return resp
         return None
 
-    async def read(self, address, length, burst=AxiBurstType.INCR, size=None,
+    async def read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
         token = object()
-        self.init_read(address, length, burst, size, lock, cache, prot, qos, region, user, token)
+        self.init_read(address, length, arid, burst, size, lock, cache, prot, qos, region, user, token)
         await self.wait_for_token(token)
         return self.get_read_data(token)
 
-    async def read_words(self, address, count, ws=2, burst=AxiBurstType.INCR, size=None,
+    async def read_words(self, address, count, ws=2, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
         data = await self.read(address, count*ws, burst, size, lock, cache, prot, qos, region, user)
         words = []
@@ -482,29 +498,29 @@ class AxiMasterRead(object):
             words.append(int.from_bytes(data.data[ws*k:ws*(k+1)], 'little'))
         return words
 
-    async def read_dwords(self, address, count, burst=AxiBurstType.INCR, size=None,
+    async def read_dwords(self, address, count, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_words(address, count, 4, burst, size, lock, cache, prot, qos, region, user)
+        return await self.read_words(address, count, 4, arid, burst, size, lock, cache, prot, qos, region, user)
 
-    async def read_qwords(self, address, count, burst=AxiBurstType.INCR, size=None,
+    async def read_qwords(self, address, count, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_words(address, count, 8, burst, size, lock, cache, prot, qos, region, user)
+        return await self.read_words(address, count, 8, arid, burst, size, lock, cache, prot, qos, region, user)
 
-    async def read_byte(self, address, burst=AxiBurstType.INCR, size=None,
+    async def read_byte(self, address, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return (await self.read(address, 1, burst, size, lock, cache, prot, qos, region, user)).data[0]
+        return (await self.read(address, 1, arid, burst, size, lock, cache, prot, qos, region, user)).data[0]
 
-    async def read_word(self, address, ws=2, burst=AxiBurstType.INCR, size=None,
+    async def read_word(self, address, ws=2, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return (await self.read_words(address, 1, ws, burst, size, lock, cache, prot, qos, region, user))[0]
+        return (await self.read_words(address, 1, ws, arid, burst, size, lock, cache, prot, qos, region, user))[0]
 
-    async def read_dword(self, address, burst=AxiBurstType.INCR, size=None,
+    async def read_dword(self, address, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return (await self.read_dwords(address, 1, burst, size, lock, cache, prot, qos, region, user))[0]
+        return (await self.read_dwords(address, 1, arid, burst, size, lock, cache, prot, qos, region, user))[0]
 
-    async def read_qword(self, address, burst=AxiBurstType.INCR, size=None,
+    async def read_qword(self, address, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return (await self.read_qwords(address, 1, burst, size, lock, cache, prot, qos, region, user))[0]
+        return (await self.read_qwords(address, 1, arid, burst, size, lock, cache, prot, qos, region, user))[0]
 
     async def _process_read(self):
         while True:
@@ -527,18 +543,18 @@ class AxiMasterRead(object):
 
             burst_length = 0
 
-            self.log.info("Read start addr: 0x%08x prot: %s", cmd.address, cmd.prot)
+            if cmd.arid is not None:
+                arid = cmd.arid
+            else:
+                arid = self.cur_id
+                self.cur_id = (self.cur_id+1) % self.id_count
+
+            self.log.info("Read start addr: 0x%08x arid: 0x%x prot: %s", cmd.address, arid, cmd.prot)
 
             for k in range(cycles):
 
                 n += 1
                 if n >= burst_length:
-                    if not self.id_queue:
-                        self.id_sync.clear()
-                        await self.id_sync.wait()
-
-                    arid = self.id_queue.popleft()
-
                     n = 0
 
                     # split on burst length
@@ -561,6 +577,7 @@ class AxiMasterRead(object):
                     ar.arregion = cmd.region
                     ar.aruser = cmd.user
 
+                    self.active_id[arid] += 1
                     await self.ar_channel.drive(ar)
 
                     self.log.info("Read burst start arid: 0x%x araddr: 0x%08x arlen: %d arsize: %d arprot: %s",
@@ -605,6 +622,9 @@ class AxiMasterRead(object):
                         await self.r_channel.wait()
                         r = self.r_channel.recv()
 
+                        if self.active_id[int(r.rid)] <= 0:
+                            raise Exception(f"Unexpected burst ID {rid}")
+
                         self.int_read_resp_queue_list[int(r.rid)].append(r)
 
                     r = self.int_read_resp_queue_list[rid].popleft()
@@ -636,10 +656,10 @@ class AxiMasterRead(object):
 
                     first = False
 
-                if rid in self.id_queue:
+                if self.active_id[rid] <= 0:
                     raise Exception(f"Unexpected burst ID {rid}")
-                self.id_queue.append(rid)
-                self.id_sync.set()
+
+                self.active_id[rid] -= 1
 
                 self.log.info("Read burst complete rid: 0x%x rresp: %s", cycle_id, resp)
 
@@ -697,66 +717,82 @@ class AxiMaster(object):
     def get_write_resp(self, token=None):
         return self.write_if.get_write_resp(token)
 
-    async def read(self, address, length, burst=AxiBurstType.INCR, size=None,
+    async def read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read(address, length, burst, size, lock, cache, prot, qos, region, user)
+        return await self.read_if.read(address, length, arid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def read_words(self, address, count, ws=2, burst=AxiBurstType.INCR, size=None,
+    async def read_words(self, address, count, ws=2, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read_words(address, count, ws, burst, size, lock, cache, prot, qos, region, user)
+        return await self.read_if.read_words(address, count, ws, arid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def read_dwords(self, address, count, burst=AxiBurstType.INCR, size=None,
+    async def read_dwords(self, address, count, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read_dwords(address, count, burst, size, lock, cache, prot, qos, region, user)
+        return await self.read_if.read_dwords(address, count, arid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def read_qwords(self, address, count, burst=AxiBurstType.INCR, size=None,
+    async def read_qwords(self, address, count, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read_qwords(address, count, burst, size, lock, cache, prot, qos, region, user)
+        return await self.read_if.read_qwords(address, count, arid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def read_byte(self, address, burst=AxiBurstType.INCR, size=None,
+    async def read_byte(self, address, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read_byte(address, burst, size, lock, cache, prot, qos, region, user)
+        return await self.read_if.read_byte(address, arid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def read_word(self, address, ws=2, burst=AxiBurstType.INCR, size=None,
+    async def read_word(self, address, ws=2, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read_word(address, ws, burst, size, lock, cache, prot, qos, region, user)
+        return await self.read_if.read_word(address, ws, arid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def read_dword(self, address, burst=AxiBurstType.INCR, size=None,
+    async def read_dword(self, address, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read_dword(address, burst, size, lock, cache, prot, qos, region, user)
+        return await self.read_if.read_dword(address, arid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def read_qword(self, address, burst=AxiBurstType.INCR, size=None,
+    async def read_qword(self, address, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read_qword(address, burst, size, lock, cache, prot, qos, region, user)
+        return await self.read_if.read_qword(address, arid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def write(self, address, data, burst=AxiBurstType.INCR, size=None,
+    async def write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.write_if.write(address, data, burst, size, lock, cache, prot, qos, region, user)
+        return await self.write_if.write(address, data, awid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def write_words(self, address, data, ws=2, burst=AxiBurstType.INCR, size=None,
+    async def write_words(self, address, data, ws=2, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.write_if.write_words(address, data, ws, burst, size, lock, cache, prot, qos, region, user)
+        return await self.write_if.write_words(address, data, ws, awid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def write_dwords(self, address, data, burst=AxiBurstType.INCR, size=None,
+    async def write_dwords(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.write_if.write_dwords(address, data, burst, size, lock, cache, prot, qos, region, user)
+        return await self.write_if.write_dwords(address, data, awid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def write_qwords(self, address, data, burst=AxiBurstType.INCR, size=None,
+    async def write_qwords(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.write_if.write_qwords(address, data, burst, size, lock, cache, prot, qos, region, user)
+        return await self.write_if.write_qwords(address, data, awid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def write_byte(self, address, data, burst=AxiBurstType.INCR, size=None,
+    async def write_byte(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.write_if.write_byte(address, data, burst, size, lock, cache, prot, qos, region, user)
+        return await self.write_if.write_byte(address, data, awid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def write_word(self, address, data, ws=2, burst=AxiBurstType.INCR, size=None,
+    async def write_word(self, address, data, ws=2, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.write_if.write_word(address, data, ws, burst, size, lock, cache, prot, qos, region, user)
+        return await self.write_if.write_word(address, data, ws, awid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def write_dword(self, address, data, burst=AxiBurstType.INCR, size=None,
+    async def write_dword(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.write_if.write_dword(address, data, burst, size, lock, cache, prot, qos, region, user)
+        return await self.write_if.write_dword(address, data, awid,
+            burst, size, lock, cache, prot, qos, region, user)
 
-    async def write_qword(self, address, data, burst=AxiBurstType.INCR, size=None,
+    async def write_qword(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.write_if.write_qword(address, data, burst, size, lock, cache, prot, qos, region, user)
+        return await self.write_if.write_qword(address, data, awid,
+            burst, size, lock, cache, prot, qos, region, user)
