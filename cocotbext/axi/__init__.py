@@ -26,7 +26,7 @@ from .version import __version__
 
 from .constants import AxiBurstType, AxiBurstSize, AxiLockType, AxiCacheBit, AxiProt, AxiResp
 
-from .axis import AxiStreamFrame, AxiStreamSource, AxiStreamSink
+from .axis import AxiStreamFrame, AxiStreamSource, AxiStreamSink, AxiStreamMonitor
 
 from .axil_master import AxiLiteMasterWrite, AxiLiteMasterRead, AxiLiteMaster
 from .axil_ram import AxiLiteRamWrite, AxiLiteRamRead, AxiLiteRam
