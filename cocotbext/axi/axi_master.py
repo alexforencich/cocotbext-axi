@@ -111,11 +111,15 @@ class AxiMasterWrite(object):
                 raise Exception("Token is not unique")
             self.active_tokens.add(token)
 
+        burst = AxiBurstType(burst)
+
         if size is None or size < 0:
             size = self.max_burst_size
-        else:
-            if size > self.max_burst_size:
-                raise ValueError("Requested burst size exceeds maximum burst size allowed for bus width")
+        elif size > self.max_burst_size:
+            raise ValueError("Requested burst size exceeds maximum burst size allowed for bus width")
+
+        lock = AxiLockType(lock)
+        prot = AxiProt(prot)
 
         self.in_flight_operations += 1
 
@@ -409,11 +413,15 @@ class AxiMasterRead(object):
                 raise Exception("Token is not unique")
             self.active_tokens.add(token)
 
+        burst = AxiBurstType(burst)
+
         if size is None or size < 0:
             size = self.max_burst_size
-        else:
-            if size > self.max_burst_size:
-                raise ValueError("Requested burst size exceeds maximum burst size allowed for bus width")
+        elif size > self.max_burst_size:
+            raise ValueError("Requested burst size exceeds maximum burst size allowed for bus width")
+
+        lock = AxiLockType(lock)
+        prot = AxiProt(prot)
 
         self.in_flight_operations += 1
 
