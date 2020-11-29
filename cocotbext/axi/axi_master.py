@@ -111,6 +111,12 @@ class AxiMasterWrite(object):
                 raise Exception("Token is not unique")
             self.active_tokens.add(token)
 
+        if size is None or size < 0:
+            size = self.max_burst_size
+        else:
+            if size > self.max_burst_size:
+                raise ValueError("Requested burst size exceeds maximum burst size allowed for bus width")
+
         self.in_flight_operations += 1
 
         cmd = AxiWriteCmd(address, bytearray(data), burst, size, lock, cache, prot, qos, region, user, token)
@@ -202,13 +208,7 @@ class AxiMasterWrite(object):
 
             cmd = self.write_command_queue.popleft()
 
-            if cmd.size is None:
-                size = self.max_burst_size
-                num_bytes = self.byte_width
-            else:
-                size = cmd.size
-                num_bytes = 2**cmd.size
-                assert 0 < num_bytes <= self.byte_width
+            num_bytes = 2**cmd.size
 
             aligned_addr = (cmd.address // num_bytes) * num_bytes
             word_addr = (cmd.address // self.byte_width) * self.byte_width
@@ -267,7 +267,7 @@ class AxiMasterWrite(object):
                     aw.awid = awid
                     aw.awaddr = cur_addr
                     aw.awlen = burst_length-1
-                    aw.awsize = size
+                    aw.awsize = cmd.size
                     aw.awburst = cmd.burst
                     aw.awlock = cmd.lock
                     aw.awcache = cmd.cache
@@ -279,7 +279,7 @@ class AxiMasterWrite(object):
                     await self.aw_channel.drive(aw)
 
                     self.log.info("Write burst start awid: 0x%x awaddr: 0x%08x awlen: %d awsize: %d awprot: %s",
-                        awid, cur_addr, burst_length-1, size, cmd.prot)
+                        awid, cur_addr, burst_length-1, cmd.size, cmd.prot)
 
                 n += 1
 
@@ -293,7 +293,7 @@ class AxiMasterWrite(object):
                 cur_addr += num_bytes
                 cycle_offset = (cycle_offset + num_bytes) % self.byte_width
 
-            resp_cmd = AxiWriteRespCmd(cmd.address, len(cmd.data), size, cycles, cmd.prot, burst_list, cmd.token)
+            resp_cmd = AxiWriteRespCmd(cmd.address, len(cmd.data), cmd.size, cycles, cmd.prot, burst_list, cmd.token)
             self.int_write_resp_command_queue.append(resp_cmd)
             self.int_write_resp_command_sync.set()
 
@@ -409,6 +409,12 @@ class AxiMasterRead(object):
                 raise Exception("Token is not unique")
             self.active_tokens.add(token)
 
+        if size is None or size < 0:
+            size = self.max_burst_size
+        else:
+            if size > self.max_burst_size:
+                raise ValueError("Requested burst size exceeds maximum burst size allowed for bus width")
+
         self.in_flight_operations += 1
 
         cmd = AxiReadCmd(address, length, burst, size, lock, cache, prot, qos, region, user, token)
@@ -500,13 +506,7 @@ class AxiMasterRead(object):
 
             cmd = self.read_command_queue.popleft()
 
-            if cmd.size is None:
-                size = self.max_burst_size
-                num_bytes = self.byte_width
-            else:
-                size = cmd.size
-                num_bytes = 2**cmd.size
-                assert 0 < num_bytes <= self.byte_width
+            num_bytes = 2**cmd.size
 
             aligned_addr = (cmd.address // num_bytes) * num_bytes
 
@@ -544,7 +544,7 @@ class AxiMasterRead(object):
                     ar.arid = arid
                     ar.araddr = cur_addr
                     ar.arlen = burst_length-1
-                    ar.arsize = size
+                    ar.arsize = cmd.size
                     ar.arburst = cmd.burst
                     ar.arlock = cmd.lock
                     ar.arcache = cmd.cache
@@ -556,11 +556,11 @@ class AxiMasterRead(object):
                     await self.ar_channel.drive(ar)
 
                     self.log.info("Read burst start arid: 0x%x araddr: 0x%08x arlen: %d arsize: %d arprot: %s",
-                        arid, cur_addr, burst_length-1, size, cmd.prot)
+                        arid, cur_addr, burst_length-1, cmd.size, cmd.prot)
 
                 cur_addr += num_bytes
 
-            resp_cmd = AxiReadRespCmd(cmd.address, cmd.length, size, cycles, cmd.prot, burst_list, cmd.token)
+            resp_cmd = AxiReadRespCmd(cmd.address, cmd.length, cmd.size, cycles, cmd.prot, burst_list, cmd.token)
             self.int_read_resp_command_queue.append(resp_cmd)
             self.int_read_resp_command_sync.set()
 
