@@ -136,6 +136,104 @@ async def run_test_read(dut, data_in=None, idle_inserter=None, backpressure_inse
     await RisingEdge(dut.clk)
 
 
+async def run_test_write_words(dut):
+
+    tb = TB(dut)
+
+    byte_width = tb.axil_master.write_if.byte_width
+
+    await tb.cycle_reset()
+
+    for length in list(range(1, 4)):
+        for offset in list(range(byte_width)):
+            tb.log.info(f"length {length}, offset {offset}")
+            addr = offset+0x1000
+
+            test_data = bytearray([x % 256 for x in range(length)])
+            await tb.axil_master.write(addr, test_data)
+            assert tb.axil_ram.read(addr, length) == test_data
+
+            test_data = [x * 0x1001 for x in range(length)]
+            await tb.axil_master.write_words(addr, test_data)
+            assert tb.axil_ram.read_words(addr, length) == test_data
+
+            test_data = [x * 0x10200201 for x in range(length)]
+            await tb.axil_master.write_dwords(addr, test_data)
+            assert tb.axil_ram.read_dwords(addr, length) == test_data
+
+            test_data = [x * 0x1020304004030201 for x in range(length)]
+            await tb.axil_master.write_qwords(addr, test_data)
+            assert tb.axil_ram.read_qwords(addr, length) == test_data
+
+            test_data = 0x01*length
+            await tb.axil_master.write_byte(addr, test_data)
+            assert tb.axil_ram.read_byte(addr) == test_data
+
+            test_data = 0x1001*length
+            await tb.axil_master.write_word(addr, test_data)
+            assert tb.axil_ram.read_word(addr) == test_data
+
+            test_data = 0x10200201*length
+            await tb.axil_master.write_dword(addr, test_data)
+            assert tb.axil_ram.read_dword(addr) == test_data
+
+            test_data = 0x1020304004030201*length
+            await tb.axil_master.write_qword(addr, test_data)
+            assert tb.axil_ram.read_qword(addr) == test_data
+
+    await RisingEdge(dut.clk)
+    await RisingEdge(dut.clk)
+
+
+async def run_test_read_words(dut):
+
+    tb = TB(dut)
+
+    byte_width = tb.axil_master.write_if.byte_width
+
+    await tb.cycle_reset()
+
+    for length in list(range(1, 4)):
+        for offset in list(range(byte_width)):
+            tb.log.info(f"length {length}, offset {offset}")
+            addr = offset+0x1000
+
+            test_data = bytearray([x % 256 for x in range(length)])
+            tb.axil_ram.write(addr, test_data)
+            assert (await tb.axil_master.read(addr, length)).data == test_data
+
+            test_data = [x * 0x1001 for x in range(length)]
+            tb.axil_ram.write_words(addr, test_data)
+            assert await tb.axil_master.read_words(addr, length) == test_data
+
+            test_data = [x * 0x10200201 for x in range(length)]
+            tb.axil_ram.write_dwords(addr, test_data)
+            assert await tb.axil_master.read_dwords(addr, length) == test_data
+
+            test_data = [x * 0x1020304004030201 for x in range(length)]
+            tb.axil_ram.write_qwords(addr, test_data)
+            assert await tb.axil_master.read_qwords(addr, length) == test_data
+
+            test_data = 0x01*length
+            tb.axil_ram.write_byte(addr, test_data)
+            assert await tb.axil_master.read_byte(addr) == test_data
+
+            test_data = 0x1001*length
+            tb.axil_ram.write_word(addr, test_data)
+            assert await tb.axil_master.read_word(addr) == test_data
+
+            test_data = 0x10200201*length
+            tb.axil_ram.write_dword(addr, test_data)
+            assert await tb.axil_master.read_dword(addr) == test_data
+
+            test_data = 0x1020304004030201*length
+            tb.axil_ram.write_qword(addr, test_data)
+            assert await tb.axil_master.read_qword(addr) == test_data
+
+    await RisingEdge(dut.clk)
+    await RisingEdge(dut.clk)
+
+
 async def run_stress_test(dut, idle_inserter=None, backpressure_inserter=None):
 
     tb = TB(dut)
@@ -183,6 +281,11 @@ if cocotb.SIM_NAME:
         factory = TestFactory(test)
         factory.add_option("idle_inserter", [None, cycle_pause])
         factory.add_option("backpressure_inserter", [None, cycle_pause])
+        factory.generate_tests()
+
+    for test in [run_test_write_words, run_test_read_words]:
+
+        factory = TestFactory(test)
         factory.generate_tests()
 
     factory = TestFactory(run_stress_test)
