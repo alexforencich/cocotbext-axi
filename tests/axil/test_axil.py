@@ -95,15 +95,15 @@ async def run_test_write(dut, data_in=None, idle_inserter=None, backpressure_ins
             addr = offset+0x1000
             test_data = bytearray([x % 256 for x in range(length)])
 
-            tb.axil_ram.write_mem(addr-128, b'\xaa'*(length+256))
+            tb.axil_ram.write(addr-128, b'\xaa'*(length+256))
 
             await tb.axil_master.write(addr, test_data)
 
             tb.log.debug("%s", tb.axil_ram.hexdump_str((addr & 0xfffffff0)-16, (((addr & 0xf)+length-1) & 0xfffffff0)+48))
 
-            assert tb.axil_ram.read_mem(addr, length) == test_data
-            assert tb.axil_ram.read_mem(addr-1, 1) == b'\xaa'
-            assert tb.axil_ram.read_mem(addr+length, 1) == b'\xaa'
+            assert tb.axil_ram.read(addr, length) == test_data
+            assert tb.axil_ram.read(addr-1, 1) == b'\xaa'
+            assert tb.axil_ram.read(addr+length, 1) == b'\xaa'
 
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
@@ -126,7 +126,7 @@ async def run_test_read(dut, data_in=None, idle_inserter=None, backpressure_inse
             addr = offset+0x1000
             test_data = bytearray([x % 256 for x in range(length)])
 
-            tb.axil_ram.write_mem(addr, test_data)
+            tb.axil_ram.write(addr, test_data)
 
             data = await tb.axil_master.read(addr, length)
 
