@@ -442,6 +442,9 @@ class AxiMasterRead(object):
                 raise Exception("Token is not unique")
             self.active_tokens.add(token)
 
+        if length < 0:
+            raise ValueError("Read length must be positive")
+
         if arid is None or arid < 0:
             arid = None
         elif arid > self.id_count:
