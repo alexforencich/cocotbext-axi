@@ -136,17 +136,17 @@ class AxiMasterWrite(object):
     def idle(self):
         return not self.in_flight_operations
 
-    async def wait(self):
-        while not self.idle():
-            self.write_resp_sync.clear()
-            await self.write_resp_sync.wait()
-
-    async def wait_for_token(self, token):
-        if token not in self.active_tokens:
-            return
-        while token not in self.write_resp_set:
-            self.write_resp_sync.clear()
-            await self.write_resp_sync.wait()
+    async def wait(self, token=None):
+        if token is None:
+            while not self.idle():
+                self.write_resp_sync.clear()
+                await self.write_resp_sync.wait()
+        else:
+            if token not in self.active_tokens:
+                raise ValueError("Unknown token")
+            while token not in self.write_resp_set:
+                self.write_resp_sync.clear()
+                await self.write_resp_sync.wait()
 
     def write_resp_ready(self, token=None):
         if token is not None:
@@ -175,7 +175,7 @@ class AxiMasterWrite(object):
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
         token = object()
         self.init_write(address, data, awid, burst, size, lock, cache, prot, qos, region, user, token)
-        await self.wait_for_token(token)
+        await self.wait(token)
         return self.get_write_resp(token)
 
     async def write_words(self, address, data, ws=2, awid=None, burst=AxiBurstType.INCR, size=None,
@@ -448,17 +448,17 @@ class AxiMasterRead(object):
     def idle(self):
         return not self.in_flight_operations
 
-    async def wait(self):
-        while not self.idle():
-            self.read_resp_sync.clear()
-            await self.read_resp_sync.wait()
-
-    async def wait_for_token(self, token):
-        if token not in self.active_tokens:
-            return
-        while token not in self.read_data_set:
-            self.read_data_sync.clear()
-            await self.read_data_sync.wait()
+    async def wait(self, token=None):
+        if token is None:
+            while not self.idle():
+                self.read_data_sync.clear()
+                await self.read_data_sync.wait()
+        else:
+            if token not in self.active_tokens:
+                raise ValueError("Unknown token")
+            while token not in self.read_data_set:
+                self.read_data_sync.clear()
+                await self.read_data_sync.wait()
 
     def read_data_ready(self, token=None):
         if token is not None:
@@ -487,7 +487,7 @@ class AxiMasterRead(object):
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
         token = object()
         self.init_read(address, length, arid, burst, size, lock, cache, prot, qos, region, user, token)
-        await self.wait_for_token(token)
+        await self.wait(token)
         return self.get_read_data(token)
 
     async def read_words(self, address, count, ws=2, arid=None, burst=AxiBurstType.INCR, size=None,
@@ -694,16 +694,22 @@ class AxiMaster(object):
     def idle(self):
         return (not self.read_if or self.read_if.idle()) and (not self.write_if or self.write_if.idle())
 
-    async def wait(self):
-        while not self.idle():
-            await self.write_if.wait()
-            await self.read_if.wait()
+    async def wait(self, token=None):
+        if token is None:
+            while not self.idle():
+                await self.write_if.wait()
+                await self.read_if.wait()
+        else:
+            if token in self.write_if.active_tokens:
+                await self.write_if.wait(token)
+            else:
+                await self.read_if.wait(token)
 
-    async def wait_read(self):
-        await self.read_if.wait()
+    async def wait_read(self, token=None):
+        await self.read_if.wait(token)
 
-    async def wait_write(self):
-        await self.write_if.wait()
+    async def wait_write(self, token=None):
+        await self.write_if.wait(token)
 
     def read_data_ready(self, token=None):
         return self.read_if.read_data_ready(token)
