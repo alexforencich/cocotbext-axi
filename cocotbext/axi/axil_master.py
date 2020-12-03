@@ -33,14 +33,14 @@ from .constants import AxiProt, AxiResp
 from .axil_channels import AxiLiteAWSource, AxiLiteWSource, AxiLiteBSink, AxiLiteARSource, AxiLiteRSink
 
 # AXI lite master write
-AxiLiteWriteCmd = namedtuple("AxiLiteWriteCmd", ["address", "data", "prot", "token"])
-AxiLiteWriteRespCmd = namedtuple("AxiLiteWriteRespCmd", ["address", "length", "cycles", "prot", "token"])
-AxiLiteWriteResp = namedtuple("AxiLiteWriteResp", ["address", "length", "resp", "token"])
+AxiLiteWriteCmd = namedtuple("AxiLiteWriteCmd", ["address", "data", "prot", "event"])
+AxiLiteWriteRespCmd = namedtuple("AxiLiteWriteRespCmd", ["address", "length", "cycles", "prot", "event"])
+AxiLiteWriteResp = namedtuple("AxiLiteWriteResp", ["address", "length", "resp"])
 
 # AXI lite master read
-AxiLiteReadCmd = namedtuple("AxiLiteReadCmd", ["address", "length", "prot", "token"])
-AxiLiteReadRespCmd = namedtuple("AxiLiteReadRespCmd", ["address", "length", "cycles", "prot", "token"])
-AxiLiteReadResp = namedtuple("AxiLiteReadResp", ["address", "data", "resp", "token"])
+AxiLiteReadCmd = namedtuple("AxiLiteReadCmd", ["address", "length", "prot", "event"])
+AxiLiteReadRespCmd = namedtuple("AxiLiteReadRespCmd", ["address", "length", "cycles", "prot", "event"])
+AxiLiteReadResp = namedtuple("AxiLiteReadResp", ["address", "data", "resp"])
 
 
 class AxiLiteMasterWrite(object):
@@ -57,8 +57,6 @@ class AxiLiteMasterWrite(object):
         self.aw_channel = AxiLiteAWSource(entity, name, clock, reset)
         self.w_channel = AxiLiteWSource(entity, name, clock, reset)
         self.b_channel = AxiLiteBSink(entity, name, clock, reset)
-
-        self.active_tokens = set()
 
         self.write_command_queue = deque()
         self.write_command_sync = Event()
@@ -87,60 +85,36 @@ class AxiLiteMasterWrite(object):
         cocotb.fork(self._process_write())
         cocotb.fork(self._process_write_resp())
 
-    def init_write(self, address, data, prot=AxiProt.NONSECURE, token=None):
-        if token is not None:
-            if token in self.active_tokens:
-                raise Exception("Token is not unique")
-            self.active_tokens.add(token)
+    def init_write(self, address, data, prot=AxiProt.NONSECURE, event=None):
+        if event is not None and not isinstance(event, Event):
+            raise ValueError("Expected event object")
 
         self.in_flight_operations += 1
 
-        self.write_command_queue.append(AxiLiteWriteCmd(address, bytearray(data), prot, token))
+        self.write_command_queue.append(AxiLiteWriteCmd(address, bytearray(data), prot, event))
         self.write_command_sync.set()
 
     def idle(self):
         return not self.in_flight_operations
 
-    async def wait(self, token=None):
-        if token is None:
-            while not self.idle():
-                self.write_resp_sync.clear()
-                await self.write_resp_sync.wait()
-        else:
-            if token not in self.active_tokens:
-                raise ValueError("Unknown token")
-            while token not in self.write_resp_set:
-                self.write_resp_sync.clear()
-                await self.write_resp_sync.wait()
+    async def wait(self):
+        while not self.idle():
+            self.write_resp_sync.clear()
+            await self.write_resp_sync.wait()
 
-    def write_resp_ready(self, token=None):
-        if token is not None:
-            return token in self.write_resp_set
+    def write_resp_ready(self):
         return bool(self.write_resp_queue)
 
-    def get_write_resp(self, token=None):
-        if token is not None:
-            if token in self.write_resp_set:
-                for resp in self.write_resp_queue:
-                    if resp.token == token:
-                        self.write_resp_queue.remove(resp)
-                        self.active_tokens.remove(resp.token)
-                        self.write_resp_set.remove(resp.token)
-                        return resp
-            return None
+    def get_write_resp(self):
         if self.write_resp_queue:
-            resp = self.write_resp_queue.popleft()
-            if resp.token is not None:
-                self.active_tokens.remove(resp.token)
-                self.write_resp_set.remove(resp.token)
-            return resp
+            return self.write_resp_queue.popleft()
         return None
 
     async def write(self, address, data, prot=AxiProt.NONSECURE):
-        token = object()
-        self.init_write(address, data, prot, token)
-        await self.wait(token)
-        return self.get_write_resp(token)
+        event = Event()
+        self.init_write(address, data, prot, event)
+        await event.wait()
+        return event.data
 
     async def write_words(self, address, data, byteorder='little', ws=2, prot=AxiProt.NONSECURE):
         words = data
@@ -185,7 +159,7 @@ class AxiLiteMasterWrite(object):
 
             cycles = (len(cmd.data) + (cmd.address % self.byte_width) + self.byte_width-1) // self.byte_width
 
-            resp_cmd = AxiLiteWriteRespCmd(cmd.address, len(cmd.data), cycles, cmd.prot, cmd.token)
+            resp_cmd = AxiLiteWriteRespCmd(cmd.address, len(cmd.data), cycles, cmd.prot, cmd.event)
             self.int_write_resp_command_queue.append(resp_cmd)
             self.int_write_resp_command_sync.set()
 
@@ -244,10 +218,14 @@ class AxiLiteMasterWrite(object):
             self.log.info("Write complete addr: 0x%08x prot: %s resp: %s length: %d",
                 cmd.address, cmd.prot, resp, cmd.length)
 
-            self.write_resp_queue.append(AxiLiteWriteResp(cmd.address, cmd.length, resp, cmd.token))
-            self.write_resp_sync.set()
-            if cmd.token is not None:
-                self.write_resp_set.add(cmd.token)
+            write_resp = AxiLiteWriteResp(cmd.address, cmd.length, resp)
+
+            if cmd.event is not None:
+                cmd.event.set(write_resp)
+            else:
+                self.write_resp_queue.append(write_resp)
+                self.write_resp_sync.set()
+
             self.in_flight_operations -= 1
 
 
@@ -264,8 +242,6 @@ class AxiLiteMasterRead(object):
 
         self.ar_channel = AxiLiteARSource(entity, name, clock, reset)
         self.r_channel = AxiLiteRSink(entity, name, clock, reset)
-
-        self.active_tokens = set()
 
         self.read_command_queue = deque()
         self.read_command_sync = Event()
@@ -292,60 +268,36 @@ class AxiLiteMasterRead(object):
         cocotb.fork(self._process_read())
         cocotb.fork(self._process_read_resp())
 
-    def init_read(self, address, length, prot=AxiProt.NONSECURE, token=None):
-        if token is not None:
-            if token in self.active_tokens:
-                raise Exception("Token is not unique")
-            self.active_tokens.add(token)
+    def init_read(self, address, length, prot=AxiProt.NONSECURE, event=None):
+        if event is not None and not isinstance(event, Event):
+            raise ValueError("Expected event object")
 
         self.in_flight_operations += 1
 
-        self.read_command_queue.append(AxiLiteReadCmd(address, length, prot, token))
+        self.read_command_queue.append(AxiLiteReadCmd(address, length, prot, event))
         self.read_command_sync.set()
 
     def idle(self):
         return not self.in_flight_operations
 
-    async def wait(self, token=None):
-        if token is None:
-            while not self.idle():
-                self.read_data_sync.clear()
-                await self.read_data_sync.wait()
-        else:
-            if token not in self.active_tokens:
-                raise ValueError("Unknown token")
-            while token not in self.read_data_set:
-                self.read_data_sync.clear()
-                await self.read_data_sync.wait()
+    async def wait(self):
+        while not self.idle():
+            self.read_data_sync.clear()
+            await self.read_data_sync.wait()
 
-    def read_data_ready(self, token=None):
-        if token is not None:
-            return token in self.read_data_set
+    def read_data_ready(self):
         return bool(self.read_data_queue)
 
-    def get_read_data(self, token=None):
-        if token is not None:
-            if token in self.read_data_set:
-                for resp in self.read_data_queue:
-                    if resp.token == token:
-                        self.read_data_queue.remove(resp)
-                        self.active_tokens.remove(resp.token)
-                        self.read_data_set.remove(resp.token)
-                        return resp
-            return None
+    def get_read_data(self):
         if self.read_data_queue:
-            resp = self.read_data_queue.popleft()
-            if resp.token is not None:
-                self.active_tokens.remove(resp.token)
-                self.read_data_set.remove(resp.token)
-            return resp
+            return self.read_data_queue.popleft()
         return None
 
     async def read(self, address, length, prot=AxiProt.NONSECURE):
-        token = object()
-        self.init_read(address, length, prot, token)
-        await self.wait(token)
-        return self.get_read_data(token)
+        event = Event()
+        self.init_read(address, length, prot, event)
+        await event.wait()
+        return event.data
 
     async def read_words(self, address, count, byteorder='little', ws=2, prot=AxiProt.NONSECURE):
         data = await self.read(address, count*ws, prot)
@@ -384,7 +336,7 @@ class AxiLiteMasterRead(object):
 
             cycles = (cmd.length + self.byte_width-1 + (cmd.address % self.byte_width)) // self.byte_width
 
-            resp_cmd = AxiLiteReadRespCmd(cmd.address, cmd.length, cycles, cmd.prot, cmd.token)
+            resp_cmd = AxiLiteReadRespCmd(cmd.address, cmd.length, cycles, cmd.prot, cmd.event)
             self.int_read_resp_command_queue.append(resp_cmd)
             self.int_read_resp_command_sync.set()
 
@@ -437,10 +389,14 @@ class AxiLiteMasterRead(object):
             self.log.info("Read complete addr: 0x%08x prot: %s resp: %s data: %s",
                 cmd.address, cmd.prot, resp, ' '.join((f'{c:02x}' for c in data)))
 
-            self.read_data_queue.append(AxiLiteReadResp(cmd.address, data, resp, cmd.token))
-            self.read_data_sync.set()
-            if cmd.token is not None:
-                self.read_data_set.add(cmd.token)
+            read_resp = AxiLiteReadResp(cmd.address, data, resp)
+
+            if cmd.event is not None:
+                cmd.event.set(read_resp)
+            else:
+                self.read_data_queue.append(read_resp)
+                self.read_data_sync.set()
+
             self.in_flight_operations -= 1
 
 
@@ -452,43 +408,37 @@ class AxiLiteMaster(object):
         self.write_if = AxiLiteMasterWrite(entity, name, clock, reset)
         self.read_if = AxiLiteMasterRead(entity, name, clock, reset)
 
-    def init_read(self, address, length, prot=AxiProt.NONSECURE, token=None):
-        self.read_if.init_read(address, length, prot, token)
+    def init_read(self, address, length, prot=AxiProt.NONSECURE, event=None):
+        self.read_if.init_read(address, length, prot, event)
 
-    def init_write(self, address, data, prot=AxiProt.NONSECURE, token=None):
-        self.write_if.init_write(address, data, prot, token)
+    def init_write(self, address, data, prot=AxiProt.NONSECURE, event=None):
+        self.write_if.init_write(address, data, prot, event)
 
     def idle(self):
         return (not self.read_if or self.read_if.idle()) and (not self.write_if or self.write_if.idle())
 
-    async def wait(self, token=None):
-        if token is None:
-            while not self.idle():
-                await self.write_if.wait()
-                await self.read_if.wait()
-        else:
-            if token in self.write_if.active_tokens:
-                await self.write_if.wait(token)
-            else:
-                await self.read_if.wait(token)
+    async def wait(self):
+        while not self.idle():
+            await self.write_if.wait()
+            await self.read_if.wait()
 
-    async def wait_read(self, token=None):
-        await self.read_if.wait(token)
+    async def wait_read(self):
+        await self.read_if.wait()
 
-    async def wait_write(self, token=None):
-        await self.write_if.wait(token)
+    async def wait_write(self):
+        await self.write_if.wait()
 
-    def read_data_ready(self, token=None):
-        return self.read_if.read_data_ready(token)
+    def read_data_ready(self):
+        return self.read_if.read_data_ready()
 
-    def get_read_data(self, token=None):
-        return self.read_if.get_read_data(token)
+    def get_read_data(self):
+        return self.read_if.get_read_data()
 
-    def write_resp_ready(self, token=None):
-        return self.write_if.write_resp_ready(token)
+    def write_resp_ready(self):
+        return self.write_if.write_resp_ready()
 
-    def get_write_resp(self, token=None):
-        return self.write_if.get_write_resp(token)
+    def get_write_resp(self):
+        return self.write_if.get_write_resp()
 
     async def read(self, address, length, prot=AxiProt.NONSECURE):
         return await self.read_if.read(address, length, prot)

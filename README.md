@@ -50,12 +50,23 @@ First, non-blocking operations can be started with `init_read()` and `init_write
     await axi_master.wait()
     data = axi_master.get_read_data()
 
+Alternatively, an event object can be provided as an argument to `init_read()` and `init_write()`, and the result can be retrieved from `Event.data`.  For example:
+
+    event = Event()
+    axi_master.init_write(0x0000, b'test', event=event)
+    await event.wait()
+    resp = event.data
+    event = Event()
+    axi_master.init_read(0x0000, 4, event=event)
+    await event.wait()
+    resp = event.data
+
 Second, blocking operations can be carried out with `read()` and `write()` and their associated word-access wrappers.  Multiple concurrent operations started from different coroutines are handled correctly.  For example:
 
     await axi_master.write(0x0000, b'test')
     data = await axi_master.read(0x0000, 4)
 
-`read()`, `write()`, `get_read_data()`, and `get_write_resp()` return `namedtuple` objects containing _address_, _data_ or _length_, _resp_, and _token_.
+`read()`, `write()`, `get_read_data()`, and `get_write_resp()` return `namedtuple` objects containing _address_, _data_ or _length_, and _resp_.
 
 #### `AxiMaster` and `AxiLiteMaster` constructor parameters
 
@@ -73,13 +84,13 @@ Second, blocking operations can be carried out with `read()` and `write()` and t
 * `init_read(address, length, ...)`: initiate reading _length_ bytes, starting at _address_
 * `init_write(address, data, ...)`: initiate writing _data_ (bytes), starting from _address_
 * `idle()`: returns _True_ when there are no outstanding operations in progress
-* `wait(token)`: blocking wait until all outstanding operations complete, or a specific operation if token is provided
-* `wait_read(token)`: wait until all outstanding read operations complete, or a specific operation if token is provided
-* `wait_write(token)`: wait until all outstanding write operations complete, or a specific operation if token is provided
-* `read_data_ready(token)`: determine if any read read data is available, check specific operation if token is provided
-* `get_read_data(token)`: fetch first available read data, or read data for specific operation if token is provided
-* `write_resp_ready(token)`: determine if any write response is available, check specific operation if token is provided
-* `get_write_resp(token)`: fetch first available write response, or write response for specific operation if token is provided
+* `wait()`: blocking wait until all outstanding operations complete
+* `wait_read()`: wait until all outstanding read operations complete
+* `wait_write()`: wait until all outstanding write operations complete
+* `read_data_ready()`: determine if any read read data is available
+* `get_read_data()`: fetch first available read data
+* `write_resp_ready()`: determine if any write response is available
+* `get_write_resp()`: fetch first available write response
 * `read(address, length, ...)`: read _length_ bytes, starting at _address_
 * `read_words(address, count, byteorder, ws, ...)`: read _count_ _ws_-byte words, starting at _address_, default word size of `2`, default _byteorder_ `"little"`
 * `read_dwords(address, count, byteorder, ...)`: read _count_ 4-byte dwords, starting at _address_, default _byteorder_ `"little"`
@@ -109,12 +120,12 @@ Second, blocking operations can be carried out with `read()` and `write()` and t
 * _region_: AXI region field, default `0`
 * _user_: AXI user signal (awuser/aruser), default `0`
 * _wuser_: AXI wuser signal, default `0` (write-related methods only)
-* _token_: Token used to retrieve result for operation, default `None` (`init_read()` and `init_write()` only)
+* _event_: `Event` object used to wait on and retrieve result for specific operation, default `None` (`init_read()` and `init_write()` only).  If provided, the event will be triggered when the operation completes and the result returned via `Event.data` instead of `get_read_data()` or `get_write_resp()`.
 
 #### Additional optional arguments for `AxiLiteMaster`
 
 * _prot_: AXI protection flags, default `AxiProt.NONSECURE`
-* _token_: Token used to retrieve result for operation, default `None` (`init_read()` and `init_write()` only)
+* _event_: `Event` object used to wait on and retrieve result for specific operation, default `None` (`init_read()` and `init_write()` only).  If provided, the event will be triggered when the operation completes and the result returned via `Event.data` instead of `get_read_data()` or `get_write_resp()`.
 
 ### AXI and AXI lite RAM
 
