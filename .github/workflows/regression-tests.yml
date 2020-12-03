@@ -30,3 +30,8 @@ jobs:
 
     - name: Test with tox
       run: tox
+
+    - name: Upload coverage to codecov
+      run: |
+        pip install codecov
+        codecov
