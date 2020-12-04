@@ -98,7 +98,7 @@ async def run_test_write(dut, idle_inserter=None, backpressure_inserter=None, si
 
     for length in list(range(1, byte_width*2))+[1024]:
         for offset in list(range(byte_width))+list(range(4096-byte_width, 4096)):
-            tb.log.info(f"length {length}, offset {offset}")
+            tb.log.info("length %d, offset %d", length, offset)
             addr = offset+0x1000
             test_data = bytearray([x % 256 for x in range(length)])
 
@@ -133,7 +133,7 @@ async def run_test_read(dut, idle_inserter=None, backpressure_inserter=None, siz
 
     for length in list(range(1, byte_width*2))+[1024]:
         for offset in list(range(byte_width))+list(range(4096-byte_width, 4096)):
-            tb.log.info(f"length {length}, offset {offset}")
+            tb.log.info("length %d, offset %d", length, offset)
             addr = offset+0x1000
             test_data = bytearray([x % 256 for x in range(length)])
 
@@ -157,7 +157,7 @@ async def run_test_write_words(dut):
 
     for length in list(range(1, 4)):
         for offset in list(range(byte_width)):
-            tb.log.info(f"length {length}, offset {offset}")
+            tb.log.info("length %d, offset %d", length, offset)
             addr = offset+0x1000
 
             test_data = bytearray([x % 256 for x in range(length)])
@@ -206,7 +206,7 @@ async def run_test_read_words(dut):
 
     for length in list(range(1, 4)):
         for offset in list(range(byte_width)):
-            tb.log.info(f"length {length}, offset {offset}")
+            tb.log.info("length %d, offset %d", length, offset)
             addr = offset+0x1000
 
             test_data = bytearray([x % 256 for x in range(length)])
