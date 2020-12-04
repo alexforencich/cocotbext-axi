@@ -243,7 +243,7 @@ async def run_stress_test(dut, idle_inserter=None, backpressure_inserter=None):
     tb.set_idle_generator(idle_inserter)
     tb.set_backpressure_generator(backpressure_inserter)
 
-    async def stress_test_worker(master, offset, aperture, count=16):
+    async def worker(master, offset, aperture, count=16):
         for k in range(count):
             length = random.randint(1, min(32, aperture))
             addr = offset+random.randint(0, aperture-length)
@@ -261,7 +261,7 @@ async def run_stress_test(dut, idle_inserter=None, backpressure_inserter=None):
     workers = []
 
     for k in range(16):
-        workers.append(cocotb.fork(stress_test_worker(tb.axil_master, k*0x1000, 0x1000, count=16)))
+        workers.append(cocotb.fork(worker(tb.axil_master, k*0x1000, 0x1000, count=16)))
 
     while workers:
         await workers.pop(0).join()
