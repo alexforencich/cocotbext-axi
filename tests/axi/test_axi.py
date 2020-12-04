@@ -106,7 +106,7 @@ async def run_test_write(dut, idle_inserter=None, backpressure_inserter=None, si
 
             await tb.axi_master.write(addr, test_data, size=size)
 
-            tb.log.debug("%s", tb.axi_ram.hexdump_str((addr & 0xfffffff0)-16, (((addr & 0xf)+length-1) & 0xfffffff0)+48))
+            tb.log.debug("%s", tb.axi_ram.hexdump_str((addr & ~0xf)-16, (((addr & 0xf)+length-1) & ~0xf)+48))
 
             assert tb.axi_ram.read(addr, length) == test_data
             assert tb.axi_ram.read(addr-1, 1) == b'\xaa'
