@@ -672,13 +672,13 @@ class AxiMaster(object):
         self.write_if = AxiMasterWrite(entity, name, clock, reset, max_burst_len)
         self.read_if = AxiMasterRead(entity, name, clock, reset, max_burst_len)
 
-    def init_read(self, address, length, burst=AxiBurstType.INCR, size=None,
+    def init_read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, event=None):
-        self.read_if.init_read(address, length, burst, size, lock, cache, prot, qos, region, user, event)
+        self.read_if.init_read(address, length, arid, burst, size, lock, cache, prot, qos, region, user, event)
 
-    def init_write(self, address, data, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL,
+    def init_write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL,
             cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0, event=None):
-        self.write_if.init_write(address, data, burst, size, lock, cache, prot, qos, region, user, wuser, event)
+        self.write_if.init_write(address, data, awid, burst, size, lock, cache, prot, qos, region, user, wuser, event)
 
     def idle(self):
         return (not self.read_if or self.read_if.idle()) and (not self.write_if or self.write_if.idle())
