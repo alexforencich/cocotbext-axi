@@ -74,7 +74,7 @@ class AxiMasterWrite(object):
 
         self.int_write_resp_command_queue = deque()
         self.int_write_resp_command_sync = Event()
-        self.int_write_resp_queue_list = {}
+        self.int_write_resp_queue_list = [deque() for k in range(self.id_count)]
 
         self.in_flight_operations = 0
 
@@ -318,7 +318,6 @@ class AxiMasterWrite(object):
             user = []
 
             for bid, burst_length in cmd.burst_list:
-                self.int_write_resp_queue_list.setdefault(bid, deque())
                 while True:
                     if self.int_write_resp_queue_list[bid]:
                         break
@@ -390,7 +389,7 @@ class AxiMasterRead(object):
 
         self.int_read_resp_command_queue = deque()
         self.int_read_resp_command_sync = Event()
-        self.int_read_resp_queue_list = {}
+        self.int_read_resp_queue_list = [deque() for k in range(self.id_count)]
 
         self.in_flight_operations = 0
 
@@ -599,7 +598,6 @@ class AxiMasterRead(object):
 
             for rid, burst_length in cmd.burst_list:
                 for k in range(burst_length):
-                    self.int_read_resp_queue_list.setdefault(rid, deque())
                     while True:
                         if self.int_read_resp_queue_list[rid]:
                             break
