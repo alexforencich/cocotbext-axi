@@ -198,7 +198,7 @@ The `AxiStreamSource`, `AxiStreamSink`, and `AxiStreamMonitor` classes can be us
 
 To use these modules, import the one you need and connect it to the DUT:
 
-    from cocotbext.axi import AxiStreamSource, AxiStreamSink
+    from cocotbext.axi import AxiStreamSource, AxiStreamSink, AxiStreamMonitor
 
     axis_source = AxiStreamSource(dut, "s_axis", dut.clk, dut.rst)
     axis_sink = AxiStreamSink(dut, "m_axis", dut.clk, dut.rst)
