@@ -96,21 +96,21 @@ Second, blocking operations can be carried out with `read()` and `write()` and t
 * `write_resp_ready()`: determine if any write response is available
 * `get_write_resp()`: fetch first available write response
 * `read(address, length, ...)`: read _length_ bytes, starting at _address_
-* `read_words(address, count, byteorder, ws, ...)`: read _count_ _ws_-byte words, starting at _address_, default word size of `2`, default _byteorder_ `"little"`
-* `read_dwords(address, count, byteorder, ...)`: read _count_ 4-byte dwords, starting at _address_, default _byteorder_ `"little"`
-* `read_qwords(address, count, byteorder, ...)`: read _count_ 8-byte qwords, starting at _address_, default _byteorder_ `"little"`
+* `read_words(address, count, byteorder='little', ws=2, ...)`: read _count_ _ws_-byte words, starting at _address_
+* `read_dwords(address, count, byteorder='little', ...)`: read _count_ 4-byte dwords, starting at _address_
+* `read_qwords(address, count, byteorder='little', ...)`: read _count_ 8-byte qwords, starting at _address_
 * `read_byte(address, ...)`: read single byte at _address_
-* `read_word(address, byteorder, ws, ...)`: read single _ws_-byte word at _address_, default word size of `2`, default _byteorder_ `"little"`
-* `read_dword(address, byteorder, ...)`: read single 4-byte dword at _address_, default _byteorder_ `"little"`
-* `read_qword(address, byteorder, ...)`: read single 8-byte qword at _address_, default _byteorder_ `"little"`
+* `read_word(address, byteorder='little', ws=2, ...)`: read single _ws_-byte word at _address_
+* `read_dword(address, byteorder='little', ...)`: read single 4-byte dword at _address_
+* `read_qword(address, byteorder='little', ...)`: read single 8-byte qword at _address_
 * `write(address, data, ...)`: write _data_ (bytes), starting at _address_
-* `write_words(address, data, byteorder, ws, ...)`: write _data_ (_ws_-byte words), starting at _address_, default word size of `2`, default _byteorder_ `"little"`
-* `write_dwords(address, data, byteorder, ...)`: write _data_ (4-byte dwords), starting at _address_, default _byteorder_ `"little"`
-* `write_qwords(address, data, byteorder, ...)`: write _data_ (8-byte qwords), starting at _address_, default _byteorder_ `"little"`
+* `write_words(address, data, byteorder='little', ws=2, ...)`: write _data_ (_ws_-byte words), starting at _address_
+* `write_dwords(address, data, byteorder='little', ...)`: write _data_ (4-byte dwords), starting at _address_
+* `write_qwords(address, data, byteorder='little', ...)`: write _data_ (8-byte qwords), starting at _address_
 * `write_byte(address, data, ...)`: write single byte at _address_
-* `write_word(address, data, byteorder, ws, ...)`: write single _ws_-byte word at _address_, default word size of `2`, default _byteorder_ `"little"`
-* `write_dword(address, data, byteorder, ...)`: write single 4-byte dword at _address_, default _byteorder_ `"little"`
-* `write_qword(address, data, byteorder, ...)`: write single 8-byte qword at _address_, default _byteorder_ `"little"`
+* `write_word(address, data, byteorder='little', ws=2, ...)`: write single _ws_-byte word at _address_
+* `write_dword(address, data, byteorder='little', ...)`: write single 4-byte dword at _address_
+* `write_qword(address, data, byteorder='little', ...)`: write single 8-byte qword at _address_
 
 #### Additional optional arguments for `AxiMaster`
 
@@ -173,24 +173,24 @@ Multi-port memories can be constructed by passing the `mem` object of the first 
 #### Methods
 
 * `read(address, length)`: read _length_ bytes, starting at _address_
-* `read_words(address, count, byteorder, ws)`: read _count_ _ws_-byte words, starting at _address_, default word size of `2`, default _byteorder_ `"little"`
-* `read_dwords(address, count, byteorder)`: read _count_ 4-byte dwords, starting at _address_, default _byteorder_ `"little"`
-* `read_qwords(address, count, byteorder)`: read _count_ 8-byte qwords, starting at _address_, default _byteorder_ `"little"`
+* `read_words(address, count, byteorder='little', ws=2)`: read _count_ _ws_-byte words, starting at _address_
+* `read_dwords(address, count, byteorder='little')`: read _count_ 4-byte dwords, starting at _address_
+* `read_qwords(address, count, byteorder='little')`: read _count_ 8-byte qwords, starting at _address_
 * `read_byte(address)`: read single byte at _address_
-* `read_word(address, byteorder, ws)`: read single _ws_-byte word at _address_, default word size of `2`, default _byteorder_ `"little"`
-* `read_dword(address, byteorder)`: read single 4-byte dword at _address_, default _byteorder_ `"little"`
-* `read_qword(address, byteorder)`: read single 8-byte qword at _address_, default _byteorder_ `"little"`
+* `read_word(address, byteorder='little', ws=2)`: read single _ws_-byte word at _address_
+* `read_dword(address, byteorder='little')`: read single 4-byte dword at _address_
+* `read_qword(address, byteorder='little')`: read single 8-byte qword at _address_
 * `write(address, data)`: write _data_ (bytes), starting at _address_
-* `write_words(address, data, byteorder, ws)`: write _data_ (_ws_-byte words), starting at _address_, default word size of `2`, default _byteorder_ `"little"`
-* `write_dwords(address, data, byteorder)`: write _data_ (4-byte dwords), starting at _address_, default _byteorder_ `"little"`
-* `write_qwords(address, data, byteorder)`: write _data_ (8-byte qwords), starting at _address_, default _byteorder_ `"little"`
+* `write_words(address, data, byteorder='little', ws=2)`: write _data_ (_ws_-byte words), starting at _address_
+* `write_dwords(address, data, byteorder='little')`: write _data_ (4-byte dwords), starting at _address_
+* `write_qwords(address, data, byteorder='little')`: write _data_ (8-byte qwords), starting at _address_
 * `write_byte(address, data)`: write single byte at _address_
-* `write_word(address, data, byteorder, ws)`: write single _ws_-byte word at _address_, default word size of `2`, default _byteorder_ `"little"`
-* `write_dword(address, data, byteorder)`: write single 4-byte dword at _address_, default _byteorder_ `"little"`
-* `write_qword(address, data, byteorder)`: write single 8-byte qword at _address_, default _byteorder_ `"little"`
-* `hexdump(address, length, prefix)`: print hex dump of _length_ bytes starting from `address`, prefix lines with optional `prefix`
-* `hexdump_line(address, length, prefix)`: return hex dump (list of str) of _length_ bytes starting from `address`, prefix lines with optional `prefix`
-* `hexdump_str(address, length, prefix)`: return hex dump (str) of _length_ bytes starting from `address`, prefix lines with optional `prefix`
+* `write_word(address, data, byteorder='little', ws=2)`: write single _ws_-byte word at _address_
+* `write_dword(address, data, byteorder='little')`: write single 4-byte dword at _address_
+* `write_qword(address, data, byteorder='little')`: write single 8-byte qword at _address_
+* `hexdump(address, length, prefix='')`: print hex dump of _length_ bytes starting from `address`, prefix lines with optional `prefix`
+* `hexdump_line(address, length, prefix='')`: return hex dump (list of str) of _length_ bytes starting from `address`, prefix lines with optional `prefix`
+* `hexdump_str(address, length, prefix='')`: return hex dump (str) of _length_ bytes starting from `address`, prefix lines with optional `prefix`
 
 ### AXI stream
 
@@ -246,15 +246,16 @@ To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()` or 
 
 * `send(frame)`: send _frame_ (source)
 * `write(data)`: send _data_ (alias of send) (source)
-* `recv(compact)`: receive a frame, optionally compact frame (sink/monitor)
+* `recv(compact=True)`: receive a frame as an `AxiStreamFrame`, optionally compact frame (sink/monitor)
 * `read(count)`: read _count_ bytes from buffer (sink/monitor)
 * `count()`: returns the number of items in the queue (all)
 * `empty()`: returns _True_ if the queue is empty (all)
 * `full()`: returns _True_ if the queue occupancy limits are met (sink)
 * `idle()`: returns _True_ if no transfer is in progress (all) or if the queue is not empty (source)
-* `wait(timeout=0, timeout_unit='ns')`: wait for idle (source) or frame received (sink/monitor)
+* `wait()`: wait for idle (source)
+* `wait(timeout=0, timeout_unit='ns')`: wait for frame received (sink)
 * `set_pause_generator(generator)`: set generator for pause signal, generator will be advanced on every clock cycle (source/sink)
-* `clear_pause_generator()`: remove generator for pause signal
+* `clear_pause_generator()`: remove generator for pause signal (source/sink)
 
 #### AxiStreamFrame object
 
