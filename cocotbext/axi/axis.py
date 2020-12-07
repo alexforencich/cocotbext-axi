@@ -239,7 +239,7 @@ class AxiStreamSource(object):
         self.queue_occupancy_frames = 0
 
         self.width = len(self.bus.tdata)
-        self.byte_width = 1
+        self.byte_lanes = 1
 
         self.reset = reset
 
@@ -249,7 +249,7 @@ class AxiStreamSource(object):
         if hasattr(self.bus, "tlast"):
             self.bus.tlast.setimmediatevalue(0)
         if hasattr(self.bus, "tkeep"):
-            self.byte_width = len(self.bus.tkeep)
+            self.byte_lanes = len(self.bus.tkeep)
             self.bus.tkeep.setimmediatevalue(0)
         if hasattr(self.bus, "tid"):
             self.bus.tid.setimmediatevalue(0)
@@ -258,12 +258,12 @@ class AxiStreamSource(object):
         if hasattr(self.bus, "tuser"):
             self.bus.tuser.setimmediatevalue(0)
 
-        self.byte_size = self.width // self.byte_width
+        self.byte_size = self.width // self.byte_lanes
         self.byte_mask = 2**self.byte_size-1
 
         self.log.info("AXI stream source configuration:")
         self.log.info("  Byte size: %d bits", self.byte_size)
-        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
         self.log.info("  tvalid: %s", "present" if hasattr(self.bus, "tvalid") else "not present")
         self.log.info("  tready: %s", "present" if hasattr(self.bus, "tready") else "not present")
         self.log.info("  tlast: %s", "present" if hasattr(self.bus, "tlast") else "not present")
@@ -370,7 +370,7 @@ class AxiStreamSource(object):
                     tdest_val = 0
                     tuser_val = 0
 
-                    for offset in range(self.byte_width):
+                    for offset in range(self.byte_lanes):
                         tdata_val |= (frame.tdata.pop(0) & self.byte_mask) << (offset * self.byte_size)
                         tkeep_val |= (frame.tkeep.pop(0) & 1) << offset
                         tid_val = frame.tid.pop(0)
@@ -442,21 +442,21 @@ class AxiStreamSink(object):
         self.queue_occupancy_limit_frames = None
 
         self.width = len(self.bus.tdata)
-        self.byte_width = 1
+        self.byte_lanes = 1
 
         self.reset = reset
 
         if hasattr(self.bus, "tready"):
             self.bus.tready.setimmediatevalue(0)
         if hasattr(self.bus, "tkeep"):
-            self.byte_width = len(self.bus.tkeep)
+            self.byte_lanes = len(self.bus.tkeep)
 
-        self.byte_size = self.width // self.byte_width
+        self.byte_size = self.width // self.byte_lanes
         self.byte_mask = 2**self.byte_size-1
 
         self.log.info("AXI stream sink configuration:")
         self.log.info("  Byte size: %d bits", self.byte_size)
-        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
         self.log.info("  tvalid: %s", "present" if hasattr(self.bus, "tvalid") else "not present")
         self.log.info("  tready: %s", "present" if hasattr(self.bus, "tready") else "not present")
         self.log.info("  tlast: %s", "present" if hasattr(self.bus, "tlast") else "not present")
@@ -560,7 +560,7 @@ class AxiStreamSink(object):
                 continue
 
             if tready_sample and tvalid_sample:
-                for offset in range(self.byte_width):
+                for offset in range(self.byte_lanes):
 
                     frame.tdata.append((self.bus.tdata.value.integer >> (offset * self.byte_size)) & self.byte_mask)
                     if hasattr(self.bus, "tkeep"):
@@ -625,19 +625,19 @@ class AxiStreamMonitor(object):
         self.queue_occupancy_frames = 0
 
         self.width = len(self.bus.tdata)
-        self.byte_width = 1
+        self.byte_lanes = 1
 
         self.reset = reset
 
         if hasattr(self.bus, "tkeep"):
-            self.byte_width = len(self.bus.tkeep)
+            self.byte_lanes = len(self.bus.tkeep)
 
-        self.byte_size = self.width // self.byte_width
+        self.byte_size = self.width // self.byte_lanes
         self.byte_mask = 2**self.byte_size-1
 
         self.log.info("AXI stream monitor configuration:")
         self.log.info("  Byte size: %d bits", self.byte_size)
-        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
         self.log.info("  tvalid: %s", "present" if hasattr(self.bus, "tvalid") else "not present")
         self.log.info("  tready: %s", "present" if hasattr(self.bus, "tready") else "not present")
         self.log.info("  tlast: %s", "present" if hasattr(self.bus, "tlast") else "not present")
@@ -718,7 +718,7 @@ class AxiStreamMonitor(object):
                 continue
 
             if tready_sample and tvalid_sample:
-                for offset in range(self.byte_width):
+                for offset in range(self.byte_lanes):
 
                     frame.tdata.append((self.bus.tdata.value.integer >> (offset * self.byte_size)) & self.byte_mask)
                     if hasattr(self.bus, "tkeep"):
