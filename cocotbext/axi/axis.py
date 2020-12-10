@@ -22,12 +22,12 @@ THE SOFTWARE.
 
 """
 
+import logging
 from collections import deque
 
 import cocotb
 from cocotb.triggers import RisingEdge, ReadOnly, Timer, First, Event
 from cocotb.bus import Bus
-from cocotb.log import SimLog
 
 from .version import __version__
 
@@ -215,7 +215,7 @@ class AxiStreamSource(object):
     _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tid", "tdest", "tuser"]
 
     def __init__(self, entity, name, clock, reset=None, byte_size=None, byte_lanes=None, *args, **kwargs):
-        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+        self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
         self.entity = entity
         self.clock = clock
         self.reset = reset
@@ -429,7 +429,7 @@ class AxiStreamSink(object):
     _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tid", "tdest", "tuser"]
 
     def __init__(self, entity, name, clock, reset=None, byte_size=None, byte_lanes=None, *args, **kwargs):
-        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+        self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
         self.entity = entity
         self.clock = clock
         self.reset = reset
@@ -632,7 +632,7 @@ class AxiStreamMonitor(object):
     _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tid", "tdest", "tuser"]
 
     def __init__(self, entity, name, clock, reset=None, byte_size=None, byte_lanes=None, *args, **kwargs):
-        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+        self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
         self.entity = entity
         self.clock = clock
         self.reset = reset

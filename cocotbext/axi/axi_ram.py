@@ -22,8 +22,9 @@ THE SOFTWARE.
 
 """
 
+import logging
+
 import cocotb
-from cocotb.log import SimLog
 
 from .version import __version__
 from .constants import AxiBurstType, AxiProt, AxiResp
@@ -33,7 +34,7 @@ from .memory import Memory
 
 class AxiRamWrite(Memory):
     def __init__(self, entity, name, clock, reset=None, size=1024, mem=None, *args, **kwargs):
-        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+        self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
 
         self.log.info("AXI RAM model (write)")
         self.log.info("cocotbext-axi version %s", __version__)
@@ -145,7 +146,7 @@ class AxiRamWrite(Memory):
 
 class AxiRamRead(Memory):
     def __init__(self, entity, name, clock, reset=None, size=1024, mem=None, *args, **kwargs):
-        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+        self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
 
         self.log.info("AXI RAM model (read)")
         self.log.info("cocotbext-axi version %s", __version__)

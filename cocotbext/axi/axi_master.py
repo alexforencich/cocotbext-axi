@@ -22,11 +22,11 @@ THE SOFTWARE.
 
 """
 
+import logging
 from collections import deque, namedtuple, Counter
 
 import cocotb
 from cocotb.triggers import Event
-from cocotb.log import SimLog
 
 from .version import __version__
 from .constants import AxiBurstType, AxiLockType, AxiProt, AxiResp
@@ -49,7 +49,7 @@ AxiReadResp = namedtuple("AxiReadResp", ["address", "data", "resp", "user"])
 
 class AxiMasterWrite(object):
     def __init__(self, entity, name, clock, reset=None, max_burst_len=256):
-        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+        self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
 
         self.log.info("AXI master (write)")
         self.log.info("cocotbext-axi version %s", __version__)
@@ -365,7 +365,7 @@ class AxiMasterWrite(object):
 
 class AxiMasterRead(object):
     def __init__(self, entity, name, clock, reset=None, max_burst_len=256):
-        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+        self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
 
         self.log.info("AXI master (read)")
         self.log.info("cocotbext-axi version %s", __version__)

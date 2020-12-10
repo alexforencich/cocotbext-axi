@@ -22,12 +22,12 @@ THE SOFTWARE.
 
 """
 
+import logging
+from collections import deque
+
 import cocotb
 from cocotb.triggers import RisingEdge, ReadOnly, Event, First, Timer
 from cocotb.bus import Bus
-from cocotb.log import SimLog
-
-from collections import deque
 
 
 class StreamTransaction(object):
@@ -65,7 +65,7 @@ class StreamBase(object):
     _transaction_obj = StreamTransaction
 
     def __init__(self, entity, name, clock, reset=None, *args, **kwargs):
-        self.log = SimLog("cocotb.%s.%s" % (entity._name, name))
+        self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
         self.entity = entity
         self.clock = clock
         self.reset = reset
