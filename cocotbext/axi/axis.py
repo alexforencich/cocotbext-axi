@@ -208,6 +208,9 @@ class AxiStreamFrame(object):
     def __iter__(self):
         return self.tdata.__iter__()
 
+    def __bytes__(self):
+        return bytes(self.tdata)
+
 
 class AxiStreamSource(object):
 
