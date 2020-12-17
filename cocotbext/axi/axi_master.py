@@ -318,17 +318,16 @@ class AxiMasterWrite(object):
             user = []
 
             for bid, burst_length in cmd.burst_list:
-                while True:
-                    if self.int_write_resp_queue_list[bid]:
-                        break
-
+                while not self.int_write_resp_queue_list[bid]:
                     await self.b_channel.wait()
                     b = self.b_channel.recv()
 
-                    if self.active_id[int(b.bid)] <= 0:
+                    i = int(b.bid)
+
+                    if self.active_id[i] <= 0:
                         raise Exception(f"Unexpected burst ID {bid}")
 
-                    self.int_write_resp_queue_list[int(b.bid)].append(b)
+                    self.int_write_resp_queue_list[i].append(b)
 
                 b = self.int_write_resp_queue_list[bid].popleft()
 
@@ -598,17 +597,16 @@ class AxiMasterRead(object):
 
             for rid, burst_length in cmd.burst_list:
                 for k in range(burst_length):
-                    while True:
-                        if self.int_read_resp_queue_list[rid]:
-                            break
-
+                    while not self.int_read_resp_queue_list[rid]:
                         await self.r_channel.wait()
                         r = self.r_channel.recv()
 
-                        if self.active_id[int(r.rid)] <= 0:
+                        i = int(r.rid)
+
+                        if self.active_id[i] <= 0:
                             raise Exception(f"Unexpected burst ID {rid}")
 
-                        self.int_read_resp_queue_list[int(r.rid)].append(r)
+                        self.int_read_resp_queue_list[i].append(r)
 
                     r = self.int_read_resp_queue_list[rid].popleft()
 
