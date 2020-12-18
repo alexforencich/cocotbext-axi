@@ -72,8 +72,7 @@ class AxiRamWrite(Memory):
 
     async def _process_write(self):
         while True:
-            await self.aw_channel.wait()
-            aw = self.aw_channel.recv()
+            aw = await self.aw_channel.recv()
 
             awid = int(aw.awid)
             addr = int(aw.awaddr)
@@ -106,8 +105,7 @@ class AxiRamWrite(Memory):
             for n in range(length):
                 cur_word_addr = (cur_addr // self.byte_width) * self.byte_width
 
-                await self.w_channel.wait()
-                w = self.w_channel.recv()
+                w = await self.w_channel.recv()
 
                 data = int(w.wdata)
                 strb = int(w.wstrb)
@@ -141,7 +139,7 @@ class AxiRamWrite(Memory):
             b.bid = awid
             b.bresp = AxiResp.OKAY
 
-            self.b_channel.send(b)
+            await self.b_channel.send(b)
 
 
 class AxiRamRead(Memory):
@@ -181,8 +179,7 @@ class AxiRamRead(Memory):
 
     async def _process_read(self):
         while True:
-            await self.ar_channel.wait()
-            ar = self.ar_channel.recv()
+            ar = await self.ar_channel.recv()
 
             arid = int(ar.arid)
             addr = int(ar.araddr)
@@ -225,7 +222,7 @@ class AxiRamRead(Memory):
                 r.rlast = n == length-1
                 r.rresp = AxiResp.OKAY
 
-                self.r_channel.send(r)
+                await self.r_channel.send(r)
 
                 self.log.debug("Read word awid: 0x%x addr: 0x%08x data: %s",
                     arid, cur_addr, ' '.join((f'{c:02x}' for c in data)))

@@ -169,7 +169,10 @@ class StreamSource(StreamBase, StreamPause):
 
         self.drive_obj = obj
 
-    def send(self, obj):
+    async def send(self, obj):
+        self.send_nowait(obj)
+
+    def send_nowait(self, obj):
         self.queue.append(obj)
         self.queue_sync.set()
 
@@ -246,7 +249,13 @@ class StreamSink(StreamBase, StreamPause):
 
         cocotb.fork(self._run_sink())
 
-    def recv(self):
+    async def recv(self):
+        while self.empty():
+            self.queue_sync.clear()
+            await self.queue_sync.wait()
+        return self.recv_nowait()
+
+    def recv_nowait(self):
         if self.queue:
             return self.queue.popleft()
         return None
@@ -310,7 +319,13 @@ class StreamMonitor(StreamBase):
 
         cocotb.fork(self._run_monitor())
 
-    def recv(self):
+    async def recv(self):
+        while self.empty():
+            self.queue_sync.clear()
+            await self.queue_sync.wait()
+        return self.recv_nowait()
+
+    def recv_nowait(self):
         if self.queue:
             return self.queue.popleft()
         return None

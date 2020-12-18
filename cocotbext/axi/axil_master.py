@@ -194,7 +194,7 @@ class AxiLiteMasterWrite(object):
                 w.wstrb = strb
 
                 await self.aw_channel.drive(aw)
-                self.w_channel.send(w)
+                await self.w_channel.send(w)
 
     async def _process_write_resp(self):
         while True:
@@ -207,8 +207,7 @@ class AxiLiteMasterWrite(object):
             resp = AxiResp.OKAY
 
             for k in range(cmd.cycles):
-                await self.b_channel.wait()
-                b = self.b_channel.recv()
+                b = await self.b_channel.recv()
 
                 cycle_resp = AxiResp(b.bresp)
 
@@ -366,8 +365,7 @@ class AxiLiteMasterRead(object):
             resp = AxiResp.OKAY
 
             for k in range(cmd.cycles):
-                await self.r_channel.wait()
-                r = self.r_channel.recv()
+                r = await self.r_channel.recv()
 
                 cycle_data = int(r.rdata)
                 cycle_resp = AxiResp(r.rresp)

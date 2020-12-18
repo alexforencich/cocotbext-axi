@@ -244,9 +244,15 @@ To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()` or 
 
 #### Methods
 
-* `send(frame)`: send _frame_ (source)
-* `write(data)`: send _data_ (alias of send) (source)
-* `recv(compact=True)`: receive a frame as an `AxiStreamFrame`, optionally compact frame (sink/monitor)
+
+* `send(frame)`: send _frame_ (blocking) (source)
+* `send_nowait(frame)`: send _frame_ (non-blocking) (source)
+* `write(data)`: send _data_ (alias of send) (blocking) (source)
+* `write_nowait(data)`: send _data_ (alias of send_nowait) (non-blocking) (source)
+* `recv(compact=True)`: receive a frame as a `GmiiFrame` (blocking) (sink)
+* `recv_nowait(compact=True)`: receive a frame as a `GmiiFrame` (non-blocking) (sink)
+* `read(count)`: read _count_ bytes from buffer (blocking) (sink/monitor)
+* `read_nowait(count)`: read _count_ bytes from buffer (non-blocking) (sink/monitor)
 * `read(count)`: read _count_ bytes from buffer (sink/monitor)
 * `count()`: returns the number of items in the queue (all)
 * `empty()`: returns _True_ if the queue is empty (all)

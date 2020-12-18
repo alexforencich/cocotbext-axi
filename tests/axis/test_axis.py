@@ -90,23 +90,21 @@ async def run_test(dut, payload_lengths=None, payload_data=None, idle_inserter=N
         test_frame = AxiStreamFrame(test_data)
         test_frame.tid = cur_id
         test_frame.tdest = cur_id
-        tb.source.send(test_frame)
+        await tb.source.send(test_frame)
 
         test_frames.append(test_frame)
 
         cur_id = (cur_id + 1) % id_count
 
     for test_frame in test_frames:
-        await tb.sink.wait()
-        rx_frame = tb.sink.recv()
+        rx_frame = await tb.sink.recv()
 
         assert rx_frame.tdata == test_frame.tdata
         assert rx_frame.tid == test_frame.tid
         assert rx_frame.tdest == test_frame.tdest
         assert not rx_frame.tuser
 
-        await tb.monitor.wait()
-        rx_frame = tb.monitor.recv()
+        rx_frame = await tb.monitor.recv()
 
         assert rx_frame.tdata == test_frame.tdata
         assert rx_frame.tid == test_frame.tid

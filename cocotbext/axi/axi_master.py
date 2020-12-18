@@ -297,7 +297,7 @@ class AxiMasterWrite(object):
                     else:
                         w.wuser = 0
 
-                self.w_channel.send(w)
+                await self.w_channel.send(w)
 
                 cur_addr += num_bytes
                 cycle_offset = (cycle_offset + num_bytes) % self.byte_width
@@ -319,8 +319,7 @@ class AxiMasterWrite(object):
 
             for bid, burst_length in cmd.burst_list:
                 while not self.int_write_resp_queue_list[bid]:
-                    await self.b_channel.wait()
-                    b = self.b_channel.recv()
+                    b = await self.b_channel.recv()
 
                     i = int(b.bid)
 
@@ -598,8 +597,7 @@ class AxiMasterRead(object):
             for rid, burst_length in cmd.burst_list:
                 for k in range(burst_length):
                     while not self.int_read_resp_queue_list[rid]:
-                        await self.r_channel.wait()
-                        r = self.r_channel.recv()
+                        r = await self.r_channel.recv()
 
                         i = int(r.rid)
 

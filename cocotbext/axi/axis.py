@@ -304,14 +304,20 @@ class AxiStreamSource(object):
 
         cocotb.fork(self._run())
 
-    def send(self, frame):
+    async def send(self, frame):
+        self.send_nowait(frame)
+
+    def send_nowait(self, frame):
         frame = AxiStreamFrame(frame)
         self.queue_occupancy_bytes += len(frame)
         self.queue_occupancy_frames += 1
         self.queue.append(frame)
 
-    def write(self, data):
-        self.send(data)
+    async def write(self, data):
+        await self.send(data)
+
+    def write_nowait(self, data):
+        self.send_nowait(data)
 
     def count(self):
         return len(self.queue)
@@ -511,7 +517,13 @@ class AxiStreamSink(object):
 
         cocotb.fork(self._run())
 
-    def recv(self, compact=True):
+    async def recv(self, compact=True):
+        while self.empty():
+            self.sync.clear()
+            await self.sync.wait()
+        return self.recv_nowait(compact)
+
+    def recv_nowait(self, compact=True):
         if self.queue:
             frame = self.queue.popleft()
             self.queue_occupancy_bytes -= len(frame)
@@ -521,11 +533,15 @@ class AxiStreamSink(object):
             return frame
         return None
 
-    def read(self, count=-1):
-        while True:
-            frame = self.recv(compact=True)
-            if frame is None:
-                break
+    async def read(self, count=-1):
+        while not self.read_queue:
+            frame = await self.recv(compact=True)
+            self.read_queue.extend(frame.tdata)
+        return self.read_nowait(count)
+
+    def read_nowait(self, count=-1):
+        while not self.empty():
+            frame = self.recv_nowait(compact=True)
             self.read_queue.extend(frame.tdata)
         if count < 0:
             count = len(self.read_queue)
@@ -705,7 +721,13 @@ class AxiStreamMonitor(object):
 
         cocotb.fork(self._run())
 
-    def recv(self, compact=True):
+    async def recv(self, compact=True):
+        while self.empty():
+            self.sync.clear()
+            await self.sync.wait()
+        return self.recv_nowait(compact)
+
+    def recv_nowait(self, compact=True):
         if self.queue:
             frame = self.queue.popleft()
             self.queue_occupancy_bytes -= len(frame)
@@ -715,11 +737,15 @@ class AxiStreamMonitor(object):
             return frame
         return None
 
-    def read(self, count=-1):
-        while True:
-            frame = self.recv(compact=True)
-            if frame is None:
-                break
+    async def read(self, count=-1):
+        while not self.read_queue:
+            frame = await self.recv(compact=True)
+            self.read_queue.extend(frame.tdata)
+        return self.read_nowait(count)
+
+    def read_nowait(self, count=-1):
+        while not self.empty():
+            frame = self.recv_nowait(compact=True)
             self.read_queue.extend(frame.tdata)
         if count < 0:
             count = len(self.read_queue)

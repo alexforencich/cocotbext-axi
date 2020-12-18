@@ -69,14 +69,12 @@ class AxiLiteRamWrite(Memory):
 
     async def _process_write(self):
         while True:
-            await self.aw_channel.wait()
-            aw = self.aw_channel.recv()
+            aw = await self.aw_channel.recv()
 
             addr = (int(aw.awaddr) // self.byte_width) * self.byte_width
             prot = AxiProt(aw.awprot)
 
-            await self.w_channel.wait()
-            w = self.w_channel.recv()
+            w = await self.w_channel.recv()
 
             data = int(w.wdata)
             strb = int(w.wstrb)
@@ -99,7 +97,7 @@ class AxiLiteRamWrite(Memory):
             b = self.b_channel._transaction_obj()
             b.bresp = AxiResp.OKAY
 
-            self.b_channel.send(b)
+            await self.b_channel.send(b)
 
 
 class AxiLiteRamRead(Memory):
@@ -136,8 +134,7 @@ class AxiLiteRamRead(Memory):
 
     async def _process_read(self):
         while True:
-            await self.ar_channel.wait()
-            ar = self.ar_channel.recv()
+            ar = await self.ar_channel.recv()
 
             addr = (int(ar.araddr) // self.byte_width) * self.byte_width
             prot = AxiProt(ar.arprot)
@@ -152,7 +149,7 @@ class AxiLiteRamRead(Memory):
             r.rdata = int.from_bytes(data, 'little')
             r.rresp = AxiResp.OKAY
 
-            self.r_channel.send(r)
+            await self.r_channel.send(r)
 
             self.log.info("Read data araddr: 0x%08x arprot: %s data: %s",
                 addr, prot, ' '.join((f'{c:02x}' for c in data)))
