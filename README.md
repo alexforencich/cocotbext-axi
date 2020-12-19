@@ -233,6 +233,10 @@ To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()` or 
 * _name_: signal name prefix (e.g. for `m_axis_tdata`, the prefix is `m_axis`)
 * _clock_: clock signal
 * _reset_: reset signal (optional)
+* _byte_size_: byte size (optional)
+* _byte_lanes_: byte lane count (optional)
+
+Note: _byte_size_, _byte_lanes_, `len(tdata)`, and `len(tkeep)` are all related, in that _byte_lanes_ is set from `tkeep` if it is connected, and `byte_size*byte_lanes == len(tdata)`.  So, if `tkeep` is connected, both _byte_size_ and _byte_lanes_ will be computed internally and cannot be overridden.  If `tkeep` is not connected, then either _byte_size_ or _byte_lanes_ can be specified, and the other will be computed such that `byte_size*byte_lanes == len(tdata)`.
 
 #### Attributes:
 
@@ -243,7 +247,6 @@ To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()` or 
 * _queue_occupancy_limit_frames_: max number of frames in queue allowed before tready deassert (sink only)
 
 #### Methods
-
 
 * `send(frame)`: send _frame_ (blocking) (source)
 * `send_nowait(frame)`: send _frame_ (non-blocking) (source)
@@ -265,7 +268,7 @@ To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()` or 
 
 #### AxiStreamFrame object
 
-The `AxiStreamFrame` object is a container for a frame to be transferred via AXI stream.  The `tdata` field contains the packet data in the form of a list of bytes, a `bytearray` if the byte size is 8 bits or a `list` of `int`s otherwise.  `tkeep`, `tid`, `tdest`, and `tuser` can either be `None`, an `int`, or a `list` of `int`s.  
+The `AxiStreamFrame` object is a container for a frame to be transferred via AXI stream.  The `tdata` field contains the packet data in the form of a list of bytes, which is either a `bytearray` if the byte size is 8 bits or a `list` of `int`s otherwise.  `tkeep`, `tid`, `tdest`, and `tuser` can either be `None`, an `int`, or a `list` of `int`s.
 
 Attributes:
 
