@@ -27,6 +27,7 @@ from collections import deque
 
 import cocotb
 from cocotb.triggers import RisingEdge, ReadOnly, Timer, First, Event
+from cocotb.utils import get_sim_time
 from cocotb.bus import Bus
 
 from .version import __version__
@@ -39,6 +40,7 @@ class AxiStreamFrame(object):
         self.tid = None
         self.tdest = None
         self.tuser = None
+        self.rx_sim_time = None
 
         if type(tdata) is AxiStreamFrame:
             if type(tdata.tdata) is bytearray:
@@ -62,6 +64,7 @@ class AxiStreamFrame(object):
                     self.tuser = tdata.tuser
                 else:
                     self.tuser = list(tdata.tuser)
+            self.rx_sim_time = tdata.rx_sim_time
         elif type(tdata) in (bytes, bytearray):
             self.tdata = bytearray(tdata)
             self.tkeep = tkeep
@@ -195,11 +198,12 @@ class AxiStreamFrame(object):
 
     def __repr__(self):
         return (
-            f"{type(self).__name__}(tdata={repr(self.tdata)}, "
-            f"tkeep={repr(self.tkeep)}, "
-            f"tid={repr(self.tid)}, "
-            f"tdest={repr(self.tdest)}, "
-            f"tuser={repr(self.tuser)})"
+            f"{type(self).__name__}(tdata={self.tdata!r}, "
+            f"tkeep={self.tkeep!r}, "
+            f"tid={self.tid!r}, "
+            f"tdest={self.tdest!r}, "
+            f"tuser={self.tuser!r}, "
+            f"rx_sim_time={self.rx_sim_time!r})"
         )
 
     def __len__(self):
@@ -613,6 +617,7 @@ class AxiStreamSink(object):
                         frame = AxiStreamFrame(bytearray(), [], [], [], [])
                     else:
                         frame = AxiStreamFrame([], [], [], [], [])
+                    frame.rx_sim_time = get_sim_time()
 
                 for offset in range(self.byte_lanes):
 
@@ -797,6 +802,7 @@ class AxiStreamMonitor(object):
                         frame = AxiStreamFrame(bytearray(), [], [], [], [])
                     else:
                         frame = AxiStreamFrame([], [], [], [], [])
+                    frame.rx_sim_time = get_sim_time()
 
                 for offset in range(self.byte_lanes):
 
