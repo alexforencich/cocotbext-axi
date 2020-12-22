@@ -589,7 +589,7 @@ class AxiStreamSink(object):
         self.set_pause_generator(None)
 
     async def _run(self):
-        frame = AxiStreamFrame([], [], [], [], [])
+        frame = None
         self.active = False
 
         while True:
@@ -601,13 +601,19 @@ class AxiStreamSink(object):
 
             if self.reset is not None and self.reset.value:
                 await RisingEdge(self.clock)
-                frame = AxiStreamFrame([], [], [], [], [])
+                frame = None
                 self.active = False
                 if hasattr(self.bus, "tready"):
                     self.bus.tready <= 0
                 continue
 
             if tready_sample and tvalid_sample:
+                if frame is None:
+                    if self.byte_size == 8:
+                        frame = AxiStreamFrame(bytearray(), [], [], [], [])
+                    else:
+                        frame = AxiStreamFrame([], [], [], [], [])
+
                 for offset in range(self.byte_lanes):
 
                     frame.tdata.append((self.bus.tdata.value.integer >> (offset * self.byte_size)) & self.byte_mask)
@@ -621,9 +627,6 @@ class AxiStreamSink(object):
                         frame.tuser.append(self.bus.tuser.value.integer)
 
                 if not hasattr(self.bus, "tlast") or self.bus.tlast.value:
-                    if self.byte_size == 8:
-                        frame.tdata = bytearray(frame.tdata)
-
                     self.log.info("RX frame: %s", frame)
 
                     self.queue_occupancy_bytes += len(frame)
@@ -632,7 +635,7 @@ class AxiStreamSink(object):
                     self.queue.append(frame)
                     self.sync.set()
 
-                    frame = AxiStreamFrame([], [], [], [], [])
+                    frame = None
 
             await RisingEdge(self.clock)
 
@@ -772,7 +775,7 @@ class AxiStreamMonitor(object):
             await self.sync.wait()
 
     async def _run(self):
-        frame = AxiStreamFrame([], [], [], [], [])
+        frame = None
         self.active = False
 
         while True:
@@ -784,11 +787,17 @@ class AxiStreamMonitor(object):
 
             if self.reset is not None and self.reset.value:
                 await RisingEdge(self.clock)
-                frame = AxiStreamFrame([], [], [], [], [])
+                frame = None
                 self.active = False
                 continue
 
             if tready_sample and tvalid_sample:
+                if frame is None:
+                    if self.byte_size == 8:
+                        frame = AxiStreamFrame(bytearray(), [], [], [], [])
+                    else:
+                        frame = AxiStreamFrame([], [], [], [], [])
+
                 for offset in range(self.byte_lanes):
 
                     frame.tdata.append((self.bus.tdata.value.integer >> (offset * self.byte_size)) & self.byte_mask)
@@ -802,14 +811,11 @@ class AxiStreamMonitor(object):
                         frame.tuser.append(self.bus.tuser.value.integer)
 
                 if not hasattr(self.bus, "tlast") or self.bus.tlast.value:
-                    if self.byte_size == 8:
-                        frame.tdata = bytearray(frame.tdata)
-
                     self.log.info("RX frame: %s", frame)
 
                     self.queue.append(frame)
                     self.sync.set()
 
-                    frame = AxiStreamFrame([], [], [], [], [])
+                    frame = None
 
             await RisingEdge(self.clock)
