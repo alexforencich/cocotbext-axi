@@ -104,12 +104,14 @@ async def run_test(dut, payload_lengths=None, payload_data=None, idle_inserter=N
         assert rx_frame.tdest == test_frame.tdest
         assert not rx_frame.tuser
 
-        rx_frame = await tb.monitor.recv()
+        mon_rx_frame = await tb.monitor.recv()
 
-        assert rx_frame.tdata == test_frame.tdata
-        assert rx_frame.tid == test_frame.tid
-        assert rx_frame.tdest == test_frame.tdest
-        assert not rx_frame.tuser
+        assert mon_rx_frame.tdata == test_frame.tdata
+        assert mon_rx_frame.tid == test_frame.tid
+        assert mon_rx_frame.tdest == test_frame.tdest
+        assert not mon_rx_frame.tuser
+
+        assert rx_frame.rx_sim_time == mon_rx_frame.rx_sim_time
 
     assert tb.sink.empty()
     assert tb.monitor.empty()
