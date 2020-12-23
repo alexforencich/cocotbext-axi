@@ -208,13 +208,11 @@ The modules use `cocotb.bus.Bus` internally to automatically connect to the corr
 
 To send data into a design with an `AxiStreamSource`, call `send()` or `write()`.  Accepted data types are iterables or `AxiStreamFrame` objects.  Call `wait()` to wait for the transmit operation to complete.  Example:
 
-    axis_source.send(b'test data')
-    await axis_source.wait()
+    await axis_source.send(b'test data')
 
-To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()` or `read()`.  `recv()` is intended for use with a frame-oriented interface, and by default compacts `AxiStreamFrame`s before returning them.  `read()` is intended for non-frame-oriented streams.  Calling `read()` internally calls `recv()` for all frames currently in the queue, then compacts and coalesces `tdata` from all frames into a separate read queue, from which read data is returned.  All sideband data is discarded.  Call `wait()` to wait for new receive data.
+To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()` or `read()`.  `recv()` is intended for use with a frame-oriented interface, and by default compacts `AxiStreamFrame`s before returning them.  `read()` is intended for non-frame-oriented streams.  Calling `read()` internally calls `recv()` for all frames currently in the queue, then compacts and coalesces `tdata` from all frames into a separate read queue, from which read data is returned.  All sideband data is discarded.
 
-    await axis_sink.wait()
-    data = axis_sink.recv()
+    data = await axis_sink.recv()
 
 #### Signals
 
