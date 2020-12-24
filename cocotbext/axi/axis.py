@@ -26,7 +26,7 @@ import logging
 from collections import deque
 
 import cocotb
-from cocotb.triggers import RisingEdge, ReadOnly, Timer, First, Event
+from cocotb.triggers import RisingEdge, Timer, First, Event
 from cocotb.utils import get_sim_time
 from cocotb.bus import Bus
 
@@ -354,14 +354,13 @@ class AxiStreamSource(object):
         self.active = False
 
         while True:
-            await ReadOnly()
+            await RisingEdge(self.clock)
 
             # read handshake signals
             tready_sample = (not hasattr(self.bus, "tready")) or self.bus.tready.value
             tvalid_sample = (not hasattr(self.bus, "tvalid")) or self.bus.tvalid.value
 
             if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
                 frame = None
                 self.active = False
                 self.bus.tdata <= 0
@@ -378,8 +377,6 @@ class AxiStreamSource(object):
                 if hasattr(self.bus, "tuser"):
                     self.bus.tuser <= 0
                 continue
-
-            await RisingEdge(self.clock)
 
             if (tready_sample and tvalid_sample) or not tvalid_sample:
                 if frame is None and self.queue:
@@ -597,14 +594,13 @@ class AxiStreamSink(object):
         self.active = False
 
         while True:
-            await ReadOnly()
+            await RisingEdge(self.clock)
 
             # read handshake signals
             tready_sample = (not hasattr(self.bus, "tready")) or self.bus.tready.value
             tvalid_sample = (not hasattr(self.bus, "tvalid")) or self.bus.tvalid.value
 
             if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
                 frame = None
                 self.active = False
                 if hasattr(self.bus, "tready"):
@@ -641,8 +637,6 @@ class AxiStreamSink(object):
                     self.sync.set()
 
                     frame = None
-
-            await RisingEdge(self.clock)
 
             if hasattr(self.bus, "tready"):
                 self.bus.tready <= (not self.full() and not self.pause)
@@ -784,14 +778,13 @@ class AxiStreamMonitor(object):
         self.active = False
 
         while True:
-            await ReadOnly()
+            await RisingEdge(self.clock)
 
             # read handshake signals
             tready_sample = (not hasattr(self.bus, "tready")) or self.bus.tready.value
             tvalid_sample = (not hasattr(self.bus, "tvalid")) or self.bus.tvalid.value
 
             if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
                 frame = None
                 self.active = False
                 continue
@@ -823,5 +816,3 @@ class AxiStreamMonitor(object):
                     self.sync.set()
 
                     frame = None
-
-            await RisingEdge(self.clock)

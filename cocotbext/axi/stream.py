@@ -26,7 +26,7 @@ import logging
 from collections import deque
 
 import cocotb
-from cocotb.triggers import RisingEdge, ReadOnly, Event, First, Timer
+from cocotb.triggers import RisingEdge, Event, First, Timer
 from cocotb.bus import Bus
 
 
@@ -190,21 +190,18 @@ class StreamSource(StreamBase, StreamPause):
 
     async def _run_source(self):
         while True:
-            await ReadOnly()
+            await RisingEdge(self.clock)
 
             # read handshake signals
             ready_sample = self.ready is None or self.ready.value
             valid_sample = self.valid is None or self.valid.value
 
             if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
                 self.clear()
                 if self.valid is not None:
                     self.valid <= 0
                 self.active = False
                 continue
-
-            await RisingEdge(self.clock)
 
             if (ready_sample and valid_sample) or (not valid_sample):
                 if self.drive_obj and not self.pause:
@@ -275,14 +272,13 @@ class StreamSink(StreamBase, StreamPause):
 
     async def _run_sink(self):
         while True:
-            await ReadOnly()
+            await RisingEdge(self.clock)
 
             # read handshake signals
             ready_sample = self.ready is None or self.ready.value
             valid_sample = self.valid is None or self.valid.value
 
             if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
                 self.clear()
                 if self.ready is not None:
                     self.ready <= 0
@@ -293,7 +289,6 @@ class StreamSink(StreamBase, StreamPause):
                 self.bus.sample(obj)
                 self.callback(obj)
 
-            await RisingEdge(self.clock)
             if self.ready is not None:
                 self.ready <= (not self.pause)
 
@@ -351,14 +346,13 @@ class StreamMonitor(StreamBase):
 
     async def _run_monitor(self):
         while True:
-            await ReadOnly()
+            await RisingEdge(self.clock)
 
             # read handshake signals
             ready_sample = self.ready is None or self.ready.value
             valid_sample = self.valid is None or self.valid.value
 
             if self.reset is not None and self.reset.value:
-                await RisingEdge(self.clock)
                 self.clear()
                 continue
 
@@ -366,8 +360,6 @@ class StreamMonitor(StreamBase):
                 obj = self._transaction_obj()
                 self.bus.sample(obj)
                 self.callback(obj)
-
-            await RisingEdge(self.clock)
 
 
 def define_stream(name, signals, optional_signals=None, valid_signal=None, ready_signal=None, signal_widths=None):
