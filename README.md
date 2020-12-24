@@ -41,7 +41,7 @@ To use these modules, import the one you need and connect it to the DUT:
 
     axi_master = AxiMaster(dut, "s_axi", dut.clk, dut.rst)
 
-The modules use `cocotb.bus.Bus` internally to automatically connect to the corresponding signals in the bus, presuming they are named according to the AXI spec and have a common prefix.
+The modules use `cocotb.bus.Bus` internally to automatically connect to the corresponding signals in the bus, presuming they are named according to the AXI spec and share a common prefix.
 
 Once the module is instantiated, read and write operations can be initiated in a few different ways.
 
@@ -143,7 +143,7 @@ To use these modules, import the one you need and connect it to the DUT:
 
     axi_ram = AxiRam(dut, "m_axi", dut.clk, dut.rst, size=2**16)
 
-The modules use `cocotb.bus.Bus` internally to automatically connect to the corresponding signals in the bus, presuming they are named according to the AXI spec and have a common prefix.
+The modules use `cocotb.bus.Bus` internally to automatically connect to the corresponding signals in the bus, presuming they are named according to the AXI spec and share a common prefix.
 
 Once the module is instantiated, the memory contents can be accessed in a couple of different ways.  First, the `mmap` object can be accessed directly via the `mem` attribute.  Second, `read()`, `write()`, and various word-access wrappers are available.  Hex dump helper methods are also provided for debugging.  For example:
 
@@ -194,7 +194,7 @@ Multi-port memories can be constructed by passing the `mem` object of the first 
 
 ### AXI stream
 
-The `AxiStreamSource`, `AxiStreamSink`, and `AxiStreamMonitor` classes can be used to drive, receive, and monitor traffic on AXI stream interfaces.  The `AxiStreamSource` drives all signals except for `tready` and can be used to drive AXI stream traffic into a design.  The `AxiStreamSink` drives the `tready` line only and as such can receive AXI stream traffic and exert backpressure.  The `AxiStreamMonitor` drives no signals and as such can be connected to internal AXI stream interfaces to monitor traffic.
+The `AxiStreamSource`, `AxiStreamSink`, and `AxiStreamMonitor` classes can be used to drive, receive, and monitor traffic on AXI stream interfaces.  The `AxiStreamSource` drives all signals except for `tready` and can be used to drive AXI stream traffic into a design.  The `AxiStreamSink` drives the `tready` line only and as such can receive AXI stream traffic and exert backpressure.  The `AxiStreamMonitor` drives no signals and as such can be connected to AXI stream interfaces anywhere within a design to passively monitor traffic.
 
 To use these modules, import the one you need and connect it to the DUT:
 
@@ -204,13 +204,15 @@ To use these modules, import the one you need and connect it to the DUT:
     axis_sink = AxiStreamSink(dut, "m_axis", dut.clk, dut.rst)
     axis_monitor = AxiStreamMonitor(dut.inst, "int_axis", dut.clk, dut.rst)
 
-The modules use `cocotb.bus.Bus` internally to automatically connect to the corresponding signals in the bus, presuming they are named according to the AXI spec and have a common prefix.
+The modules use `cocotb.bus.Bus` internally to automatically connect to the corresponding signals in the bus, presuming they are named according to the AXI spec and share a common prefix.
 
-To send data into a design with an `AxiStreamSource`, call `send()` or `write()`.  Accepted data types are iterables or `AxiStreamFrame` objects.  Call `wait()` to wait for the transmit operation to complete.  Example:
+To send data into a design with an `AxiStreamSource`, call `send()` or `write()`.  Accepted data types are iterables or `AxiStreamFrame` objects.  Optionally, call `wait()` to wait for the transmit operation to complete.  Example:
 
     await axis_source.send(b'test data')
+    # wait for operation to complete (optional)
+    await axis_source.wait()
 
-To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()` or `read()`.  `recv()` is intended for use with a frame-oriented interface, and by default compacts `AxiStreamFrame`s before returning them.  `read()` is intended for non-frame-oriented streams.  Calling `read()` internally calls `recv()` for all frames currently in the queue, then compacts and coalesces `tdata` from all frames into a separate read queue, from which read data is returned.  All sideband data is discarded.
+To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()`/`recv_nowait()` or `read()`/`read_nowait()`.  Optionally call `wait()` to wait for new receive data.  `recv()` is intended for use with a frame-oriented interface, and by default compacts `AxiStreamFrame`s before returning them.  `read()` is intended for non-frame-oriented streams.  Calling `read()` internally calls `recv()` for all frames currently in the queue, then compacts and coalesces `tdata` from all frames into a separate read queue, from which read data is returned.  All sideband data is discarded.
 
     data = await axis_sink.recv()
 
@@ -275,6 +277,7 @@ Attributes:
 * `tid`: tid field, optional; int or list with one entry per `tdata`, last value used per cycle when sending.
 * `tdest`: tdest field, optional; int or list with one entry per `tdata`, last value used per cycle when sending.
 * `tuser`: tuser field, optional; int or list with one entry per `tdata`, last value used per cycle when sending.
+* `rx_sim_time`: simulation time when frame arrived at sink or monitor.
 
 Methods:
 
