@@ -38,7 +38,7 @@ from cocotb.regression import TestFactory
 from cocotbext.axi import AxiStreamFrame, AxiStreamSource, AxiStreamSink, AxiStreamMonitor
 
 
-class TB(object):
+class TB:
     def __init__(self, dut):
         self.dut = dut
 

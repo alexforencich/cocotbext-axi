@@ -47,7 +47,7 @@ AxiReadRespCmd = namedtuple("AxiReadRespCmd", ["address", "length", "size", "cyc
 AxiReadResp = namedtuple("AxiReadResp", ["address", "data", "resp", "user"])
 
 
-class AxiMasterWrite(object):
+class AxiMasterWrite:
     def __init__(self, entity, name, clock, reset=None, max_burst_len=256):
         self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
 
@@ -361,7 +361,7 @@ class AxiMasterWrite(object):
             self.in_flight_operations -= 1
 
 
-class AxiMasterRead(object):
+class AxiMasterRead:
     def __init__(self, entity, name, clock, reset=None, max_burst_len=256):
         self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
 
@@ -658,7 +658,7 @@ class AxiMasterRead(object):
             self.in_flight_operations -= 1
 
 
-class AxiMaster(object):
+class AxiMaster:
     def __init__(self, entity, name, clock, reset=None, max_burst_len=256):
         self.write_if = None
         self.read_if = None

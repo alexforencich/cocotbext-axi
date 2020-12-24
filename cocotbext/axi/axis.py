@@ -33,7 +33,7 @@ from cocotb.bus import Bus
 from .version import __version__
 
 
-class AxiStreamFrame(object):
+class AxiStreamFrame:
     def __init__(self, tdata=b'', tkeep=None, tid=None, tdest=None, tuser=None):
         self.tdata = bytearray()
         self.tkeep = None
@@ -216,7 +216,7 @@ class AxiStreamFrame(object):
         return bytes(self.tdata)
 
 
-class AxiStreamSource(object):
+class AxiStreamSource:
 
     _signals = ["tdata"]
     _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tid", "tdest", "tuser"]
@@ -433,7 +433,7 @@ class AxiStreamSource(object):
             await RisingEdge(self.clock)
 
 
-class AxiStreamSink(object):
+class AxiStreamSink:
 
     _signals = ["tdata"]
     _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tid", "tdest", "tuser"]
@@ -647,7 +647,7 @@ class AxiStreamSink(object):
             await RisingEdge(self.clock)
 
 
-class AxiStreamMonitor(object):
+class AxiStreamMonitor:
 
     _signals = ["tdata"]
     _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tid", "tdest", "tuser"]

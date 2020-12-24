@@ -27,7 +27,7 @@ import mmap
 from .utils import hexdump, hexdump_lines, hexdump_str
 
 
-class Memory(object):
+class Memory:
     def __init__(self, size=1024, mem=None, *args, **kwargs):
         if mem is not None:
             self.mem = mem

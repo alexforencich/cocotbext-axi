@@ -30,7 +30,7 @@ from cocotb.triggers import RisingEdge, Event, First, Timer
 from cocotb.bus import Bus
 
 
-class StreamTransaction(object):
+class StreamTransaction:
 
     _signals = ["data"]
 
@@ -48,7 +48,7 @@ class StreamTransaction(object):
         return f"{type(self).__name__}({', '.join(f'{s}={int(getattr(self, s))}' for s in self._signals)})"
 
 
-class StreamBase(object):
+class StreamBase:
 
     _signals = ["data", "valid", "ready"]
     _optional_signals = []
@@ -108,7 +108,7 @@ class StreamBase(object):
         self.queue.clear()
 
 
-class StreamPause(object):
+class StreamPause:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
