@@ -68,6 +68,8 @@ class AxiLiteMasterWrite:
         self.int_write_resp_command_sync = Event()
 
         self.in_flight_operations = 0
+        self._idle = Event()
+        self._idle.set()
 
         self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
@@ -90,6 +92,7 @@ class AxiLiteMasterWrite:
             raise ValueError("Expected event object")
 
         self.in_flight_operations += 1
+        self._idle.clear()
 
         self.write_command_queue.append(AxiLiteWriteCmd(address, bytearray(data), prot, event))
         self.write_command_sync.set()
@@ -99,8 +102,7 @@ class AxiLiteMasterWrite:
 
     async def wait(self):
         while not self.idle():
-            self.write_resp_sync.clear()
-            await self.write_resp_sync.wait()
+            await self._idle.wait()
 
     def write_resp_ready(self):
         return bool(self.write_resp_queue)
@@ -227,6 +229,9 @@ class AxiLiteMasterWrite:
 
             self.in_flight_operations -= 1
 
+            if self.in_flight_operations == 0:
+                self._idle.set()
+
 
 class AxiLiteMasterRead:
     def __init__(self, entity, name, clock, reset=None):
@@ -252,6 +257,8 @@ class AxiLiteMasterRead:
         self.int_read_resp_command_sync = Event()
 
         self.in_flight_operations = 0
+        self._idle = Event()
+        self._idle.set()
 
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
@@ -272,6 +279,7 @@ class AxiLiteMasterRead:
             raise ValueError("Expected event object")
 
         self.in_flight_operations += 1
+        self._idle.clear()
 
         self.read_command_queue.append(AxiLiteReadCmd(address, length, prot, event))
         self.read_command_sync.set()
@@ -281,8 +289,7 @@ class AxiLiteMasterRead:
 
     async def wait(self):
         while not self.idle():
-            self.read_data_sync.clear()
-            await self.read_data_sync.wait()
+            await self._idle.wait()
 
     def read_data_ready(self):
         return bool(self.read_data_queue)
@@ -396,6 +403,9 @@ class AxiLiteMasterRead:
                 self.read_data_sync.set()
 
             self.in_flight_operations -= 1
+
+            if self.in_flight_operations == 0:
+                self._idle.set()
 
 
 class AxiLiteMaster:

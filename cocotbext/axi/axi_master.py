@@ -77,6 +77,8 @@ class AxiMasterWrite:
         self.int_write_resp_queue_list = [deque() for k in range(self.id_count)]
 
         self.in_flight_operations = 0
+        self._idle = Event()
+        self._idle.set()
 
         self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
@@ -132,6 +134,7 @@ class AxiMasterWrite:
             wuser = list(wuser)
 
         self.in_flight_operations += 1
+        self._idle.clear()
 
         cmd = AxiWriteCmd(address, bytearray(data), awid, burst, size, lock,
             cache, prot, qos, region, user, wuser, event)
@@ -143,8 +146,7 @@ class AxiMasterWrite:
 
     async def wait(self):
         while not self.idle():
-            self.write_resp_sync.clear()
-            await self.write_resp_sync.wait()
+            await self._idle.wait()
 
     def write_resp_ready(self):
         return bool(self.write_resp_queue)
@@ -360,6 +362,9 @@ class AxiMasterWrite:
 
             self.in_flight_operations -= 1
 
+            if self.in_flight_operations == 0:
+                self._idle.set()
+
 
 class AxiMasterRead:
     def __init__(self, entity, name, clock, reset=None, max_burst_len=256):
@@ -390,6 +395,8 @@ class AxiMasterRead:
         self.int_read_resp_queue_list = [deque() for k in range(self.id_count)]
 
         self.in_flight_operations = 0
+        self._idle = Event()
+        self._idle.set()
 
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
@@ -439,6 +446,7 @@ class AxiMasterRead:
         prot = AxiProt(prot)
 
         self.in_flight_operations += 1
+        self._idle.clear()
 
         cmd = AxiReadCmd(address, length, arid, burst, size, lock, cache, prot, qos, region, user, event)
         self.read_command_queue.append(cmd)
@@ -449,8 +457,7 @@ class AxiMasterRead:
 
     async def wait(self):
         while not self.idle():
-            self.read_data_sync.clear()
-            await self.read_data_sync.wait()
+            await self._idle.wait()
 
     def read_data_ready(self):
         return bool(self.read_data_queue)
@@ -656,6 +663,9 @@ class AxiMasterRead:
                 self.read_data_sync.set()
 
             self.in_flight_operations -= 1
+
+            if self.in_flight_operations == 0:
+                self._idle.set()
 
 
 class AxiMaster:
