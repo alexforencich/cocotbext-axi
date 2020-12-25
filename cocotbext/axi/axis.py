@@ -31,6 +31,7 @@ from cocotb.utils import get_sim_time
 from cocotb.bus import Bus
 
 from .version import __version__
+from .reset import Reset
 
 
 class AxiStreamFrame:
@@ -216,7 +217,7 @@ class AxiStreamFrame:
         return bytes(self.tdata)
 
 
-class AxiStreamSource:
+class AxiStreamSource(Reset):
 
     _signals = ["tdata"]
     _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tid", "tdest", "tuser"]
@@ -247,8 +248,6 @@ class AxiStreamSource:
 
         self.width = len(self.bus.tdata)
         self.byte_lanes = 1
-
-        self.reset = reset
 
         self.bus.tdata.setimmediatevalue(0)
         if hasattr(self.bus, "tvalid"):
@@ -306,7 +305,9 @@ class AxiStreamSource:
             raise ValueError(f"Bus does not evenly divide into byte lanes "
                 f"({self.byte_lanes} * {self.byte_size} != {self.width})")
 
-        cocotb.fork(self._run())
+        self._run_cr = None
+
+        self._init_reset(reset)
 
     async def send(self, frame):
         self.send_nowait(frame)
@@ -349,6 +350,32 @@ class AxiStreamSource:
     def clear_pause_generator(self):
         self.set_pause_generator(None)
 
+    def _handle_reset(self, state):
+        if state:
+            self.log.info("Reset asserted")
+            if self._run_cr is not None:
+                self._run_cr.kill()
+                self._run_cr = None
+        else:
+            self.log.info("Reset de-asserted")
+            if self._run_cr is None:
+                self._run_cr = cocotb.fork(self._run())
+
+        self.active = False
+        self.bus.tdata <= 0
+        if hasattr(self.bus, "tvalid"):
+            self.bus.tvalid <= 0
+        if hasattr(self.bus, "tlast"):
+            self.bus.tlast <= 0
+        if hasattr(self.bus, "tkeep"):
+            self.bus.tkeep <= 0
+        if hasattr(self.bus, "tid"):
+            self.bus.tid <= 0
+        if hasattr(self.bus, "tdest"):
+            self.bus.tdest <= 0
+        if hasattr(self.bus, "tuser"):
+            self.bus.tuser <= 0
+
     async def _run(self):
         frame = None
         self.active = False
@@ -359,24 +386,6 @@ class AxiStreamSource:
             # read handshake signals
             tready_sample = (not hasattr(self.bus, "tready")) or self.bus.tready.value
             tvalid_sample = (not hasattr(self.bus, "tvalid")) or self.bus.tvalid.value
-
-            if self.reset is not None and self.reset.value:
-                frame = None
-                self.active = False
-                self.bus.tdata <= 0
-                if hasattr(self.bus, "tvalid"):
-                    self.bus.tvalid <= 0
-                if hasattr(self.bus, "tlast"):
-                    self.bus.tlast <= 0
-                if hasattr(self.bus, "tkeep"):
-                    self.bus.tkeep <= 0
-                if hasattr(self.bus, "tid"):
-                    self.bus.tid <= 0
-                if hasattr(self.bus, "tdest"):
-                    self.bus.tdest <= 0
-                if hasattr(self.bus, "tuser"):
-                    self.bus.tuser <= 0
-                continue
 
             if (tready_sample and tvalid_sample) or not tvalid_sample:
                 if frame is None and self.queue:
@@ -433,7 +442,7 @@ class AxiStreamSource:
             await RisingEdge(self.clock)
 
 
-class AxiStreamSink:
+class AxiStreamSink(Reset):
 
     _signals = ["tdata"]
     _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tid", "tdest", "tuser"]
@@ -468,8 +477,6 @@ class AxiStreamSink:
 
         self.width = len(self.bus.tdata)
         self.byte_lanes = 1
-
-        self.reset = reset
 
         if hasattr(self.bus, "tready"):
             self.bus.tready.setimmediatevalue(0)
@@ -516,7 +523,9 @@ class AxiStreamSink:
             raise ValueError(f"Bus does not evenly divide into byte lanes "
                 f"({self.byte_lanes} * {self.byte_size} != {self.width})")
 
-        cocotb.fork(self._run())
+        self._run_cr = None
+
+        self._init_reset(reset)
 
     async def recv(self, compact=True):
         while self.empty():
@@ -589,6 +598,21 @@ class AxiStreamSink:
     def clear_pause_generator(self):
         self.set_pause_generator(None)
 
+    def _handle_reset(self, state):
+        if state:
+            self.log.info("Reset asserted")
+            if self._run_cr is not None:
+                self._run_cr.kill()
+                self._run_cr = None
+        else:
+            self.log.info("Reset de-asserted")
+            if self._run_cr is None:
+                self._run_cr = cocotb.fork(self._run())
+
+        self.active = False
+        if hasattr(self.bus, "tready"):
+            self.bus.tready <= 0
+
     async def _run(self):
         frame = None
         self.active = False
@@ -599,13 +623,6 @@ class AxiStreamSink:
             # read handshake signals
             tready_sample = (not hasattr(self.bus, "tready")) or self.bus.tready.value
             tvalid_sample = (not hasattr(self.bus, "tvalid")) or self.bus.tvalid.value
-
-            if self.reset is not None and self.reset.value:
-                frame = None
-                self.active = False
-                if hasattr(self.bus, "tready"):
-                    self.bus.tready <= 0
-                continue
 
             if tready_sample and tvalid_sample:
                 if frame is None:
@@ -647,7 +664,7 @@ class AxiStreamSink:
             await RisingEdge(self.clock)
 
 
-class AxiStreamMonitor:
+class AxiStreamMonitor(Reset):
 
     _signals = ["tdata"]
     _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tid", "tdest", "tuser"]
@@ -676,8 +693,6 @@ class AxiStreamMonitor:
 
         self.width = len(self.bus.tdata)
         self.byte_lanes = 1
-
-        self.reset = reset
 
         if hasattr(self.bus, "tkeep"):
             self.byte_lanes = len(self.bus.tkeep)
@@ -721,7 +736,9 @@ class AxiStreamMonitor:
             raise ValueError(f"Bus does not evenly divide into byte lanes "
                 f"({self.byte_lanes} * {self.byte_size} != {self.width})")
 
-        cocotb.fork(self._run())
+        self._run_cr = None
+
+        self._init_reset(reset)
 
     async def recv(self, compact=True):
         while self.empty():
@@ -773,6 +790,19 @@ class AxiStreamMonitor:
         else:
             await self.sync.wait()
 
+    def _handle_reset(self, state):
+        if state:
+            self.log.info("Reset asserted")
+            if self._run_cr is not None:
+                self._run_cr.kill()
+                self._run_cr = None
+        else:
+            self.log.info("Reset de-asserted")
+            if self._run_cr is None:
+                self._run_cr = cocotb.fork(self._run())
+
+        self.active = False
+
     async def _run(self):
         frame = None
         self.active = False
@@ -783,11 +813,6 @@ class AxiStreamMonitor:
             # read handshake signals
             tready_sample = (not hasattr(self.bus, "tready")) or self.bus.tready.value
             tvalid_sample = (not hasattr(self.bus, "tvalid")) or self.bus.tvalid.value
-
-            if self.reset is not None and self.reset.value:
-                frame = None
-                self.active = False
-                continue
 
             if tready_sample and tvalid_sample:
                 if frame is None:
