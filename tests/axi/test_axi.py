@@ -311,7 +311,6 @@ if cocotb.SIM_NAME:
 # cocotb-test
 
 tests_dir = os.path.dirname(__file__)
-rtl_dir = os.path.abspath(os.path.join(tests_dir, '..', '..', 'rtl'))
 
 
 @pytest.mark.parametrize("data_width", [8, 16, 32])
