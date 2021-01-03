@@ -30,9 +30,10 @@ from .version import __version__
 from .constants import AxiProt, AxiResp
 from .axil_channels import AxiLiteAWSink, AxiLiteWSink, AxiLiteBSource, AxiLiteARSink, AxiLiteRSource
 from .memory import Memory
+from .reset import Reset
 
 
-class AxiLiteRamWrite(Memory):
+class AxiLiteRamWrite(Memory, Reset):
     def __init__(self, entity, name, clock, reset=None, size=1024, mem=None, *args, **kwargs):
         self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
 
@@ -49,8 +50,6 @@ class AxiLiteRamWrite(Memory):
         self.w_channel = AxiLiteWSink(entity, name, clock, reset)
         self.b_channel = AxiLiteBSource(entity, name, clock, reset)
 
-        self.in_flight_operations = 0
-
         self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
         self.byte_width = self.width // self.byte_size
@@ -65,7 +64,24 @@ class AxiLiteRamWrite(Memory):
         assert self.byte_width == len(self.w_channel.bus.wstrb)
         assert self.byte_width * self.byte_size == self.width
 
-        cocotb.fork(self._process_write())
+        self._process_write_cr = None
+
+        self._init_reset(reset)
+
+    def _handle_reset(self, state):
+        if state:
+            self.log.info("Reset asserted")
+            if self._process_write_cr is not None:
+                self._process_write_cr.kill()
+                self._process_write_cr = None
+        else:
+            self.log.info("Reset de-asserted")
+            if self._process_write_cr is None:
+                self._process_write_cr = cocotb.fork(self._process_write())
+
+        self.aw_channel.clear()
+        self.w_channel.clear()
+        self.b_channel.clear()
 
     async def _process_write(self):
         while True:
@@ -100,7 +116,7 @@ class AxiLiteRamWrite(Memory):
             await self.b_channel.send(b)
 
 
-class AxiLiteRamRead(Memory):
+class AxiLiteRamRead(Memory, Reset):
     def __init__(self, entity, name, clock, reset=None, size=1024, mem=None, *args, **kwargs):
         self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
 
@@ -116,8 +132,6 @@ class AxiLiteRamRead(Memory):
         self.ar_channel = AxiLiteARSink(entity, name, clock, reset)
         self.r_channel = AxiLiteRSource(entity, name, clock, reset)
 
-        self.in_flight_operations = 0
-
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
         self.byte_width = self.width // self.byte_size
@@ -130,7 +144,23 @@ class AxiLiteRamRead(Memory):
 
         assert self.byte_width * self.byte_size == self.width
 
-        cocotb.fork(self._process_read())
+        self._process_read_cr = None
+
+        self._init_reset(reset)
+
+    def _handle_reset(self, state):
+        if state:
+            self.log.info("Reset asserted")
+            if self._process_read_cr is not None:
+                self._process_read_cr.kill()
+                self._process_read_cr = None
+        else:
+            self.log.info("Reset de-asserted")
+            if self._process_read_cr is None:
+                self._process_read_cr = cocotb.fork(self._process_read())
+
+        self.ar_channel.clear()
+        self.r_channel.clear()
 
     async def _process_read(self):
         while True:

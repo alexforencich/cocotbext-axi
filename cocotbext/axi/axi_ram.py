@@ -30,9 +30,10 @@ from .version import __version__
 from .constants import AxiBurstType, AxiProt, AxiResp
 from .axi_channels import AxiAWSink, AxiWSink, AxiBSource, AxiARSink, AxiRSource
 from .memory import Memory
+from .reset import Reset
 
 
-class AxiRamWrite(Memory):
+class AxiRamWrite(Memory, Reset):
     def __init__(self, entity, name, clock, reset=None, size=1024, mem=None, *args, **kwargs):
         self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
 
@@ -48,8 +49,6 @@ class AxiRamWrite(Memory):
         self.aw_channel = AxiAWSink(entity, name, clock, reset)
         self.w_channel = AxiWSink(entity, name, clock, reset)
         self.b_channel = AxiBSource(entity, name, clock, reset)
-
-        self.in_flight_operations = 0
 
         self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
@@ -68,7 +67,24 @@ class AxiRamWrite(Memory):
 
         assert len(self.b_channel.bus.bid) == len(self.aw_channel.bus.awid)
 
-        cocotb.fork(self._process_write())
+        self._process_write_cr = None
+
+        self._init_reset(reset)
+
+    def _handle_reset(self, state):
+        if state:
+            self.log.info("Reset asserted")
+            if self._process_write_cr is not None:
+                self._process_write_cr.kill()
+                self._process_write_cr = None
+        else:
+            self.log.info("Reset de-asserted")
+            if self._process_write_cr is None:
+                self._process_write_cr = cocotb.fork(self._process_write())
+
+        self.aw_channel.clear()
+        self.w_channel.clear()
+        self.b_channel.clear()
 
     async def _process_write(self):
         while True:
@@ -142,7 +158,7 @@ class AxiRamWrite(Memory):
             await self.b_channel.send(b)
 
 
-class AxiRamRead(Memory):
+class AxiRamRead(Memory, Reset):
     def __init__(self, entity, name, clock, reset=None, size=1024, mem=None, *args, **kwargs):
         self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
 
@@ -157,8 +173,6 @@ class AxiRamRead(Memory):
 
         self.ar_channel = AxiARSink(entity, name, clock, reset)
         self.r_channel = AxiRSource(entity, name, clock, reset)
-
-        self.in_flight_operations = 0
 
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
@@ -175,7 +189,23 @@ class AxiRamRead(Memory):
 
         assert len(self.r_channel.bus.rid) == len(self.ar_channel.bus.arid)
 
-        cocotb.fork(self._process_read())
+        self._process_read_cr = None
+
+        self._init_reset(reset)
+
+    def _handle_reset(self, state):
+        if state:
+            self.log.info("Reset asserted")
+            if self._process_read_cr is not None:
+                self._process_read_cr.kill()
+                self._process_read_cr = None
+        else:
+            self.log.info("Reset de-asserted")
+            if self._process_read_cr is None:
+                self._process_read_cr = cocotb.fork(self._process_read())
+
+        self.ar_channel.clear()
+        self.r_channel.clear()
 
     async def _process_read(self):
         while True:

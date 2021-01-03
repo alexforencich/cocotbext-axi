@@ -31,6 +31,7 @@ from cocotb.triggers import Event
 from .version import __version__
 from .constants import AxiProt, AxiResp
 from .axil_channels import AxiLiteAWSource, AxiLiteWSource, AxiLiteBSink, AxiLiteARSource, AxiLiteRSink
+from .reset import Reset
 
 # AXI lite master write
 AxiLiteWriteCmd = namedtuple("AxiLiteWriteCmd", ["address", "data", "prot", "event"])
@@ -43,7 +44,7 @@ AxiLiteReadRespCmd = namedtuple("AxiLiteReadRespCmd", ["address", "length", "cyc
 AxiLiteReadResp = namedtuple("AxiLiteReadResp", ["address", "data", "resp"])
 
 
-class AxiLiteMasterWrite:
+class AxiLiteMasterWrite(Reset):
     def __init__(self, entity, name, clock, reset=None):
         self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
 
@@ -62,7 +63,6 @@ class AxiLiteMasterWrite:
         self.write_command_sync = Event()
         self.write_resp_queue = deque()
         self.write_resp_sync = Event()
-        self.write_resp_set = set()
 
         self.int_write_resp_command_queue = deque()
         self.int_write_resp_command_sync = Event()
@@ -84,8 +84,10 @@ class AxiLiteMasterWrite:
         assert self.byte_width == len(self.w_channel.bus.wstrb)
         assert self.byte_width * self.byte_size == self.width
 
-        cocotb.fork(self._process_write())
-        cocotb.fork(self._process_write_resp())
+        self._process_write_cr = None
+        self._process_write_resp_cr = None
+
+        self._init_reset(reset)
 
     def init_write(self, address, data, prot=AxiProt.NONSECURE, event=None):
         if event is not None and not isinstance(event, Event):
@@ -142,6 +144,41 @@ class AxiLiteMasterWrite:
 
     async def write_qword(self, address, data, byteorder='little', prot=AxiProt.NONSECURE):
         await self.write_qwords(address, [data], byteorder, prot)
+
+    def _handle_reset(self, state):
+        if state:
+            self.log.info("Reset asserted")
+            if self._process_write_cr is not None:
+                self._process_write_cr.kill()
+                self._process_write_cr = None
+            if self._process_write_resp_cr is not None:
+                self._process_write_resp_cr.kill()
+                self._process_write_resp_cr = None
+        else:
+            self.log.info("Reset de-asserted")
+            if self._process_write_cr is None:
+                self._process_write_cr = cocotb.fork(self._process_write())
+            if self._process_write_resp_cr is None:
+                self._process_write_resp_cr = cocotb.fork(self._process_write_resp())
+
+        self.aw_channel.clear()
+        self.w_channel.clear()
+        self.b_channel.clear()
+
+        while self.write_command_queue:
+            cmd = self.write_command_queue.popleft()
+            if cmd.event:
+                cmd.event.set(None)
+
+        while self.int_write_resp_command_queue:
+            cmd = self.int_write_resp_command_queue.popleft()
+            if cmd.event:
+                cmd.event.set(None)
+
+        self.write_resp_queue.clear()
+
+        self.in_flight_operations = 0
+        self._idle.set()
 
     async def _process_write(self):
         while True:
@@ -233,7 +270,7 @@ class AxiLiteMasterWrite:
                 self._idle.set()
 
 
-class AxiLiteMasterRead:
+class AxiLiteMasterRead(Reset):
     def __init__(self, entity, name, clock, reset=None):
         self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
 
@@ -251,7 +288,6 @@ class AxiLiteMasterRead:
         self.read_command_sync = Event()
         self.read_data_queue = deque()
         self.read_data_sync = Event()
-        self.read_data_set = set()
 
         self.int_read_resp_command_queue = deque()
         self.int_read_resp_command_sync = Event()
@@ -271,8 +307,10 @@ class AxiLiteMasterRead:
 
         assert self.byte_width * self.byte_size == self.width
 
-        cocotb.fork(self._process_read())
-        cocotb.fork(self._process_read_resp())
+        self._process_read_cr = None
+        self._process_read_resp_cr = None
+
+        self._init_reset(reset)
 
     def init_read(self, address, length, prot=AxiProt.NONSECURE, event=None):
         if event is not None and not isinstance(event, Event):
@@ -329,6 +367,40 @@ class AxiLiteMasterRead:
 
     async def read_qword(self, address, byteorder='little', prot=AxiProt.NONSECURE):
         return (await self.read_qwords(address, 1, byteorder, prot))[0]
+
+    def _handle_reset(self, state):
+        if state:
+            self.log.info("Reset asserted")
+            if self._process_read_cr is not None:
+                self._process_read_cr.kill()
+                self._process_read_cr = None
+            if self._process_read_resp_cr is not None:
+                self._process_read_resp_cr.kill()
+                self._process_read_resp_cr = None
+        else:
+            self.log.info("Reset de-asserted")
+            if self._process_read_cr is None:
+                self._process_read_cr = cocotb.fork(self._process_read())
+            if self._process_read_resp_cr is None:
+                self._process_read_resp_cr = cocotb.fork(self._process_read_resp())
+
+        self.ar_channel.clear()
+        self.r_channel.clear()
+
+        while self.read_command_queue:
+            cmd = self.read_command_queue.popleft()
+            if cmd.event:
+                cmd.event.set(None)
+
+        while self.int_read_resp_command_queue:
+            cmd = self.int_read_resp_command_queue.popleft()
+            if cmd.event:
+                cmd.event.set(None)
+
+        self.read_data_queue.clear()
+
+        self.in_flight_operations = 0
+        self._idle.set()
 
     async def _process_read(self):
         while True:

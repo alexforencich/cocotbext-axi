@@ -31,6 +31,7 @@ from cocotb.triggers import Event
 from .version import __version__
 from .constants import AxiBurstType, AxiLockType, AxiProt, AxiResp
 from .axi_channels import AxiAWSource, AxiWSource, AxiBSink, AxiARSource, AxiRSink
+from .reset import Reset
 
 # AXI master write helper objects
 AxiWriteCmd = namedtuple("AxiWriteCmd", ["address", "data", "awid", "burst", "size",
@@ -47,7 +48,7 @@ AxiReadRespCmd = namedtuple("AxiReadRespCmd", ["address", "length", "size", "cyc
 AxiReadResp = namedtuple("AxiReadResp", ["address", "data", "resp", "user"])
 
 
-class AxiMasterWrite:
+class AxiMasterWrite(Reset):
     def __init__(self, entity, name, clock, reset=None, max_burst_len=256):
         self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
 
@@ -66,7 +67,6 @@ class AxiMasterWrite:
         self.write_command_sync = Event()
         self.write_resp_queue = deque()
         self.write_resp_sync = Event()
-        self.write_resp_set = set()
 
         self.id_count = 2**len(self.aw_channel.bus.awid)
         self.cur_id = 0
@@ -102,8 +102,10 @@ class AxiMasterWrite:
 
         assert len(self.b_channel.bus.bid) == len(self.aw_channel.bus.awid)
 
-        cocotb.fork(self._process_write())
-        cocotb.fork(self._process_write_resp())
+        self._process_write_cr = None
+        self._process_write_resp_cr = None
+
+        self._init_reset(reset)
 
     def init_write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL,
             cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0, event=None):
@@ -199,6 +201,41 @@ class AxiMasterWrite:
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
         await self.write_qwords(address, [data], byteorder, awid, burst, size,
             lock, cache, prot, qos, region, user, wuser)
+
+    def _handle_reset(self, state):
+        if state:
+            self.log.info("Reset asserted")
+            if self._process_write_cr is not None:
+                self._process_write_cr.kill()
+                self._process_write_cr = None
+            if self._process_write_resp_cr is not None:
+                self._process_write_resp_cr.kill()
+                self._process_write_resp_cr = None
+        else:
+            self.log.info("Reset de-asserted")
+            if self._process_write_cr is None:
+                self._process_write_cr = cocotb.fork(self._process_write())
+            if self._process_write_resp_cr is None:
+                self._process_write_resp_cr = cocotb.fork(self._process_write_resp())
+
+        self.aw_channel.clear()
+        self.w_channel.clear()
+        self.b_channel.clear()
+
+        while self.write_command_queue:
+            cmd = self.write_command_queue.popleft()
+            if cmd.event:
+                cmd.event.set(None)
+
+        while self.int_write_resp_command_queue:
+            cmd = self.int_write_resp_command_queue.popleft()
+            if cmd.event:
+                cmd.event.set(None)
+
+        self.write_resp_queue.clear()
+
+        self.in_flight_operations = 0
+        self._idle.set()
 
     async def _process_write(self):
         while True:
@@ -366,7 +403,7 @@ class AxiMasterWrite:
                 self._idle.set()
 
 
-class AxiMasterRead:
+class AxiMasterRead(Reset):
     def __init__(self, entity, name, clock, reset=None, max_burst_len=256):
         self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
 
@@ -384,7 +421,6 @@ class AxiMasterRead:
         self.read_command_sync = Event()
         self.read_data_queue = deque()
         self.read_data_sync = Event()
-        self.read_data_set = set()
 
         self.id_count = 2**len(self.ar_channel.bus.arid)
         self.cur_id = 0
@@ -418,8 +454,10 @@ class AxiMasterRead:
 
         assert len(self.r_channel.bus.rid) == len(self.ar_channel.bus.arid)
 
-        cocotb.fork(self._process_read())
-        cocotb.fork(self._process_read_resp())
+        self._process_read_cr = None
+        self._process_read_resp_cr = None
+
+        self._init_reset(reset)
 
     def init_read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, event=None):
@@ -510,6 +548,40 @@ class AxiMasterRead:
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
         return (await self.read_qwords(address, 1, byteorder, arid, burst, size,
             lock, cache, prot, qos, region, user))[0]
+
+    def _handle_reset(self, state):
+        if state:
+            self.log.info("Reset asserted")
+            if self._process_read_cr is not None:
+                self._process_read_cr.kill()
+                self._process_read_cr = None
+            if self._process_read_resp_cr is not None:
+                self._process_read_resp_cr.kill()
+                self._process_read_resp_cr = None
+        else:
+            self.log.info("Reset de-asserted")
+            if self._process_read_cr is None:
+                self._process_read_cr = cocotb.fork(self._process_read())
+            if self._process_read_resp_cr is None:
+                self._process_read_resp_cr = cocotb.fork(self._process_read_resp())
+
+        self.ar_channel.clear()
+        self.r_channel.clear()
+
+        while self.read_command_queue:
+            cmd = self.read_command_queue.popleft()
+            if cmd.event:
+                cmd.event.set(None)
+
+        while self.int_read_resp_command_queue:
+            cmd = self.int_read_resp_command_queue.popleft()
+            if cmd.event:
+                cmd.event.set(None)
+
+        self.read_data_queue.clear()
+
+        self.in_flight_operations = 0
+        self._idle.set()
 
     async def _process_read(self):
         while True:
