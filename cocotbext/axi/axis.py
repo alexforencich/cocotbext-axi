@@ -333,6 +333,11 @@ class AxiStreamSource(Reset):
     def idle(self):
         return self.empty() and not self.active
 
+    def clear(self):
+        self.queue.clear()
+        self.queue_occupancy_bytes = 0
+        self.queue_occupancy_frames = 0
+
     async def wait(self):
         while not self.idle():
             await RisingEdge(self.clock)
@@ -576,6 +581,11 @@ class AxiStreamSink(Reset):
     def idle(self):
         return not self.active
 
+    def clear(self):
+        self.queue.clear()
+        self.queue_occupancy_bytes = 0
+        self.queue_occupancy_frames = 0
+
     async def wait(self, timeout=0, timeout_unit='ns'):
         if not self.empty():
             return
@@ -780,6 +790,11 @@ class AxiStreamMonitor(Reset):
 
     def idle(self):
         return not self.active
+
+    def clear(self):
+        self.queue.clear()
+        self.queue_occupancy_bytes = 0
+        self.queue_occupancy_frames = 0
 
     async def wait(self, timeout=0, timeout_unit='ns'):
         if not self.empty():
