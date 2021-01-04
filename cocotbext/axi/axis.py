@@ -35,13 +35,15 @@ from .reset import Reset
 
 
 class AxiStreamFrame:
-    def __init__(self, tdata=b'', tkeep=None, tid=None, tdest=None, tuser=None):
+    def __init__(self, tdata=b'', tkeep=None, tid=None, tdest=None, tuser=None, tx_complete=None):
         self.tdata = bytearray()
         self.tkeep = None
         self.tid = None
         self.tdest = None
         self.tuser = None
-        self.rx_sim_time = None
+        self.sim_time_start = None
+        self.sim_time_end = None
+        self.tx_complete = None
 
         if type(tdata) is AxiStreamFrame:
             if type(tdata.tdata) is bytearray:
@@ -65,19 +67,23 @@ class AxiStreamFrame:
                     self.tuser = tdata.tuser
                 else:
                     self.tuser = list(tdata.tuser)
-            self.rx_sim_time = tdata.rx_sim_time
+            self.sim_time_start = tdata.sim_time_start
+            self.sim_time_end = tdata.sim_time_end
+            self.tx_complete = tdata.tx_complete
         elif type(tdata) in (bytes, bytearray):
             self.tdata = bytearray(tdata)
             self.tkeep = tkeep
             self.tid = tid
             self.tdest = tdest
             self.tuser = tuser
+            self.tx_complete = tx_complete
         else:
             self.tdata = list(tdata)
             self.tkeep = tkeep
             self.tid = tid
             self.tdest = tdest
             self.tuser = tuser
+            self.tx_complete = tx_complete
 
     def normalize(self):
         # normalize all sideband signals to the same size as tdata
@@ -148,6 +154,12 @@ class AxiStreamFrame:
         elif all(self.tuser[0] == i for i in self.tuser):
             self.tuser = self.tuser[0]
 
+    def handle_tx_complete(self):
+        if isinstance(self.tx_complete, Event):
+            self.tx_complete.set(self)
+        elif callable(self.tx_complete):
+            self.tx_complete(self)
+
     def __eq__(self, other):
         if not isinstance(other, AxiStreamFrame):
             return False
@@ -204,7 +216,8 @@ class AxiStreamFrame:
             f"tid={self.tid!r}, "
             f"tdest={self.tdest!r}, "
             f"tuser={self.tuser!r}, "
-            f"rx_sim_time={self.rx_sim_time!r})"
+            f"sim_time_start={self.sim_time_start!r}, "
+            f"sim_time_end={self.sim_time_end!r})"
         )
 
     def __len__(self):
@@ -397,6 +410,7 @@ class AxiStreamSource(Reset):
                     frame = self.queue.popleft()
                     self.queue_occupancy_bytes -= len(frame)
                     self.queue_occupancy_frames -= 1
+                    frame.sim_time_start = get_sim_time()
                     self.log.info("TX frame: %s", frame)
                     frame.normalize()
                     self.active = True
@@ -418,6 +432,8 @@ class AxiStreamSource(Reset):
 
                         if len(frame.tdata) == 0:
                             tlast_val = 1
+                            frame.sim_time_end = get_sim_time()
+                            frame.handle_tx_complete()
                             frame = None
                             break
 
@@ -640,7 +656,7 @@ class AxiStreamSink(Reset):
                         frame = AxiStreamFrame(bytearray(), [], [], [], [])
                     else:
                         frame = AxiStreamFrame([], [], [], [], [])
-                    frame.rx_sim_time = get_sim_time()
+                    frame.sim_time_start = get_sim_time()
 
                 for offset in range(self.byte_lanes):
 
@@ -655,6 +671,7 @@ class AxiStreamSink(Reset):
                         frame.tuser.append(self.bus.tuser.value.integer)
 
                 if not hasattr(self.bus, "tlast") or self.bus.tlast.value:
+                    frame.sim_time_end = get_sim_time()
                     self.log.info("RX frame: %s", frame)
 
                     self.queue_occupancy_bytes += len(frame)
@@ -835,7 +852,7 @@ class AxiStreamMonitor(Reset):
                         frame = AxiStreamFrame(bytearray(), [], [], [], [])
                     else:
                         frame = AxiStreamFrame([], [], [], [], [])
-                    frame.rx_sim_time = get_sim_time()
+                    frame.sim_time_start = get_sim_time()
 
                 for offset in range(self.byte_lanes):
 
@@ -850,6 +867,7 @@ class AxiStreamMonitor(Reset):
                         frame.tuser.append(self.bus.tuser.value.integer)
 
                 if not hasattr(self.bus, "tlast") or self.bus.tlast.value:
+                    frame.sim_time_end = get_sim_time()
                     self.log.info("RX frame: %s", frame)
 
                     self.queue.append(frame)

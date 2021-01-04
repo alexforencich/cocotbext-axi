@@ -111,7 +111,8 @@ async def run_test(dut, payload_lengths=None, payload_data=None, idle_inserter=N
         assert mon_rx_frame.tdest == test_frame.tdest
         assert not mon_rx_frame.tuser
 
-        assert rx_frame.rx_sim_time == mon_rx_frame.rx_sim_time
+        assert rx_frame.sim_time_start == mon_rx_frame.sim_time_start
+        assert rx_frame.sim_time_end == mon_rx_frame.sim_time_end
 
     assert tb.sink.empty()
     assert tb.monitor.empty()

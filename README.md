@@ -277,7 +277,9 @@ Attributes:
 * `tid`: tid field, optional; int or list with one entry per `tdata`, last value used per cycle when sending.
 * `tdest`: tdest field, optional; int or list with one entry per `tdata`, last value used per cycle when sending.
 * `tuser`: tuser field, optional; int or list with one entry per `tdata`, last value used per cycle when sending.
-* `rx_sim_time`: simulation time when frame arrived at sink or monitor.
+* `sim_time_start`: simulation time of first transfer cycle of frame.
+* `sim_time_end`: simulation time of last transfer cycle of frame.
+* `tx_complete`: event or callable triggered when frame is transmitted.
 
 Methods:
 
