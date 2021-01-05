@@ -206,11 +206,18 @@ To use these modules, import the one you need and connect it to the DUT:
 
 The modules use `cocotb.bus.Bus` internally to automatically connect to the corresponding signals in the bus, presuming they are named according to the AXI spec and share a common prefix.
 
-To send data into a design with an `AxiStreamSource`, call `send()` or `write()`.  Accepted data types are iterables or `AxiStreamFrame` objects.  Optionally, call `wait()` to wait for the transmit operation to complete.  Example:
+To send data into a design with an `AxiStreamSource`, call `send()`/`send_nowait()` or `write()`/`write_nowait()`.  Accepted data types are iterables or `AxiStreamFrame` objects.  Optionally, call `wait()` to wait for the transmit operation to complete.  Example:
 
     await axis_source.send(b'test data')
     # wait for operation to complete (optional)
     await axis_source.wait()
+
+It is also possible to wait for the transmission of a specific frame to complete by passing an event in the tx_complete field of the `AxiStreamFrame` object, and then awaiting the event.  The frame, with simulation time fields set, will be returned in the event data.  Example:
+
+    frame = AxiStreamFrame(b'test data', tx_complete=Event())
+    await axis_source.send(frame)
+    await frame.tx_complete.wait()
+    print(frame.tx_complete.data.sim_time_start)
 
 To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()`/`recv_nowait()` or `read()`/`read_nowait()`.  Optionally call `wait()` to wait for new receive data.  `recv()` is intended for use with a frame-oriented interface, and by default compacts `AxiStreamFrame`s before returning them.  `read()` is intended for non-frame-oriented streams.  Calling `read()` internally calls `recv()` for all frames currently in the queue, then compacts and coalesces `tdata` from all frames into a separate read queue, from which read data is returned.  All sideband data is discarded.
 
