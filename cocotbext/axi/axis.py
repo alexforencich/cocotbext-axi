@@ -76,13 +76,14 @@ class AxiStreamFrame:
             self.tid = tid
             self.tdest = tdest
             self.tuser = tuser
-            self.tx_complete = tx_complete
         else:
             self.tdata = list(tdata)
             self.tkeep = tkeep
             self.tid = tid
             self.tdest = tdest
             self.tuser = tuser
+
+        if tx_complete is not None:
             self.tx_complete = tx_complete
 
     def normalize(self):
