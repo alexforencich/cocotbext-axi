@@ -412,6 +412,7 @@ class AxiStreamSource(Reset):
                     self.queue_occupancy_bytes -= len(frame)
                     self.queue_occupancy_frames -= 1
                     frame.sim_time_start = get_sim_time()
+                    frame.sim_time_end = None
                     self.log.info("TX frame: %s", frame)
                     frame.normalize()
                     self.active = True
