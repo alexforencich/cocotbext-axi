@@ -145,27 +145,15 @@ class StreamSource(StreamBase, StreamPause):
     def __init__(self, entity, name, clock, reset=None, *args, **kwargs):
         super().__init__(entity, name, clock, reset, *args, **kwargs)
 
-        self.drive_obj = None
-        self.drive_sync = Event()
-
         self.active = False
 
-        cocotb.fork(self._run_source())
         cocotb.fork(self._run())
-
-    async def drive(self, obj):
-        if self.drive_obj is not None:
-            self.drive_sync.clear()
-            await self.drive_sync.wait()
-
-        self.drive_obj = obj
 
     async def send(self, obj):
         self.send_nowait(obj)
 
     def send_nowait(self, obj):
         self.queue.append(obj)
-        self.queue_sync.set()
 
     def idle(self):
         return self.empty() and not self.active
@@ -174,12 +162,7 @@ class StreamSource(StreamBase, StreamPause):
         while not self.idle():
             await RisingEdge(self.clock)
 
-    def clear(self):
-        self.queue.clear()
-        self.drive_obj = None
-        self.drive_sync.set()
-
-    async def _run_source(self):
+    async def _run(self):
         while True:
             await RisingEdge(self.clock)
 
@@ -195,25 +178,15 @@ class StreamSource(StreamBase, StreamPause):
                 continue
 
             if (ready_sample and valid_sample) or (not valid_sample):
-                if self.drive_obj and not self.pause:
-                    self.bus.drive(self.drive_obj)
-                    self.drive_obj = None
-                    self.drive_sync.set()
+                if self.queue and not self.pause:
+                    self.bus.drive(self.queue.popleft())
                     if self.valid is not None:
                         self.valid <= 1
                     self.active = True
                 else:
                     if self.valid is not None:
                         self.valid <= 0
-                    self.active = bool(self.drive_obj)
-
-    async def _run(self):
-        while True:
-            while not self.queue:
-                self.queue_sync.clear()
-                await self.queue_sync.wait()
-
-            await self.drive(self.queue.popleft())
+                    self.active = bool(self.queue)
 
 
 class StreamMonitor(StreamBase):
