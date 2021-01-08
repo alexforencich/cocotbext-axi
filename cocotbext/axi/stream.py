@@ -247,6 +247,17 @@ class StreamSink(StreamMonitor, StreamPause):
     _valid_init = None
     _ready_init = 0
 
+    def __init__(self, entity, name, clock, reset=None, *args, **kwargs):
+        super().__init__(entity, name, clock, reset, *args, **kwargs)
+
+        self.queue_occupancy_limit = None
+
+    def full(self):
+        if self.queue_occupancy_limit and len(self.queue) >= self.queue_occupancy_limit:
+            return True
+        else:
+            return False
+
     async def _run(self):
         while True:
             await RisingEdge(self.clock)
@@ -268,7 +279,7 @@ class StreamSink(StreamMonitor, StreamPause):
                 self.queue_sync.set()
 
             if self.ready is not None:
-                self.ready <= (not self.pause)
+                self.ready <= (not self.full() and not self.pause)
 
 
 def define_stream(name, signals, optional_signals=None, valid_signal=None, ready_signal=None, signal_widths=None):
