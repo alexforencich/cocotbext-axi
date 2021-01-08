@@ -248,10 +248,6 @@ class StreamSink(StreamBase, StreamPause):
         else:
             await self.queue_sync.wait()
 
-    def callback(self, obj):
-        self.queue.append(obj)
-        self.queue_sync.set()
-
     async def _run_sink(self):
         while True:
             await RisingEdge(self.clock)
@@ -269,7 +265,8 @@ class StreamSink(StreamBase, StreamPause):
             if ready_sample and valid_sample:
                 obj = self._transaction_obj()
                 self.bus.sample(obj)
-                self.callback(obj)
+                self.queue.append(obj)
+                self.queue_sync.set()
 
             if self.ready is not None:
                 self.ready <= (not self.pause)
@@ -313,10 +310,6 @@ class StreamMonitor(StreamBase):
         else:
             await self.queue_sync.wait()
 
-    def callback(self, obj):
-        self.queue.append(obj)
-        self.queue_sync.set()
-
     async def _run_monitor(self):
         while True:
             await RisingEdge(self.clock)
@@ -332,7 +325,8 @@ class StreamMonitor(StreamBase):
             if ready_sample and valid_sample:
                 obj = self._transaction_obj()
                 self.bus.sample(obj)
-                self.callback(obj)
+                self.queue.append(obj)
+                self.queue_sync.set()
 
 
 def define_stream(name, signals, optional_signals=None, valid_signal=None, ready_signal=None, signal_widths=None):
