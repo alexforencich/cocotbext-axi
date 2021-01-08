@@ -316,7 +316,7 @@ class AxiMasterWrite(Reset):
                     aw.awuser = cmd.user
 
                     self.active_id[awid] += 1
-                    await self.aw_channel.drive(aw)
+                    await self.aw_channel.send(aw)
 
                     self.log.info("Write burst start awid: 0x%x awaddr: 0x%08x awlen: %d awsize: %d awprot: %s",
                         awid, cur_addr, burst_length-1, cmd.size, cmd.prot)
@@ -639,7 +639,7 @@ class AxiMasterRead(Reset):
                     ar.aruser = cmd.user
 
                     self.active_id[arid] += 1
-                    await self.ar_channel.drive(ar)
+                    await self.ar_channel.send(ar)
 
                     self.log.info("Read burst start arid: 0x%x araddr: 0x%08x arlen: %d arsize: %d arprot: %s",
                         arid, cur_addr, burst_length-1, cmd.size, cmd.prot)

@@ -232,7 +232,7 @@ class AxiLiteMasterWrite(Reset):
                 w.wdata = val
                 w.wstrb = strb
 
-                await self.aw_channel.drive(aw)
+                await self.aw_channel.send(aw)
                 await self.w_channel.send(w)
 
     async def _process_write_resp(self):
@@ -426,7 +426,7 @@ class AxiLiteMasterRead(Reset):
                 ar.araddr = word_addr + k*self.byte_width
                 ar.arprot = cmd.prot
 
-                await self.ar_channel.drive(ar)
+                await self.ar_channel.send(ar)
 
     async def _process_read_resp(self):
         while True:
