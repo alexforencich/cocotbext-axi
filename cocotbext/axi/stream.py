@@ -137,19 +137,10 @@ class StreamPause:
 
 class StreamSource(StreamBase, StreamPause):
 
-    _signals = ["data", "valid", "ready"]
-    _optional_signals = []
-
-    _signal_widths = {"valid": 1, "ready": 1}
-
     _init_x = True
 
-    _valid_signal = "valid"
     _valid_init = 0
-    _ready_signal = "ready"
     _ready_init = None
-
-    _transaction_obj = StreamTransaction
 
     def __init__(self, entity, name, clock, reset=None, *args, **kwargs):
         super().__init__(entity, name, clock, reset, *args, **kwargs)
@@ -227,19 +218,10 @@ class StreamSource(StreamBase, StreamPause):
 
 class StreamSink(StreamBase, StreamPause):
 
-    _signals = ["data", "valid", "ready"]
-    _optional_signals = []
-
-    _signal_widths = {"valid": 1, "ready": 1}
-
     _init_x = False
 
-    _valid_signal = "valid"
     _valid_init = None
-    _ready_signal = "ready"
     _ready_init = 0
-
-    _transaction_obj = StreamTransaction
 
     def __init__(self, entity, name, clock, reset=None, *args, **kwargs):
         super().__init__(entity, name, clock, reset, *args, **kwargs)
@@ -295,19 +277,10 @@ class StreamSink(StreamBase, StreamPause):
 
 class StreamMonitor(StreamBase):
 
-    _signals = ["data", "valid", "ready"]
-    _optional_signals = []
-
-    _signal_widths = {"valid": 1, "ready": 1}
-
     _init_x = False
 
-    _valid_signal = "valid"
     _valid_init = None
-    _ready_signal = "ready"
     _ready_init = None
-
-    _transaction_obj = StreamTransaction
 
     def __init__(self, entity, name, clock, reset=None, *args, **kwargs):
         super().__init__(entity, name, clock, reset, *args, **kwargs)
