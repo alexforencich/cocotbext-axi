@@ -274,10 +274,10 @@ class StreamSink(StreamMonitor, StreamPause):
     def __init__(self, bus, clock, reset=None, *args, **kwargs):
         super().__init__(bus, clock, reset, *args, **kwargs)
 
-        self.queue_occupancy_limit = None
+        self.queue_occupancy_limit = -1
 
     def full(self):
-        if self.queue_occupancy_limit and len(self.queue) >= self.queue_occupancy_limit:
+        if self.queue_occupancy_limit > 0 and len(self.queue) >= self.queue_occupancy_limit:
             return True
         else:
             return False
