@@ -25,7 +25,7 @@ THE SOFTWARE.
 from .stream import define_stream
 
 # Write address channel
-AxiAWTransaction, AxiAWSource, AxiAWSink, AxiAWMonitor = define_stream("AxiAW",
+AxiAWBus, AxiAWTransaction, AxiAWSource, AxiAWSink, AxiAWMonitor = define_stream("AxiAW",
     signals=["awid", "awaddr", "awlen", "awsize", "awburst", "awprot", "awvalid", "awready"],
     optional_signals=["awlock", "awcache", "awqos", "awregion", "awuser"],
     signal_widths={"awlen": 8, "awsize": 3, "awburst": 2, "awlock": 1,
@@ -33,21 +33,21 @@ AxiAWTransaction, AxiAWSource, AxiAWSink, AxiAWMonitor = define_stream("AxiAW",
 )
 
 # Write data channel
-AxiWTransaction, AxiWSource, AxiWSink, AxiWMonitor = define_stream("AxiW",
+AxiWBus, AxiWTransaction, AxiWSource, AxiWSink, AxiWMonitor = define_stream("AxiW",
     signals=["wdata", "wstrb", "wlast", "wvalid", "wready"],
     optional_signals=["wuser"],
     signal_widths={"wlast": 1}
 )
 
 # Write response channel
-AxiBTransaction, AxiBSource, AxiBSink, AxiBMonitor = define_stream("AxiB",
+AxiBBus, AxiBTransaction, AxiBSource, AxiBSink, AxiBMonitor = define_stream("AxiB",
     signals=["bid", "bresp", "bvalid", "bready"],
     optional_signals=["buser"],
     signal_widths={"bresp": 2}
 )
 
 # Read address channel
-AxiARTransaction, AxiARSource, AxiARSink, AxiARMonitor = define_stream("AxiAR",
+AxiARBus, AxiARTransaction, AxiARSource, AxiARSink, AxiARMonitor = define_stream("AxiAR",
     signals=["arid", "araddr", "arlen", "arsize", "arburst", "arprot", "arvalid", "arready"],
     optional_signals=["arlock", "arcache", "arqos", "arregion", "aruser"],
     signal_widths={"arlen": 8, "arsize": 3, "arburst": 2, "arlock": 1,
@@ -55,8 +55,79 @@ AxiARTransaction, AxiARSource, AxiARSink, AxiARMonitor = define_stream("AxiAR",
 )
 
 # Read data channel
-AxiRTransaction, AxiRSource, AxiRSink, AxiRMonitor = define_stream("AxiR",
+AxiRBus, AxiRTransaction, AxiRSource, AxiRSink, AxiRMonitor = define_stream("AxiR",
     signals=["rid", "rdata", "rresp", "rlast", "rvalid", "rready"],
     optional_signals=["ruser"],
     signal_widths={"rresp": 2, "rlast": 1}
 )
+
+
+class AxiWriteBus:
+    def __init__(self, aw=None, w=None, b=None):
+        self.aw = aw
+        self.w = w
+        self.b = b
+
+    @classmethod
+    def from_entity(cls, entity, **kwargs):
+        aw = AxiAWBus.from_entity(entity, **kwargs)
+        w = AxiWBus.from_entity(entity, **kwargs)
+        b = AxiBBus.from_entity(entity, **kwargs)
+        return cls(aw, w, b)
+
+    @classmethod
+    def from_prefix(cls, entity, prefix, **kwargs):
+        aw = AxiAWBus.from_prefix(entity, prefix, **kwargs)
+        w = AxiWBus.from_prefix(entity, prefix, **kwargs)
+        b = AxiBBus.from_prefix(entity, prefix, **kwargs)
+        return cls(aw, w, b)
+
+    @classmethod
+    def from_channels(cls, aw, w, b):
+        return cls(aw, w, b)
+
+
+class AxiReadBus:
+    def __init__(self, ar=None, r=None):
+        self.ar = ar
+        self.r = r
+
+    @classmethod
+    def from_entity(cls, entity, **kwargs):
+        ar = AxiARBus.from_entity(entity, **kwargs)
+        r = AxiRBus.from_entity(entity, **kwargs)
+        return cls(ar, r)
+
+    @classmethod
+    def from_prefix(cls, entity, prefix, **kwargs):
+        ar = AxiARBus.from_prefix(entity, prefix, **kwargs)
+        r = AxiRBus.from_prefix(entity, prefix, **kwargs)
+        return cls(ar, r)
+
+    @classmethod
+    def from_channels(cls, ar, r):
+        return cls(ar, r)
+
+
+class AxiBus:
+    def __init__(self, write=None, read=None, **kwargs):
+        self.write = write
+        self.read = read
+
+    @classmethod
+    def from_entity(cls, entity, **kwargs):
+        write = AxiWriteBus.from_entity(entity, **kwargs)
+        read = AxiReadBus.from_entity(entity, **kwargs)
+        return cls(write, read)
+
+    @classmethod
+    def from_prefix(cls, entity, prefix, **kwargs):
+        write = AxiWriteBus.from_prefix(entity, prefix, **kwargs)
+        read = AxiReadBus.from_prefix(entity, prefix, **kwargs)
+        return cls(write, read)
+
+    @classmethod
+    def from_channels(cls, aw, w, b, ar, r):
+        write = AxiWriteBus.from_channels(aw, w, b)
+        read = AxiReadBus.from_channels(ar, r)
+        return cls(write, read)

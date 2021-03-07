@@ -45,19 +45,17 @@ AxiLiteReadResp = namedtuple("AxiLiteReadResp", ["address", "data", "resp"])
 
 
 class AxiLiteMasterWrite(Reset):
-    def __init__(self, entity, name, clock, reset=None):
-        self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
+    def __init__(self, bus, clock, reset=None):
+        self.log = logging.getLogger(f"cocotb.{bus.aw._entity._name}.{bus.aw._name}")
 
         self.log.info("AXI lite master (write)")
         self.log.info("cocotbext-axi version %s", __version__)
         self.log.info("Copyright (c) 2020 Alex Forencich")
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
-        self.reset = reset
-
-        self.aw_channel = AxiLiteAWSource(entity, name, clock, reset)
-        self.w_channel = AxiLiteWSource(entity, name, clock, reset)
-        self.b_channel = AxiLiteBSink(entity, name, clock, reset)
+        self.aw_channel = AxiLiteAWSource(bus.aw, clock, reset)
+        self.w_channel = AxiLiteWSource(bus.w, clock, reset)
+        self.b_channel = AxiLiteBSink(bus.b, clock, reset)
 
         self.write_command_queue = deque()
         self.write_command_sync = Event()
@@ -271,18 +269,16 @@ class AxiLiteMasterWrite(Reset):
 
 
 class AxiLiteMasterRead(Reset):
-    def __init__(self, entity, name, clock, reset=None):
-        self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
+    def __init__(self, bus, clock, reset=None):
+        self.log = logging.getLogger(f"cocotb.{bus.ar._entity._name}.{bus.ar._name}")
 
         self.log.info("AXI lite master (read)")
         self.log.info("cocotbext-axi version %s", __version__)
         self.log.info("Copyright (c) 2020 Alex Forencich")
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
-        self.reset = reset
-
-        self.ar_channel = AxiLiteARSource(entity, name, clock, reset)
-        self.r_channel = AxiLiteRSink(entity, name, clock, reset)
+        self.ar_channel = AxiLiteARSource(bus.ar, clock, reset)
+        self.r_channel = AxiLiteRSink(bus.r, clock, reset)
 
         self.read_command_queue = deque()
         self.read_command_sync = Event()
@@ -481,12 +477,12 @@ class AxiLiteMasterRead(Reset):
 
 
 class AxiLiteMaster:
-    def __init__(self, entity, name, clock, reset=None):
+    def __init__(self, bus, clock, reset=None):
         self.write_if = None
         self.read_if = None
 
-        self.write_if = AxiLiteMasterWrite(entity, name, clock, reset)
-        self.read_if = AxiLiteMasterRead(entity, name, clock, reset)
+        self.write_if = AxiLiteMasterWrite(bus.write, clock, reset)
+        self.read_if = AxiLiteMasterRead(bus.read, clock, reset)
 
     def init_read(self, address, length, prot=AxiProt.NONSECURE, event=None):
         self.read_if.init_read(address, length, prot, event)

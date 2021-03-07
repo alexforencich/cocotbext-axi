@@ -49,19 +49,17 @@ AxiReadResp = namedtuple("AxiReadResp", ["address", "data", "resp", "user"])
 
 
 class AxiMasterWrite(Reset):
-    def __init__(self, entity, name, clock, reset=None, max_burst_len=256):
-        self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
+    def __init__(self, bus, clock, reset=None, max_burst_len=256):
+        self.log = logging.getLogger(f"cocotb.{bus.aw._entity._name}.{bus.aw._name}")
 
         self.log.info("AXI master (write)")
         self.log.info("cocotbext-axi version %s", __version__)
         self.log.info("Copyright (c) 2020 Alex Forencich")
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
-        self.reset = reset
-
-        self.aw_channel = AxiAWSource(entity, name, clock, reset)
-        self.w_channel = AxiWSource(entity, name, clock, reset)
-        self.b_channel = AxiBSink(entity, name, clock, reset)
+        self.aw_channel = AxiAWSource(bus.aw, clock, reset)
+        self.w_channel = AxiWSource(bus.w, clock, reset)
+        self.b_channel = AxiBSink(bus.b, clock, reset)
 
         self.write_command_queue = deque()
         self.write_command_sync = Event()
@@ -404,18 +402,16 @@ class AxiMasterWrite(Reset):
 
 
 class AxiMasterRead(Reset):
-    def __init__(self, entity, name, clock, reset=None, max_burst_len=256):
-        self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
+    def __init__(self, bus, clock, reset=None, max_burst_len=256):
+        self.log = logging.getLogger(f"cocotb.{bus.ar._entity._name}.{bus.ar._name}")
 
         self.log.info("AXI master (read)")
         self.log.info("cocotbext-axi version %s", __version__)
         self.log.info("Copyright (c) 2020 Alex Forencich")
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
-        self.reset = reset
-
-        self.ar_channel = AxiARSource(entity, name, clock, reset)
-        self.r_channel = AxiRSink(entity, name, clock, reset)
+        self.ar_channel = AxiARSource(bus.ar, clock, reset)
+        self.r_channel = AxiRSink(bus.r, clock, reset)
 
         self.read_command_queue = deque()
         self.read_command_sync = Event()
@@ -741,12 +737,12 @@ class AxiMasterRead(Reset):
 
 
 class AxiMaster:
-    def __init__(self, entity, name, clock, reset=None, max_burst_len=256):
+    def __init__(self, bus, clock, reset=None, max_burst_len=256):
         self.write_if = None
         self.read_if = None
 
-        self.write_if = AxiMasterWrite(entity, name, clock, reset, max_burst_len)
-        self.read_if = AxiMasterRead(entity, name, clock, reset, max_burst_len)
+        self.write_if = AxiMasterWrite(bus.write, clock, reset, max_burst_len)
+        self.read_if = AxiMasterRead(bus.read, clock, reset, max_burst_len)
 
     def init_read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, event=None):

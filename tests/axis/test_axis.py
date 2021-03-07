@@ -35,7 +35,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
 from cocotb.regression import TestFactory
 
-from cocotbext.axi import AxiStreamFrame, AxiStreamSource, AxiStreamSink, AxiStreamMonitor
+from cocotbext.axi import AxiStreamFrame, AxiStreamBus, AxiStreamSource, AxiStreamSink, AxiStreamMonitor
 
 
 class TB:
@@ -47,9 +47,9 @@ class TB:
 
         cocotb.fork(Clock(dut.clk, 2, units="ns").start())
 
-        self.source = AxiStreamSource(dut, "axis", dut.clk, dut.rst)
-        self.sink = AxiStreamSink(dut, "axis", dut.clk, dut.rst)
-        self.monitor = AxiStreamMonitor(dut, "axis", dut.clk, dut.rst)
+        self.source = AxiStreamSource(AxiStreamBus.from_prefix(dut, "axis"), dut.clk, dut.rst)
+        self.sink = AxiStreamSink(AxiStreamBus.from_prefix(dut, "axis"), dut.clk, dut.rst)
+        self.monitor = AxiStreamMonitor(AxiStreamBus.from_prefix(dut, "axis"), dut.clk, dut.rst)
 
     def set_idle_generator(self, generator=None):
         if generator:

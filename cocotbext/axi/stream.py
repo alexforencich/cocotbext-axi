@@ -32,6 +32,23 @@ from cocotb.bus import Bus
 from .reset import Reset
 
 
+class StreamBus(Bus):
+
+    _signals = ["data"]
+    _optional_signals = []
+
+    def __init__(self, entity=None, prefix=None, **kwargs):
+        super().__init__(entity, prefix, self._signals, optional_signals=self._optional_signals, **kwargs)
+
+    @classmethod
+    def from_entity(cls, entity, **kwargs):
+        return cls(entity, **kwargs)
+
+    @classmethod
+    def from_prefix(cls, entity, prefix, **kwargs):
+        return cls(entity, prefix, **kwargs)
+
+
 class StreamTransaction:
 
     _signals = ["data"]
@@ -65,13 +82,13 @@ class StreamBase(Reset):
     _ready_init = None
 
     _transaction_obj = StreamTransaction
+    _bus_obj = StreamBus
 
-    def __init__(self, entity, name, clock, reset=None, *args, **kwargs):
-        self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
-        self.entity = entity
+    def __init__(self, bus, clock, reset=None, *args, **kwargs):
+        self.bus = bus
         self.clock = clock
         self.reset = reset
-        self.bus = Bus(self.entity, name, self._signals, optional_signals=self._optional_signals, **kwargs)
+        self.log = logging.getLogger(f"cocotb.{bus._entity._name}.{bus._name}")
 
         super().__init__(*args, **kwargs)
 
@@ -254,8 +271,8 @@ class StreamSink(StreamMonitor, StreamPause):
     _valid_init = None
     _ready_init = 0
 
-    def __init__(self, entity, name, clock, reset=None, *args, **kwargs):
-        super().__init__(entity, name, clock, reset, *args, **kwargs)
+    def __init__(self, bus, clock, reset=None, *args, **kwargs):
+        super().__init__(bus, clock, reset, *args, **kwargs)
 
         self.queue_occupancy_limit = None
 
@@ -327,6 +344,11 @@ def define_stream(name, signals, optional_signals=None, valid_signal=None, ready
         if s not in (ready_signal, valid_signal):
             filtered_signals.append(s)
 
+    attrib = {}
+    attrib['_signals'] = signals
+    attrib['_optional_signals'] = optional_signals
+    bus = type(name+"Bus", (StreamBus,), attrib)
+
     attrib = {s: 0 for s in filtered_signals}
     attrib['_signals'] = filtered_signals
 
@@ -339,9 +361,10 @@ def define_stream(name, signals, optional_signals=None, valid_signal=None, ready
     attrib['_ready_signal'] = ready_signal
     attrib['_valid_signal'] = valid_signal
     attrib['_transaction_obj'] = transaction
+    attrib['_bus_obj'] = bus
 
     source = type(name+"Source", (StreamSource,), attrib)
     sink = type(name+"Sink", (StreamSink,), attrib)
     monitor = type(name+"Monitor", (StreamMonitor,), attrib)
 
-    return transaction, source, sink, monitor
+    return bus, transaction, source, sink, monitor

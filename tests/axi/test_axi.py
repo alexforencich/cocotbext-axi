@@ -35,7 +35,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 from cocotb.regression import TestFactory
 
-from cocotbext.axi import AxiMaster, AxiRam
+from cocotbext.axi import AxiBus, AxiMaster, AxiRam
 
 
 class TB:
@@ -47,8 +47,8 @@ class TB:
 
         cocotb.fork(Clock(dut.clk, 2, units="ns").start())
 
-        self.axi_master = AxiMaster(dut, "axi", dut.clk, dut.rst)
-        self.axi_ram = AxiRam(dut, "axi", dut.clk, dut.rst, size=2**16)
+        self.axi_master = AxiMaster(AxiBus.from_prefix(dut, "axi"), dut.clk, dut.rst)
+        self.axi_ram = AxiRam(AxiBus.from_prefix(dut, "axi"), dut.clk, dut.rst, size=2**16)
 
         self.axi_ram.write_if.log.setLevel(logging.DEBUG)
         self.axi_ram.read_if.log.setLevel(logging.DEBUG)

@@ -231,6 +231,23 @@ class AxiStreamFrame:
         return bytes(self.tdata)
 
 
+class AxiStreamBus(Bus):
+
+    _signals = ["tdata"]
+    _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tid", "tdest", "tuser"]
+
+    def __init__(self, entity=None, prefix=None, **kwargs):
+        super().__init__(entity, prefix, self._signals, optional_signals=self._optional_signals, **kwargs)
+
+    @classmethod
+    def from_entity(cls, entity, **kwargs):
+        return cls(entity, **kwargs)
+
+    @classmethod
+    def from_prefix(cls, entity, prefix, **kwargs):
+        return cls(entity, prefix, **kwargs)
+
+
 class AxiStreamBase(Reset):
 
     _signals = ["tdata"]
@@ -243,12 +260,11 @@ class AxiStreamBase(Reset):
     _valid_init = None
     _ready_init = None
 
-    def __init__(self, entity, name, clock, reset=None, byte_size=None, byte_lanes=None, *args, **kwargs):
-        self.log = logging.getLogger(f"cocotb.{entity._name}.{name}")
-        self.entity = entity
+    def __init__(self, bus, clock, reset=None, byte_size=None, byte_lanes=None, *args, **kwargs):
+        self.bus = bus
         self.clock = clock
         self.reset = reset
-        self.bus = Bus(self.entity, name, self._signals, optional_signals=self._optional_signals, **kwargs)
+        self.log = logging.getLogger(f"cocotb.{bus._entity._name}.{bus._name}")
 
         self.log.info("AXI stream %s", self._type)
         self.log.info("cocotbext-axi version %s", __version__)
@@ -502,8 +518,8 @@ class AxiStreamMonitor(AxiStreamBase):
     _valid_init = None
     _ready_init = None
 
-    def __init__(self, entity, name, clock, reset=None, byte_size=None, byte_lanes=None, *args, **kwargs):
-        super().__init__(entity, name, clock, reset, byte_size, byte_lanes, *args, **kwargs)
+    def __init__(self, bus, clock, reset=None, byte_size=None, byte_lanes=None, *args, **kwargs):
+        super().__init__(bus, clock, reset, byte_size, byte_lanes, *args, **kwargs)
 
         self.read_queue = []
 
@@ -604,8 +620,8 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
     _valid_init = None
     _ready_init = 0
 
-    def __init__(self, entity, name, clock, reset=None, byte_size=None, byte_lanes=None, *args, **kwargs):
-        super().__init__(entity, name, clock, reset, byte_size, byte_lanes, *args, **kwargs)
+    def __init__(self, bus, clock, reset=None, byte_size=None, byte_lanes=None, *args, **kwargs):
+        super().__init__(bus, clock, reset, byte_size, byte_lanes, *args, **kwargs)
 
         self.queue_occupancy_limit_bytes = -1
         self.queue_occupancy_limit_frames = -1
