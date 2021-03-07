@@ -27,13 +27,13 @@ from cocotb.triggers import RisingEdge, FallingEdge
 
 
 class Reset:
-    def _init_reset(self, reset_signal=None, active_high=True):
+    def _init_reset(self, reset_signal=None, active_level=True):
         self._local_reset = False
         self._ext_reset = False
         self._reset_state = True
 
         if reset_signal is not None:
-            cocotb.fork(self._run_reset(reset_signal, active_high))
+            cocotb.fork(self._run_reset(reset_signal, bool(active_level)))
 
         self._update_reset()
 
@@ -42,7 +42,7 @@ class Reset:
             self.assert_reset(True)
             self.assert_reset(False)
         else:
-            self._local_reset = val
+            self._local_reset = bool(val)
             self._update_reset()
 
     def _update_reset(self):
@@ -54,13 +54,13 @@ class Reset:
     def _handle_reset(self, state):
         pass
 
-    async def _run_reset(self, reset_signal, active_high):
+    async def _run_reset(self, reset_signal, active_level):
         while True:
             if bool(reset_signal.value):
                 await FallingEdge(reset_signal)
-                self._ext_reset = not active_high
+                self._ext_reset = not active_level
                 self._update_reset()
             else:
                 await RisingEdge(reset_signal)
-                self._ext_reset = active_high
+                self._ext_reset = active_level
                 self._update_reset()
