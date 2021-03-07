@@ -42,7 +42,7 @@ To use these modules, import the one you need and connect it to the DUT:
 
     axi_master = AxiMaster(AxiBus.from_prefix(dut, "s_axi"), dut.clk, dut.rst)
 
-The modules use `cocotb.bus.Bus` internally to automatically connect to the corresponding signals in the bus, presuming they are named according to the AXI spec and share a common prefix.
+The first argument to the constructor accepts an `AxiBus` or `AxiLiteBus` object.  These objects are containers for the interface signals and include class methods to automate connections.
 
 Once the module is instantiated, read and write operations can be initiated in a few different ways.
 
@@ -148,7 +148,7 @@ To use these modules, import the one you need and connect it to the DUT:
 
     axi_ram = AxiRam(AxiBus.from_prefix(dut, "m_axi"), dut.clk, dut.rst, size=2**16)
 
-The modules use `cocotb.bus.Bus` internally to automatically connect to the corresponding signals in the bus, presuming they are named according to the AXI spec and share a common prefix.
+The first argument to the constructor accepts an `AxiBus` or `AxiLiteBus` object.  These objects are containers for the interface signals and include class methods to automate connections.
 
 Once the module is instantiated, the memory contents can be accessed in a couple of different ways.  First, the `mmap` object can be accessed directly via the `mem` attribute.  Second, `read()`, `write()`, and various word-access wrappers are available.  Hex dump helper methods are also provided for debugging.  For example:
 
@@ -209,7 +209,7 @@ To use these modules, import the one you need and connect it to the DUT:
     axis_sink = AxiStreamSink(AxiStreamBus.from_prefix(dut, "m_axis"), dut.clk, dut.rst)
     axis_mon= AxiStreamMonitor(AxiStreamBus.from_prefix(dut.inst, "int_axis"), dut.clk, dut.rst)
 
-The modules use `cocotb.bus.Bus` internally to automatically connect to the corresponding signals in the bus, presuming they are named according to the AXI spec and share a common prefix.
+The first argument to the constructor accepts an `AxiStreamBus` object.  This object is a container for the interface signals and includes class methods to automate connections.
 
 To send data into a design with an `AxiStreamSource`, call `send()`/`send_nowait()` or `write()`/`write_nowait()`.  Accepted data types are iterables or `AxiStreamFrame` objects.  Optionally, call `wait()` to wait for the transmit operation to complete.  Example:
 
