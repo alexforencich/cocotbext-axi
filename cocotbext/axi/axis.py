@@ -260,7 +260,9 @@ class AxiStreamBase(Reset):
     _valid_init = None
     _ready_init = None
 
-    def __init__(self, bus, clock, reset=None, byte_size=None, byte_lanes=None, *args, **kwargs):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True,
+            byte_size=None, byte_lanes=None, *args, **kwargs):
+
         self.bus = bus
         self.clock = clock
         self.reset = reset
@@ -339,7 +341,7 @@ class AxiStreamBase(Reset):
 
         self._run_cr = None
 
-        self._init_reset(reset)
+        self._init_reset(reset, reset_active_level)
 
     def count(self):
         return len(self.queue)
@@ -518,8 +520,10 @@ class AxiStreamMonitor(AxiStreamBase):
     _valid_init = None
     _ready_init = None
 
-    def __init__(self, bus, clock, reset=None, byte_size=None, byte_lanes=None, *args, **kwargs):
-        super().__init__(bus, clock, reset, byte_size, byte_lanes, *args, **kwargs)
+    def __init__(self, bus, clock, reset=None, reset_active_level=True,
+            byte_size=None, byte_lanes=None, *args, **kwargs):
+
+        super().__init__(bus, clock, reset, reset_active_level, byte_size, byte_lanes, *args, **kwargs)
 
         self.read_queue = []
 
@@ -620,8 +624,10 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
     _valid_init = None
     _ready_init = 0
 
-    def __init__(self, bus, clock, reset=None, byte_size=None, byte_lanes=None, *args, **kwargs):
-        super().__init__(bus, clock, reset, byte_size, byte_lanes, *args, **kwargs)
+    def __init__(self, bus, clock, reset=None, reset_active_level=True,
+            byte_size=None, byte_lanes=None, *args, **kwargs):
+
+        super().__init__(bus, clock, reset, reset_active_level, byte_size, byte_lanes, *args, **kwargs)
 
         self.queue_occupancy_limit_bytes = -1
         self.queue_occupancy_limit_frames = -1

@@ -49,7 +49,7 @@ AxiReadResp = namedtuple("AxiReadResp", ["address", "data", "resp", "user"])
 
 
 class AxiMasterWrite(Reset):
-    def __init__(self, bus, clock, reset=None, max_burst_len=256):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, max_burst_len=256):
         self.log = logging.getLogger(f"cocotb.{bus.aw._entity._name}.{bus.aw._name}")
 
         self.log.info("AXI master (write)")
@@ -57,9 +57,9 @@ class AxiMasterWrite(Reset):
         self.log.info("Copyright (c) 2020 Alex Forencich")
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
-        self.aw_channel = AxiAWSource(bus.aw, clock, reset)
-        self.w_channel = AxiWSource(bus.w, clock, reset)
-        self.b_channel = AxiBSink(bus.b, clock, reset)
+        self.aw_channel = AxiAWSource(bus.aw, clock, reset, reset_active_level)
+        self.w_channel = AxiWSource(bus.w, clock, reset, reset_active_level)
+        self.b_channel = AxiBSink(bus.b, clock, reset, reset_active_level)
 
         self.write_command_queue = deque()
         self.write_command_sync = Event()
@@ -103,7 +103,7 @@ class AxiMasterWrite(Reset):
         self._process_write_cr = None
         self._process_write_resp_cr = None
 
-        self._init_reset(reset)
+        self._init_reset(reset, reset_active_level)
 
     def init_write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL,
             cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0, event=None):
@@ -402,7 +402,7 @@ class AxiMasterWrite(Reset):
 
 
 class AxiMasterRead(Reset):
-    def __init__(self, bus, clock, reset=None, max_burst_len=256):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, max_burst_len=256):
         self.log = logging.getLogger(f"cocotb.{bus.ar._entity._name}.{bus.ar._name}")
 
         self.log.info("AXI master (read)")
@@ -410,8 +410,8 @@ class AxiMasterRead(Reset):
         self.log.info("Copyright (c) 2020 Alex Forencich")
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
-        self.ar_channel = AxiARSource(bus.ar, clock, reset)
-        self.r_channel = AxiRSink(bus.r, clock, reset)
+        self.ar_channel = AxiARSource(bus.ar, clock, reset, reset_active_level)
+        self.r_channel = AxiRSink(bus.r, clock, reset, reset_active_level)
 
         self.read_command_queue = deque()
         self.read_command_sync = Event()
@@ -453,7 +453,7 @@ class AxiMasterRead(Reset):
         self._process_read_cr = None
         self._process_read_resp_cr = None
 
-        self._init_reset(reset)
+        self._init_reset(reset, reset_active_level)
 
     def init_read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, event=None):
@@ -737,12 +737,12 @@ class AxiMasterRead(Reset):
 
 
 class AxiMaster:
-    def __init__(self, bus, clock, reset=None, max_burst_len=256):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, max_burst_len=256):
         self.write_if = None
         self.read_if = None
 
-        self.write_if = AxiMasterWrite(bus.write, clock, reset, max_burst_len)
-        self.read_if = AxiMasterRead(bus.read, clock, reset, max_burst_len)
+        self.write_if = AxiMasterWrite(bus.write, clock, reset, reset_active_level, max_burst_len)
+        self.read_if = AxiMasterRead(bus.read, clock, reset, reset_active_level, max_burst_len)
 
     def init_read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, event=None):

@@ -78,6 +78,7 @@ Second, blocking operations can be carried out with `read()` and `write()` and t
 * _bus_: `AxiBus` or `AxiLiteBus` object containing AXI interface signals
 * _clock_: clock signal
 * _reset_: reset signal (optional)
+* _reset_active_level_: reset active level (optional, default `True`)
 
 #### Additional parameters for `AxiMaster`
 
@@ -166,6 +167,7 @@ Multi-port memories can be constructed by passing the `mem` object of the first 
 * _bus_: `AxiBus` or `AxiLiteBus` object containing AXI interface signals
 * _clock_: clock signal
 * _reset_: reset signal (optional)
+* _reset_active_level_: reset active level (optional, default `True`)
 * _size_: memory size in bytes (optional, default 1024)
 * _mem_: mmap object to use (optional, overrides _size_)
 
@@ -242,6 +244,7 @@ To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()`/`re
 * _bus_: `AxiStreamBus` object containing AXI stream interface signals
 * _clock_: clock signal
 * _reset_: reset signal (optional)
+* _reset_active_level_: reset active level (optional, default `True`)
 * _byte_size_: byte size (optional)
 * _byte_lanes_: byte lane count (optional)
 

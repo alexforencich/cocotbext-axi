@@ -34,7 +34,7 @@ from .reset import Reset
 
 
 class AxiLiteRamWrite(Memory, Reset):
-    def __init__(self, bus, clock, reset=None, size=1024, mem=None, *args, **kwargs):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, size=1024, mem=None, *args, **kwargs):
         self.log = logging.getLogger(f"cocotb.{bus.aw._entity._name}.{bus.aw._name}")
 
         self.log.info("AXI lite RAM model (write)")
@@ -44,9 +44,9 @@ class AxiLiteRamWrite(Memory, Reset):
 
         super().__init__(size, mem, *args, **kwargs)
 
-        self.aw_channel = AxiLiteAWSink(bus.aw, clock, reset)
-        self.w_channel = AxiLiteWSink(bus.w, clock, reset)
-        self.b_channel = AxiLiteBSource(bus.b, clock, reset)
+        self.aw_channel = AxiLiteAWSink(bus.aw, clock, reset, reset_active_level)
+        self.w_channel = AxiLiteWSink(bus.w, clock, reset, reset_active_level)
+        self.b_channel = AxiLiteBSource(bus.b, clock, reset, reset_active_level)
 
         self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
@@ -64,7 +64,7 @@ class AxiLiteRamWrite(Memory, Reset):
 
         self._process_write_cr = None
 
-        self._init_reset(reset)
+        self._init_reset(reset, reset_active_level)
 
     def _handle_reset(self, state):
         if state:
@@ -115,7 +115,7 @@ class AxiLiteRamWrite(Memory, Reset):
 
 
 class AxiLiteRamRead(Memory, Reset):
-    def __init__(self, bus, clock, reset=None, size=1024, mem=None, *args, **kwargs):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, size=1024, mem=None, *args, **kwargs):
         self.log = logging.getLogger(f"cocotb.{bus.ar._entity._name}.{bus.ar._name}")
 
         self.log.info("AXI lite RAM model (read)")
@@ -125,8 +125,8 @@ class AxiLiteRamRead(Memory, Reset):
 
         super().__init__(size, mem, *args, **kwargs)
 
-        self.ar_channel = AxiLiteARSink(bus.ar, clock, reset)
-        self.r_channel = AxiLiteRSource(bus.r, clock, reset)
+        self.ar_channel = AxiLiteARSink(bus.ar, clock, reset, reset_active_level)
+        self.r_channel = AxiLiteRSource(bus.r, clock, reset, reset_active_level)
 
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
@@ -142,7 +142,7 @@ class AxiLiteRamRead(Memory, Reset):
 
         self._process_read_cr = None
 
-        self._init_reset(reset)
+        self._init_reset(reset, reset_active_level)
 
     def _handle_reset(self, state):
         if state:
@@ -182,11 +182,11 @@ class AxiLiteRamRead(Memory, Reset):
 
 
 class AxiLiteRam(Memory):
-    def __init__(self, bus, clock, reset=None, size=1024, mem=None, *args, **kwargs):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, size=1024, mem=None, *args, **kwargs):
         self.write_if = None
         self.read_if = None
 
         super().__init__(size, mem, *args, **kwargs)
 
-        self.write_if = AxiLiteRamWrite(bus.write, clock, reset, mem=self.mem)
-        self.read_if = AxiLiteRamRead(bus.read, clock, reset, mem=self.mem)
+        self.write_if = AxiLiteRamWrite(bus.write, clock, reset, reset_active_level, mem=self.mem)
+        self.read_if = AxiLiteRamRead(bus.read, clock, reset, reset_active_level, mem=self.mem)

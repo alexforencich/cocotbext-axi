@@ -84,7 +84,7 @@ class StreamBase(Reset):
     _transaction_obj = StreamTransaction
     _bus_obj = StreamBus
 
-    def __init__(self, bus, clock, reset=None, *args, **kwargs):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, *args, **kwargs):
         self.bus = bus
         self.clock = clock
         self.reset = reset
@@ -121,7 +121,7 @@ class StreamBase(Reset):
 
         self._run_cr = None
 
-        self._init_reset(reset)
+        self._init_reset(reset, reset_active_level)
 
     def count(self):
         return len(self.queue)
@@ -271,8 +271,8 @@ class StreamSink(StreamMonitor, StreamPause):
     _valid_init = None
     _ready_init = 0
 
-    def __init__(self, bus, clock, reset=None, *args, **kwargs):
-        super().__init__(bus, clock, reset, *args, **kwargs)
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, *args, **kwargs):
+        super().__init__(bus, clock, reset, reset_active_level, *args, **kwargs)
 
         self.queue_occupancy_limit = -1
 

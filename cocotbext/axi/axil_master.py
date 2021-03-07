@@ -45,7 +45,7 @@ AxiLiteReadResp = namedtuple("AxiLiteReadResp", ["address", "data", "resp"])
 
 
 class AxiLiteMasterWrite(Reset):
-    def __init__(self, bus, clock, reset=None):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True):
         self.log = logging.getLogger(f"cocotb.{bus.aw._entity._name}.{bus.aw._name}")
 
         self.log.info("AXI lite master (write)")
@@ -53,9 +53,9 @@ class AxiLiteMasterWrite(Reset):
         self.log.info("Copyright (c) 2020 Alex Forencich")
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
-        self.aw_channel = AxiLiteAWSource(bus.aw, clock, reset)
-        self.w_channel = AxiLiteWSource(bus.w, clock, reset)
-        self.b_channel = AxiLiteBSink(bus.b, clock, reset)
+        self.aw_channel = AxiLiteAWSource(bus.aw, clock, reset, reset_active_level)
+        self.w_channel = AxiLiteWSource(bus.w, clock, reset, reset_active_level)
+        self.b_channel = AxiLiteBSink(bus.b, clock, reset, reset_active_level)
 
         self.write_command_queue = deque()
         self.write_command_sync = Event()
@@ -85,7 +85,7 @@ class AxiLiteMasterWrite(Reset):
         self._process_write_cr = None
         self._process_write_resp_cr = None
 
-        self._init_reset(reset)
+        self._init_reset(reset, reset_active_level)
 
     def init_write(self, address, data, prot=AxiProt.NONSECURE, event=None):
         if event is not None and not isinstance(event, Event):
@@ -269,7 +269,7 @@ class AxiLiteMasterWrite(Reset):
 
 
 class AxiLiteMasterRead(Reset):
-    def __init__(self, bus, clock, reset=None):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True):
         self.log = logging.getLogger(f"cocotb.{bus.ar._entity._name}.{bus.ar._name}")
 
         self.log.info("AXI lite master (read)")
@@ -277,8 +277,8 @@ class AxiLiteMasterRead(Reset):
         self.log.info("Copyright (c) 2020 Alex Forencich")
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
-        self.ar_channel = AxiLiteARSource(bus.ar, clock, reset)
-        self.r_channel = AxiLiteRSink(bus.r, clock, reset)
+        self.ar_channel = AxiLiteARSource(bus.ar, clock, reset, reset_active_level)
+        self.r_channel = AxiLiteRSink(bus.r, clock, reset, reset_active_level)
 
         self.read_command_queue = deque()
         self.read_command_sync = Event()
@@ -306,7 +306,7 @@ class AxiLiteMasterRead(Reset):
         self._process_read_cr = None
         self._process_read_resp_cr = None
 
-        self._init_reset(reset)
+        self._init_reset(reset, reset_active_level)
 
     def init_read(self, address, length, prot=AxiProt.NONSECURE, event=None):
         if event is not None and not isinstance(event, Event):
@@ -477,12 +477,12 @@ class AxiLiteMasterRead(Reset):
 
 
 class AxiLiteMaster:
-    def __init__(self, bus, clock, reset=None):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True):
         self.write_if = None
         self.read_if = None
 
-        self.write_if = AxiLiteMasterWrite(bus.write, clock, reset)
-        self.read_if = AxiLiteMasterRead(bus.read, clock, reset)
+        self.write_if = AxiLiteMasterWrite(bus.write, clock, reset, reset_active_level)
+        self.read_if = AxiLiteMasterRead(bus.read, clock, reset, reset_active_level)
 
     def init_read(self, address, length, prot=AxiProt.NONSECURE, event=None):
         self.read_if.init_read(address, length, prot, event)
