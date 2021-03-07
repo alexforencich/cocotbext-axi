@@ -3,6 +3,7 @@
 [![Build Status](https://github.com/alexforencich/cocotbext-axi/workflows/Regression%20Tests/badge.svg?branch=master)](https://github.com/alexforencich/cocotbext-axi/actions/)
 [![codecov](https://codecov.io/gh/alexforencich/cocotbext-axi/branch/master/graph/badge.svg)](https://codecov.io/gh/alexforencich/cocotbext-axi)
 [![PyPI version](https://badge.fury.io/py/cocotbext-axi.svg)](https://pypi.org/project/cocotbext-axi)
+[![Downloads](https://pepy.tech/badge/cocotbext-axi)](https://pepy.tech/project/cocotbext-axi)
 
 GitHub repository: https://github.com/alexforencich/cocotbext-axi
 
@@ -37,9 +38,9 @@ The `AxiMaster` is a wrapper around `AxiMasterWrite` and `AxiMasterRead`.  Simil
 
 To use these modules, import the one you need and connect it to the DUT:
 
-    from cocotbext.axi import AxiMaster
+    from cocotbext.axi import AxiBus, AxiMaster
 
-    axi_master = AxiMaster(dut, "s_axi", dut.clk, dut.rst)
+    axi_master = AxiMaster(AxiBus.from_prefix(dut, "s_axi"), dut.clk, dut.rst)
 
 The modules use `cocotb.bus.Bus` internally to automatically connect to the corresponding signals in the bus, presuming they are named according to the AXI spec and share a common prefix.
 
@@ -74,8 +75,7 @@ Second, blocking operations can be carried out with `read()` and `write()` and t
 
 #### `AxiMaster` and `AxiLiteMaster` constructor parameters
 
-* _entity_: object that contains the AXI slave interface signals
-* _name_: signal name prefix (e.g. for `s_axi_awaddr`, the prefix is `s_axi`)
+* _bus_: `AxiBus` or `AxiLiteBus` object containing AXI interface signals
 * _clock_: clock signal
 * _reset_: reset signal (optional)
 
@@ -131,6 +131,10 @@ Second, blocking operations can be carried out with `read()` and `write()` and t
 * _prot_: AXI protection flags, default `AxiProt.NONSECURE`
 * _event_: `Event` object used to wait on and retrieve result for specific operation, default `None` (`init_read()` and `init_write()` only).  If provided, the event will be triggered when the operation completes and the result returned via `Event.data` instead of `get_read_data()` or `get_write_resp()`.
 
+#### `AxiBus` and `AxiLiteBus` objects
+
+The `AxiBus`, `AxiLiteBus`, and related objects are containers for the interface signals.  These hold instances of bus objects for the individual channels, which are extensions of `cocotb.bus.Bus`.  Class methods `from_entity` and `from_prefix` are provided to facilitate signal name matching.  For AXI interfaces use `AxiBus`, `AxiReadBus`, or `AxiWriteBus`, as appropriate.  For AXI lite interfaces, use `AxiLiteBus`, `AxiLiteReadBus`, or `AxiLiteWriteBus`, as appropriate.
+
 ### AXI and AXI lite RAM
 
 The `AxiRam` and `AxiLiteRam` classes implement AXI RAMs and are capable of completing read and write operations from upstream AXI masters.  The `AxiRam` module is capable of handling narrow bursts.
@@ -139,9 +143,9 @@ The `AxiRam` is a wrapper around `AxiRamWrite` and `AxiRamRead`.  Similarly, `Ax
 
 To use these modules, import the one you need and connect it to the DUT:
 
-    from cocotbext.axi import AxiRam
+    from cocotbext.axi import AxiBus, AxiRam
 
-    axi_ram = AxiRam(dut, "m_axi", dut.clk, dut.rst, size=2**16)
+    axi_ram = AxiRam(AxiBus.from_prefix(dut, "m_axi"), dut.clk, dut.rst, size=2**16)
 
 The modules use `cocotb.bus.Bus` internally to automatically connect to the corresponding signals in the bus, presuming they are named according to the AXI spec and share a common prefix.
 
@@ -152,15 +156,14 @@ Once the module is instantiated, the memory contents can be accessed in a couple
 
 Multi-port memories can be constructed by passing the `mem` object of the first instance to the other instances.  For example, here is how to create a four-port RAM:
 
-    axi_ram_p1 = AxiRam(dut, "m00_axi", dut.clk, dut.rst, size=2**16)
-    axi_ram_p2 = AxiRam(dut, "m01_axi", dut.clk, dut.rst, mem=axi_ram_p1.mem)
-    axi_ram_p3 = AxiRam(dut, "m02_axi", dut.clk, dut.rst, mem=axi_ram_p1.mem)
-    axi_ram_p4 = AxiRam(dut, "m03_axi", dut.clk, dut.rst, mem=axi_ram_p1.mem)
+    axi_ram_p1 = AxiRam(AxiBus.from_prefix(dut, "m00_axi"), dut.clk, dut.rst, size=2**16)
+    axi_ram_p2 = AxiRam(AxiBus.from_prefix(dut, "m01_axi"), dut.clk, dut.rst, mem=axi_ram_p1.mem)
+    axi_ram_p3 = AxiRam(AxiBus.from_prefix(dut, "m02_axi"), dut.clk, dut.rst, mem=axi_ram_p1.mem)
+    axi_ram_p4 = AxiRam(AxiBus.from_prefix(dut, "m03_axi"), dut.clk, dut.rst, mem=axi_ram_p1.mem)
 
 #### `AxiRam` and `AxiLiteRam` constructor parameters
 
-* _entity_: object that contains the AXI master interface signals
-* _name_: signal name prefix (e.g. for `m_axi_awaddr`, the prefix is `m_axi`)
+* _bus_: `AxiBus` or `AxiLiteBus` object containing AXI interface signals
 * _clock_: clock signal
 * _reset_: reset signal (optional)
 * _size_: memory size in bytes (optional, default 1024)
@@ -188,9 +191,9 @@ Multi-port memories can be constructed by passing the `mem` object of the first 
 * `write_word(address, data, byteorder='little', ws=2)`: write single _ws_-byte word at _address_
 * `write_dword(address, data, byteorder='little')`: write single 4-byte dword at _address_
 * `write_qword(address, data, byteorder='little')`: write single 8-byte qword at _address_
-* `hexdump(address, length, prefix='')`: print hex dump of _length_ bytes starting from `address`, prefix lines with optional `prefix`
-* `hexdump_line(address, length, prefix='')`: return hex dump (list of str) of _length_ bytes starting from `address`, prefix lines with optional `prefix`
-* `hexdump_str(address, length, prefix='')`: return hex dump (str) of _length_ bytes starting from `address`, prefix lines with optional `prefix`
+* `hexdump(address, length, prefix='')`: print hex dump of _length_ bytes starting from _address_, prefix lines with optional _prefix_
+* `hexdump_line(address, length, prefix='')`: return hex dump (list of str) of _length_ bytes starting from _address_, prefix lines with optional _prefix_
+* `hexdump_str(address, length, prefix='')`: return hex dump (str) of _length_ bytes starting from _address_, prefix lines with optional _prefix_
 
 ### AXI stream
 
@@ -198,11 +201,11 @@ The `AxiStreamSource`, `AxiStreamSink`, and `AxiStreamMonitor` classes can be us
 
 To use these modules, import the one you need and connect it to the DUT:
 
-    from cocotbext.axi import AxiStreamSource, AxiStreamSink, AxiStreamMonitor
+    from cocotbext.axi import (AxiStreamBus, AxiStreamSource, AxiStreamSink, AxiStreamMonitor)
 
-    axis_source = AxiStreamSource(dut, "s_axis", dut.clk, dut.rst)
-    axis_sink = AxiStreamSink(dut, "m_axis", dut.clk, dut.rst)
-    axis_monitor = AxiStreamMonitor(dut.inst, "int_axis", dut.clk, dut.rst)
+    axis_source = AxiStreamSource(AxiStreamBus.from_prefix(dut, "s_axis"), dut.clk, dut.rst)
+    axis_sink = AxiStreamSink(AxiStreamBus.from_prefix(dut, "m_axis"), dut.clk, dut.rst)
+    axis_mon= AxiStreamMonitor(AxiStreamBus.from_prefix(dut.inst, "int_axis"), dut.clk, dut.rst)
 
 The modules use `cocotb.bus.Bus` internally to automatically connect to the corresponding signals in the bus, presuming they are named according to the AXI spec and share a common prefix.
 
@@ -236,8 +239,7 @@ To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()`/`re
 
 #### Constructor parameters:
 
-* _entity_: object that contains the AXI stream interface signals
-* _name_: signal name prefix (e.g. for `m_axis_tdata`, the prefix is `m_axis`)
+* _bus_: `AxiStreamBus` object containing AXI stream interface signals
 * _clock_: clock signal
 * _reset_: reset signal (optional)
 * _byte_size_: byte size (optional)
@@ -273,7 +275,11 @@ Note: _byte_size_, _byte_lanes_, `len(tdata)`, and `len(tkeep)` are all related,
 * `set_pause_generator(generator)`: set generator for pause signal, generator will be advanced on every clock cycle (source/sink)
 * `clear_pause_generator()`: remove generator for pause signal (source/sink)
 
-#### AxiStreamFrame object
+#### `AxiStreamBus` object
+
+The `AxiStreamBus` object is a container for the interface signals.  Currently, it is an extension of `cocotb.bus.Bus`.  Class methods `from_entity` and `from_prefix` are provided to facilitate signal name matching.
+
+#### `AxiStreamFrame` object
 
 The `AxiStreamFrame` object is a container for a frame to be transferred via AXI stream.  The `tdata` field contains the packet data in the form of a list of bytes, which is either a `bytearray` if the byte size is 8 bits or a `list` of `int`s otherwise.  `tkeep`, `tid`, `tdest`, and `tuser` can either be `None`, an `int`, or a `list` of `int`s.
 
