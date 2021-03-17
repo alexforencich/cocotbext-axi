@@ -27,7 +27,7 @@ from collections import deque
 
 import cocotb
 from cocotb.triggers import RisingEdge, Event, First, Timer
-from cocotb.bus import Bus
+from cocotb_bus.bus import Bus
 
 from .reset import Reset
 

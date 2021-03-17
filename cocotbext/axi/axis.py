@@ -28,7 +28,7 @@ from collections import deque
 import cocotb
 from cocotb.triggers import RisingEdge, Timer, First, Event
 from cocotb.utils import get_sim_time
-from cocotb.bus import Bus
+from cocotb_bus.bus import Bus
 
 from .version import __version__
 from .reset import Reset
