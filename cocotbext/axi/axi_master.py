@@ -23,9 +23,10 @@ THE SOFTWARE.
 """
 
 import logging
-from collections import deque, namedtuple, Counter
+from collections import namedtuple, Counter
 
 import cocotb
+from cocotb.queue import Queue
 from cocotb.triggers import Event
 
 from .version import __version__
@@ -61,18 +62,15 @@ class AxiMasterWrite(Reset):
         self.w_channel = AxiWSource(bus.w, clock, reset, reset_active_level)
         self.b_channel = AxiBSink(bus.b, clock, reset, reset_active_level)
 
-        self.write_command_queue = deque()
-        self.write_command_sync = Event()
-        self.write_resp_queue = deque()
-        self.write_resp_sync = Event()
+        self.write_command_queue = Queue()
+        self.write_resp_queue = Queue()
 
         self.id_count = 2**len(self.aw_channel.bus.awid)
         self.cur_id = 0
         self.active_id = Counter()
 
-        self.int_write_resp_command_queue = deque()
-        self.int_write_resp_command_sync = Event()
-        self.int_write_resp_queue_list = [deque() for k in range(self.id_count)]
+        self.int_write_resp_command_queue = Queue()
+        self.int_write_resp_queue_list = [Queue() for k in range(self.id_count)]
 
         self.in_flight_operations = 0
         self._idle = Event()
@@ -138,8 +136,7 @@ class AxiMasterWrite(Reset):
 
         cmd = AxiWriteCmd(address, bytearray(data), awid, burst, size, lock,
             cache, prot, qos, region, user, wuser, event)
-        self.write_command_queue.append(cmd)
-        self.write_command_sync.set()
+        self.write_command_queue.put_nowait(cmd)
 
     def idle(self):
         return not self.in_flight_operations
@@ -149,11 +146,11 @@ class AxiMasterWrite(Reset):
             await self._idle.wait()
 
     def write_resp_ready(self):
-        return bool(self.write_resp_queue)
+        return not self.write_resp_queue.empty()
 
     def get_write_resp(self):
-        if self.write_resp_queue:
-            return self.write_resp_queue.popleft()
+        if not self.write_resp_queue.empty():
+            return self.write_resp_queue.get_nowait()
         return None
 
     async def write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
@@ -220,28 +217,25 @@ class AxiMasterWrite(Reset):
         self.w_channel.clear()
         self.b_channel.clear()
 
-        while self.write_command_queue:
-            cmd = self.write_command_queue.popleft()
+        while not self.write_command_queue.empty():
+            cmd = self.write_command_queue.get_nowait()
             if cmd.event:
                 cmd.event.set(None)
 
-        while self.int_write_resp_command_queue:
-            cmd = self.int_write_resp_command_queue.popleft()
+        while not self.int_write_resp_command_queue.empty():
+            cmd = self.int_write_resp_command_queue.get_nowait()
             if cmd.event:
                 cmd.event.set(None)
 
-        self.write_resp_queue.clear()
+        while not self.write_resp_queue.empty():
+            self.write_resp_queue.get_nowait()
 
         self.in_flight_operations = 0
         self._idle.set()
 
     async def _process_write(self):
         while True:
-            if not self.write_command_queue:
-                self.write_command_sync.clear()
-                await self.write_command_sync.wait()
-
-            cmd = self.write_command_queue.popleft()
+            cmd = await self.write_command_queue.get()
 
             num_bytes = 2**cmd.size
 
@@ -340,22 +334,17 @@ class AxiMasterWrite(Reset):
                 cycle_offset = (cycle_offset + num_bytes) % self.byte_width
 
             resp_cmd = AxiWriteRespCmd(cmd.address, len(cmd.data), cmd.size, cycles, cmd.prot, burst_list, cmd.event)
-            self.int_write_resp_command_queue.append(resp_cmd)
-            self.int_write_resp_command_sync.set()
+            await self.int_write_resp_command_queue.put(resp_cmd)
 
     async def _process_write_resp(self):
         while True:
-            if not self.int_write_resp_command_queue:
-                self.int_write_resp_command_sync.clear()
-                await self.int_write_resp_command_sync.wait()
-
-            cmd = self.int_write_resp_command_queue.popleft()
+            cmd = await self.int_write_resp_command_queue.get()
 
             resp = AxiResp.OKAY
             user = []
 
             for bid, burst_length in cmd.burst_list:
-                while not self.int_write_resp_queue_list[bid]:
+                while self.int_write_resp_queue_list[bid].empty():
                     b = await self.b_channel.recv()
 
                     i = int(b.bid)
@@ -363,9 +352,9 @@ class AxiMasterWrite(Reset):
                     if self.active_id[i] <= 0:
                         raise Exception(f"Unexpected burst ID {bid}")
 
-                    self.int_write_resp_queue_list[i].append(b)
+                    self.int_write_resp_queue_list[i].put_nowait(b)
 
-                b = self.int_write_resp_queue_list[bid].popleft()
+                b = self.int_write_resp_queue_list[bid].get_nowait()
 
                 burst_id = int(b.bid)
                 burst_resp = AxiResp(b.bresp)
@@ -392,8 +381,7 @@ class AxiMasterWrite(Reset):
             if cmd.event is not None:
                 cmd.event.set(write_resp)
             else:
-                self.write_resp_queue.append(write_resp)
-                self.write_resp_sync.set()
+                self.write_resp_queue.put_nowait(write_resp)
 
             self.in_flight_operations -= 1
 
@@ -413,18 +401,15 @@ class AxiMasterRead(Reset):
         self.ar_channel = AxiARSource(bus.ar, clock, reset, reset_active_level)
         self.r_channel = AxiRSink(bus.r, clock, reset, reset_active_level)
 
-        self.read_command_queue = deque()
-        self.read_command_sync = Event()
-        self.read_data_queue = deque()
-        self.read_data_sync = Event()
+        self.read_command_queue = Queue()
+        self.read_data_queue = Queue()
 
         self.id_count = 2**len(self.ar_channel.bus.arid)
         self.cur_id = 0
         self.active_id = Counter()
 
-        self.int_read_resp_command_queue = deque()
-        self.int_read_resp_command_sync = Event()
-        self.int_read_resp_queue_list = [deque() for k in range(self.id_count)]
+        self.int_read_resp_command_queue = Queue()
+        self.int_read_resp_queue_list = [Queue() for k in range(self.id_count)]
 
         self.in_flight_operations = 0
         self._idle = Event()
@@ -483,8 +468,7 @@ class AxiMasterRead(Reset):
         self._idle.clear()
 
         cmd = AxiReadCmd(address, length, arid, burst, size, lock, cache, prot, qos, region, user, event)
-        self.read_command_queue.append(cmd)
-        self.read_command_sync.set()
+        self.read_command_queue.put_nowait(cmd)
 
     def idle(self):
         return not self.in_flight_operations
@@ -494,11 +478,11 @@ class AxiMasterRead(Reset):
             await self._idle.wait()
 
     def read_data_ready(self):
-        return bool(self.read_data_queue)
+        return not self.read_data_queue.empty()
 
     def get_read_data(self):
-        if self.read_data_queue:
-            return self.read_data_queue.popleft()
+        if not self.read_data_queue.empty():
+            return self.read_data_queue.get_nowait()
         return None
 
     async def read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
@@ -564,28 +548,25 @@ class AxiMasterRead(Reset):
         self.ar_channel.clear()
         self.r_channel.clear()
 
-        while self.read_command_queue:
-            cmd = self.read_command_queue.popleft()
+        while not self.read_command_queue.empty():
+            cmd = self.read_command_queue.get_nowait()
             if cmd.event:
                 cmd.event.set(None)
 
-        while self.int_read_resp_command_queue:
-            cmd = self.int_read_resp_command_queue.popleft()
+        while not self.int_read_resp_command_queue.empty():
+            cmd = self.int_read_resp_command_queue.get_nowait()
             if cmd.event:
                 cmd.event.set(None)
 
-        self.read_data_queue.clear()
+        while not self.read_data_queue.empty():
+            self.read_data_queue.get_nowait()
 
         self.in_flight_operations = 0
         self._idle.set()
 
     async def _process_read(self):
         while True:
-            if not self.read_command_queue:
-                self.read_command_sync.clear()
-                await self.read_command_sync.wait()
-
-            cmd = self.read_command_queue.popleft()
+            cmd = await self.read_command_queue.get()
 
             num_bytes = 2**cmd.size
 
@@ -643,16 +624,11 @@ class AxiMasterRead(Reset):
                 cur_addr += num_bytes
 
             resp_cmd = AxiReadRespCmd(cmd.address, cmd.length, cmd.size, cycles, cmd.prot, burst_list, cmd.event)
-            self.int_read_resp_command_queue.append(resp_cmd)
-            self.int_read_resp_command_sync.set()
+            await self.int_read_resp_command_queue.put(resp_cmd)
 
     async def _process_read_resp(self):
         while True:
-            if not self.int_read_resp_command_queue:
-                self.int_read_resp_command_sync.clear()
-                await self.int_read_resp_command_sync.wait()
-
-            cmd = self.int_read_resp_command_queue.popleft()
+            cmd = await self.int_read_resp_command_queue.get()
 
             num_bytes = 2**cmd.size
 
@@ -671,7 +647,7 @@ class AxiMasterRead(Reset):
 
             for rid, burst_length in cmd.burst_list:
                 for k in range(burst_length):
-                    while not self.int_read_resp_queue_list[rid]:
+                    while self.int_read_resp_queue_list[rid].empty():
                         r = await self.r_channel.recv()
 
                         i = int(r.rid)
@@ -679,9 +655,9 @@ class AxiMasterRead(Reset):
                         if self.active_id[i] <= 0:
                             raise Exception(f"Unexpected burst ID {rid}")
 
-                        self.int_read_resp_queue_list[i].append(r)
+                        self.int_read_resp_queue_list[i].put_nowait(r)
 
-                    r = self.int_read_resp_queue_list[rid].popleft()
+                    r = self.int_read_resp_queue_list[rid].get_nowait()
 
                     cycle_id = int(r.rid)
                     cycle_data = int(r.rdata)
@@ -727,8 +703,7 @@ class AxiMasterRead(Reset):
             if cmd.event is not None:
                 cmd.event.set(read_resp)
             else:
-                self.read_data_queue.append(read_resp)
-                self.read_data_sync.set()
+                self.read_data_queue.put_nowait(read_resp)
 
             self.in_flight_operations -= 1
 

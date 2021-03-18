@@ -23,9 +23,9 @@ THE SOFTWARE.
 """
 
 import logging
-from collections import deque
 
 import cocotb
+from cocotb.queue import Queue
 from cocotb.triggers import RisingEdge, Timer, First, Event
 from cocotb.utils import get_sim_time
 from cocotb_bus.bus import Bus
@@ -276,8 +276,10 @@ class AxiStreamBase(Reset):
         super().__init__(*args, **kwargs)
 
         self.active = False
-        self.queue = deque()
-        self.queue_sync = Event()
+        self.queue = Queue()
+        self.idle_event = Event()
+        self.idle_event.set()
+        self.active_event = Event()
 
         self.queue_occupancy_bytes = 0
         self.queue_occupancy_frames = 0
@@ -344,13 +346,16 @@ class AxiStreamBase(Reset):
         self._init_reset(reset, reset_active_level)
 
     def count(self):
-        return len(self.queue)
+        return self.queue.qlen()
 
     def empty(self):
-        return not self.queue
+        return self.queue.empty()
 
     def clear(self):
-        self.queue.clear()
+        while not self.queue.empty():
+            self.queue.get_nowait()
+        self.idle_event.set()
+        self.active_event.clear()
         self.queue_occupancy_bytes = 0
         self.queue_occupancy_frames = 0
 
@@ -408,13 +413,18 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
     _ready_init = None
 
     async def send(self, frame):
-        self.send_nowait(frame)
+        frame = AxiStreamFrame(frame)
+        await self.queue.put(frame)
+        self.idle_event.clear()
+        self.queue_occupancy_bytes += len(frame)
+        self.queue_occupancy_frames += 1
 
     def send_nowait(self, frame):
         frame = AxiStreamFrame(frame)
+        self.queue.put_nowait(frame)
+        self.idle_event.clear()
         self.queue_occupancy_bytes += len(frame)
         self.queue_occupancy_frames += 1
-        self.queue.append(frame)
 
     async def write(self, data):
         await self.send(data)
@@ -426,8 +436,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
         return self.empty() and not self.active
 
     async def wait(self):
-        while not self.idle():
-            await RisingEdge(self.clock)
+        await self.idle_event.wait()
 
     def _handle_reset(self, state):
         super()._handle_reset(state)
@@ -458,8 +467,10 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
             tvalid_sample = (not hasattr(self.bus, "tvalid")) or self.bus.tvalid.value
 
             if (tready_sample and tvalid_sample) or not tvalid_sample:
-                if frame is None and self.queue:
-                    frame = self.queue.popleft()
+                if frame is None and not self.queue.empty():
+                    frame = self.queue.get_nowait()
+                    if self.queue.empty():
+                        self.idle_event.set()
                     self.queue_occupancy_bytes -= len(frame)
                     self.queue_occupancy_frames -= 1
                     frame.sim_time_start = get_sim_time()
@@ -528,14 +539,20 @@ class AxiStreamMonitor(AxiStreamBase):
         self.read_queue = []
 
     async def recv(self, compact=True):
-        while self.empty():
-            self.queue_sync.clear()
-            await self.queue_sync.wait()
-        return self.recv_nowait(compact)
+        frame = await self.queue.get()
+        if self.queue.empty():
+            self.active_event.clear()
+        self.queue_occupancy_bytes -= len(frame)
+        self.queue_occupancy_frames -= 1
+        if compact:
+            frame.compact()
+        return frame
 
     def recv_nowait(self, compact=True):
-        if self.queue:
-            frame = self.queue.popleft()
+        if not self.queue.empty():
+            frame = self.queue.get_nowait()
+            if self.queue.empty():
+                self.active_event.clear()
             self.queue_occupancy_bytes -= len(frame)
             self.queue_occupancy_frames -= 1
             if compact:
@@ -565,11 +582,10 @@ class AxiStreamMonitor(AxiStreamBase):
     async def wait(self, timeout=0, timeout_unit='ns'):
         if not self.empty():
             return
-        self.queue_sync.clear()
         if timeout:
-            await First(self.queue_sync.wait(), Timer(timeout, timeout_unit))
+            await First(self.active_event.wait(), Timer(timeout, timeout_unit))
         else:
-            await self.queue_sync.wait()
+            await self.active_event.wait()
 
     async def _run(self):
         frame = None
@@ -609,8 +625,8 @@ class AxiStreamMonitor(AxiStreamBase):
                     self.queue_occupancy_bytes += len(frame)
                     self.queue_occupancy_frames += 1
 
-                    self.queue.append(frame)
-                    self.queue_sync.set()
+                    self.queue.put_nowait(frame)
+                    self.active_event.set()
 
                     frame = None
 
@@ -684,8 +700,8 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
                     self.queue_occupancy_bytes += len(frame)
                     self.queue_occupancy_frames += 1
 
-                    self.queue.append(frame)
-                    self.queue_sync.set()
+                    self.queue.put_nowait(frame)
+                    self.active_event.set()
 
                     frame = None
 
