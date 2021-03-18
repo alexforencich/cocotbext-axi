@@ -469,8 +469,6 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
             if (tready_sample and tvalid_sample) or not tvalid_sample:
                 if frame is None and not self.queue.empty():
                     frame = self.queue.get_nowait()
-                    if self.queue.empty():
-                        self.idle_event.set()
                     self.queue_occupancy_bytes -= len(frame)
                     self.queue_occupancy_frames -= 1
                     frame.sim_time_start = get_sim_time()
@@ -520,6 +518,8 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                     if hasattr(self.bus, "tlast"):
                         self.bus.tlast <= 0
                     self.active = bool(frame)
+                    if not frame and self.queue.empty():
+                        self.idle_event.set()
 
 
 class AxiStreamMonitor(AxiStreamBase):

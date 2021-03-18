@@ -219,8 +219,6 @@ class StreamSource(StreamBase, StreamPause):
             if (ready_sample and valid_sample) or (not valid_sample):
                 if not self.queue.empty() and not self.pause:
                     self.bus.drive(self.queue.get_nowait())
-                    if self.queue.empty():
-                        self.idle_event.set()
                     if self.valid is not None:
                         self.valid <= 1
                     self.active = True
@@ -228,6 +226,8 @@ class StreamSource(StreamBase, StreamPause):
                     if self.valid is not None:
                         self.valid <= 0
                     self.active = not self.queue.empty()
+                    if self.queue.empty():
+                        self.idle_event.set()
 
 
 class StreamMonitor(StreamBase):
