@@ -346,7 +346,7 @@ class AxiStreamBase(Reset):
         self._init_reset(reset, reset_active_level)
 
     def count(self):
-        return self.queue.qlen()
+        return self.queue.qsize()
 
     def empty(self):
         return self.queue.empty()
