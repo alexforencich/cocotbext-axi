@@ -33,7 +33,7 @@ class Reset:
         self._reset_state = True
 
         if reset_signal is not None:
-            cocotb.fork(self._run_reset(reset_signal, bool(active_level)))
+            cocotb.scheduler.start_soon(self._run_reset(reset_signal, bool(active_level)))
 
         self._update_reset()
 
