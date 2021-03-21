@@ -162,16 +162,19 @@ class AxiLiteMasterWrite(Reset):
 
         while not self.write_command_queue.empty():
             cmd = self.write_command_queue.get_nowait()
+            self.log.warning("Flushed write operation during reset: %s", cmd)
             if cmd.event:
                 cmd.event.set(None)
 
         while not self.int_write_resp_command_queue.empty():
             cmd = self.int_write_resp_command_queue.get_nowait()
+            self.log.warning("Flushed write operation during reset: %s", cmd)
             if cmd.event:
                 cmd.event.set(None)
 
         while not self.write_resp_queue.empty():
-            self.write_resp_queue.get_nowait()
+            resp = self.write_resp_queue.get_nowait()
+            self.log.warning("Flushed write response during reset: %s", resp)
 
         self.in_flight_operations = 0
         self._idle.set()
@@ -369,16 +372,19 @@ class AxiLiteMasterRead(Reset):
 
         while not self.read_command_queue.empty():
             cmd = self.read_command_queue.get_nowait()
+            self.log.warning("Flushed read operation during reset: %s", cmd)
             if cmd.event:
                 cmd.event.set(None)
 
         while not self.int_read_resp_command_queue.empty():
             cmd = self.int_read_resp_command_queue.get_nowait()
+            self.log.warning("Flushed read operation during reset: %s", cmd)
             if cmd.event:
                 cmd.event.set(None)
 
         while not self.read_data_queue.empty():
-            self.read_data_queue.get_nowait()
+            resp = self.read_data_queue.get_nowait()
+            self.log.warning("Flushed read response during reset: %s", resp)
 
         self.in_flight_operations = 0
         self._idle.set()
