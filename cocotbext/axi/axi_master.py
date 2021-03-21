@@ -63,6 +63,7 @@ class AxiMasterWrite(Reset):
         self.b_channel = AxiBSink(bus.b, clock, reset, reset_active_level)
 
         self.write_command_queue = Queue()
+        self.current_write_command = None
         self.write_resp_queue = Queue()
 
         self.id_count = 2**len(self.aw_channel.bus.awid)
@@ -70,6 +71,7 @@ class AxiMasterWrite(Reset):
         self.active_id = Counter()
 
         self.int_write_resp_command_queue = Queue()
+        self.current_write_resp_command = None
         self.int_write_resp_queue_list = [Queue() for k in range(self.id_count)]
 
         self.in_flight_operations = 0
@@ -223,8 +225,22 @@ class AxiMasterWrite(Reset):
             if cmd.event:
                 cmd.event.set(None)
 
+        if self.current_write_command:
+            cmd = self.current_write_command
+            self.current_write_command = None
+            self.log.warning("Flushed write operation during reset: %s", cmd)
+            if cmd.event:
+                cmd.event.set(None)
+
         while not self.int_write_resp_command_queue.empty():
             cmd = self.int_write_resp_command_queue.get_nowait()
+            self.log.warning("Flushed write operation during reset: %s", cmd)
+            if cmd.event:
+                cmd.event.set(None)
+
+        if self.current_write_resp_command:
+            cmd = self.current_write_resp_command
+            self.current_write_resp_command = None
             self.log.warning("Flushed write operation during reset: %s", cmd)
             if cmd.event:
                 cmd.event.set(None)
@@ -239,6 +255,7 @@ class AxiMasterWrite(Reset):
     async def _process_write(self):
         while True:
             cmd = await self.write_command_queue.get()
+            self.current_write_command = cmd
 
             num_bytes = 2**cmd.size
 
@@ -339,9 +356,12 @@ class AxiMasterWrite(Reset):
             resp_cmd = AxiWriteRespCmd(cmd.address, len(cmd.data), cmd.size, cycles, cmd.prot, burst_list, cmd.event)
             await self.int_write_resp_command_queue.put(resp_cmd)
 
+            self.current_write_command = None
+
     async def _process_write_resp(self):
         while True:
             cmd = await self.int_write_resp_command_queue.get()
+            self.current_write_resp_command = cmd
 
             resp = AxiResp.OKAY
             user = []
@@ -386,6 +406,8 @@ class AxiMasterWrite(Reset):
             else:
                 self.write_resp_queue.put_nowait(write_resp)
 
+            self.current_write_resp_command = None
+
             self.in_flight_operations -= 1
 
             if self.in_flight_operations == 0:
@@ -405,6 +427,7 @@ class AxiMasterRead(Reset):
         self.r_channel = AxiRSink(bus.r, clock, reset, reset_active_level)
 
         self.read_command_queue = Queue()
+        self.current_read_command = None
         self.read_data_queue = Queue()
 
         self.id_count = 2**len(self.ar_channel.bus.arid)
@@ -412,6 +435,7 @@ class AxiMasterRead(Reset):
         self.active_id = Counter()
 
         self.int_read_resp_command_queue = Queue()
+        self.current_read_resp_command = None
         self.int_read_resp_queue_list = [Queue() for k in range(self.id_count)]
 
         self.in_flight_operations = 0
@@ -557,8 +581,22 @@ class AxiMasterRead(Reset):
             if cmd.event:
                 cmd.event.set(None)
 
+        if self.current_read_command:
+            cmd = self.current_read_command
+            self.current_read_command = None
+            self.log.warning("Flushed read operation during reset: %s", cmd)
+            if cmd.event:
+                cmd.event.set(None)
+
         while not self.int_read_resp_command_queue.empty():
             cmd = self.int_read_resp_command_queue.get_nowait()
+            self.log.warning("Flushed read operation during reset: %s", cmd)
+            if cmd.event:
+                cmd.event.set(None)
+
+        if self.current_read_resp_command:
+            cmd = self.current_read_resp_command
+            self.current_read_resp_command = None
             self.log.warning("Flushed read operation during reset: %s", cmd)
             if cmd.event:
                 cmd.event.set(None)
@@ -573,6 +611,7 @@ class AxiMasterRead(Reset):
     async def _process_read(self):
         while True:
             cmd = await self.read_command_queue.get()
+            self.current_read_command = cmd
 
             num_bytes = 2**cmd.size
 
@@ -632,9 +671,12 @@ class AxiMasterRead(Reset):
             resp_cmd = AxiReadRespCmd(cmd.address, cmd.length, cmd.size, cycles, cmd.prot, burst_list, cmd.event)
             await self.int_read_resp_command_queue.put(resp_cmd)
 
+            self.current_read_command = None
+
     async def _process_read_resp(self):
         while True:
             cmd = await self.int_read_resp_command_queue.get()
+            self.current_read_resp_command = cmd
 
             num_bytes = 2**cmd.size
 
@@ -710,6 +752,8 @@ class AxiMasterRead(Reset):
                 cmd.event.set(read_resp)
             else:
                 self.read_data_queue.put_nowait(read_resp)
+
+            self.current_read_resp_command = None
 
             self.in_flight_operations -= 1
 

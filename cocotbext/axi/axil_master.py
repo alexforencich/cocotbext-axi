@@ -59,9 +59,11 @@ class AxiLiteMasterWrite(Reset):
         self.b_channel = AxiLiteBSink(bus.b, clock, reset, reset_active_level)
 
         self.write_command_queue = Queue()
+        self.current_write_command = None
         self.write_resp_queue = Queue()
 
         self.int_write_resp_command_queue = Queue()
+        self.current_write_resp_command = None
 
         self.in_flight_operations = 0
         self._idle = Event()
@@ -166,8 +168,22 @@ class AxiLiteMasterWrite(Reset):
             if cmd.event:
                 cmd.event.set(None)
 
+        if self.current_write_command:
+            cmd = self.current_write_command
+            self.current_write_command = None
+            self.log.warning("Flushed write operation during reset: %s", cmd)
+            if cmd.event:
+                cmd.event.set(None)
+
         while not self.int_write_resp_command_queue.empty():
             cmd = self.int_write_resp_command_queue.get_nowait()
+            self.log.warning("Flushed write operation during reset: %s", cmd)
+            if cmd.event:
+                cmd.event.set(None)
+
+        if self.current_write_resp_command:
+            cmd = self.current_write_resp_command
+            self.current_write_resp_command = None
             self.log.warning("Flushed write operation during reset: %s", cmd)
             if cmd.event:
                 cmd.event.set(None)
@@ -182,6 +198,7 @@ class AxiLiteMasterWrite(Reset):
     async def _process_write(self):
         while True:
             cmd = await self.write_command_queue.get()
+            self.current_write_command = cmd
 
             word_addr = (cmd.address // self.byte_width) * self.byte_width
 
@@ -229,9 +246,12 @@ class AxiLiteMasterWrite(Reset):
                 await self.aw_channel.send(aw)
                 await self.w_channel.send(w)
 
+            self.current_write_command = None
+
     async def _process_write_resp(self):
         while True:
             cmd = await self.int_write_resp_command_queue.get()
+            self.current_write_resp_command = cmd
 
             resp = AxiResp.OKAY
 
@@ -253,6 +273,8 @@ class AxiLiteMasterWrite(Reset):
             else:
                 self.write_resp_queue.put_nowait(write_resp)
 
+            self.current_write_resp_command = None
+
             self.in_flight_operations -= 1
 
             if self.in_flight_operations == 0:
@@ -272,9 +294,11 @@ class AxiLiteMasterRead(Reset):
         self.r_channel = AxiLiteRSink(bus.r, clock, reset, reset_active_level)
 
         self.read_command_queue = Queue()
+        self.current_read_command = None
         self.read_data_queue = Queue()
 
         self.int_read_resp_command_queue = Queue()
+        self.current_read_resp_command = None
 
         self.in_flight_operations = 0
         self._idle = Event()
@@ -376,8 +400,22 @@ class AxiLiteMasterRead(Reset):
             if cmd.event:
                 cmd.event.set(None)
 
+        if self.current_read_command:
+            cmd = self.current_read_command
+            self.current_read_command = None
+            self.log.warning("Flushed read operation during reset: %s", cmd)
+            if cmd.event:
+                cmd.event.set(None)
+
         while not self.int_read_resp_command_queue.empty():
             cmd = self.int_read_resp_command_queue.get_nowait()
+            self.log.warning("Flushed read operation during reset: %s", cmd)
+            if cmd.event:
+                cmd.event.set(None)
+
+        if self.current_read_resp_command:
+            cmd = self.current_read_resp_command
+            self.current_read_resp_command = None
             self.log.warning("Flushed read operation during reset: %s", cmd)
             if cmd.event:
                 cmd.event.set(None)
@@ -392,6 +430,7 @@ class AxiLiteMasterRead(Reset):
     async def _process_read(self):
         while True:
             cmd = await self.read_command_queue.get()
+            self.current_read_command = cmd
 
             word_addr = (cmd.address // self.byte_width) * self.byte_width
 
@@ -410,9 +449,12 @@ class AxiLiteMasterRead(Reset):
 
                 await self.ar_channel.send(ar)
 
+            self.current_read_command = None
+
     async def _process_read_resp(self):
         while True:
             cmd = await self.int_read_resp_command_queue.get()
+            self.current_read_resp_command = cmd
 
             start_offset = cmd.address % self.byte_width
             end_offset = ((cmd.address + cmd.length - 1) % self.byte_width) + 1
@@ -450,6 +492,8 @@ class AxiLiteMasterRead(Reset):
                 cmd.event.set(read_resp)
             else:
                 self.read_data_queue.put_nowait(read_resp)
+
+            self.current_read_resp_command = None
 
             self.in_flight_operations -= 1
 
