@@ -143,12 +143,12 @@ class StreamBase(Reset):
             if self._run_cr is not None:
                 self._run_cr.kill()
                 self._run_cr = None
+
+            self.active = False
         else:
             self.log.info("Reset de-asserted")
             if self._run_cr is None:
                 self._run_cr = cocotb.scheduler.start_soon(self._run())
-
-        self.active = False
 
     async def _run(self):
         raise NotImplementedError()
@@ -205,8 +205,9 @@ class StreamSource(StreamBase, StreamPause):
     def _handle_reset(self, state):
         super()._handle_reset(state)
 
-        if self.valid is not None:
-            self.valid <= 0
+        if state:
+            if self.valid is not None:
+                self.valid <= 0
 
     async def _run(self):
         while True:
@@ -295,8 +296,9 @@ class StreamSink(StreamMonitor, StreamPause):
     def _handle_reset(self, state):
         super()._handle_reset(state)
 
-        if self.ready is not None:
-            self.ready <= 0
+        if state:
+            if self.ready is not None:
+                self.ready <= 0
 
     async def _run(self):
         while True:

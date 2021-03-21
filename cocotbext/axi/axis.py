@@ -365,12 +365,12 @@ class AxiStreamBase(Reset):
             if self._run_cr is not None:
                 self._run_cr.kill()
                 self._run_cr = None
+
+            self.active = False
         else:
             self.log.info("Reset de-asserted")
             if self._run_cr is None:
                 self._run_cr = cocotb.scheduler.start_soon(self._run())
-
-        self.active = False
 
     async def _run(self):
         raise NotImplementedError()
@@ -441,19 +441,20 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
     def _handle_reset(self, state):
         super()._handle_reset(state)
 
-        self.bus.tdata <= 0
-        if hasattr(self.bus, "tvalid"):
-            self.bus.tvalid <= 0
-        if hasattr(self.bus, "tlast"):
-            self.bus.tlast <= 0
-        if hasattr(self.bus, "tkeep"):
-            self.bus.tkeep <= 0
-        if hasattr(self.bus, "tid"):
-            self.bus.tid <= 0
-        if hasattr(self.bus, "tdest"):
-            self.bus.tdest <= 0
-        if hasattr(self.bus, "tuser"):
-            self.bus.tuser <= 0
+        if state:
+            self.bus.tdata <= 0
+            if hasattr(self.bus, "tvalid"):
+                self.bus.tvalid <= 0
+            if hasattr(self.bus, "tlast"):
+                self.bus.tlast <= 0
+            if hasattr(self.bus, "tkeep"):
+                self.bus.tkeep <= 0
+            if hasattr(self.bus, "tid"):
+                self.bus.tid <= 0
+            if hasattr(self.bus, "tdest"):
+                self.bus.tdest <= 0
+            if hasattr(self.bus, "tuser"):
+                self.bus.tuser <= 0
 
     async def _run(self):
         frame = None
@@ -659,8 +660,9 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
     def _handle_reset(self, state):
         super()._handle_reset(state)
 
-        if hasattr(self.bus, "tready"):
-            self.bus.tready <= 0
+        if state:
+            if hasattr(self.bus, "tready"):
+                self.bus.tready <= 0
 
     async def _run(self):
         frame = None

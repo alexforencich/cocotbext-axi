@@ -151,49 +151,49 @@ class AxiLiteMasterWrite(Reset):
             if self._process_write_resp_cr is not None:
                 self._process_write_resp_cr.kill()
                 self._process_write_resp_cr = None
+
+            self.aw_channel.clear()
+            self.w_channel.clear()
+            self.b_channel.clear()
+
+            while not self.write_command_queue.empty():
+                cmd = self.write_command_queue.get_nowait()
+                self.log.warning("Flushed write operation during reset: %s", cmd)
+                if cmd.event:
+                    cmd.event.set(None)
+
+            if self.current_write_command:
+                cmd = self.current_write_command
+                self.current_write_command = None
+                self.log.warning("Flushed write operation during reset: %s", cmd)
+                if cmd.event:
+                    cmd.event.set(None)
+
+            while not self.int_write_resp_command_queue.empty():
+                cmd = self.int_write_resp_command_queue.get_nowait()
+                self.log.warning("Flushed write operation during reset: %s", cmd)
+                if cmd.event:
+                    cmd.event.set(None)
+
+            if self.current_write_resp_command:
+                cmd = self.current_write_resp_command
+                self.current_write_resp_command = None
+                self.log.warning("Flushed write operation during reset: %s", cmd)
+                if cmd.event:
+                    cmd.event.set(None)
+
+            while not self.write_resp_queue.empty():
+                resp = self.write_resp_queue.get_nowait()
+                self.log.warning("Flushed write response during reset: %s", resp)
+
+            self.in_flight_operations = 0
+            self._idle.set()
         else:
             self.log.info("Reset de-asserted")
             if self._process_write_cr is None:
                 self._process_write_cr = cocotb.scheduler.start_soon(self._process_write())
             if self._process_write_resp_cr is None:
                 self._process_write_resp_cr = cocotb.scheduler.start_soon(self._process_write_resp())
-
-        self.aw_channel.clear()
-        self.w_channel.clear()
-        self.b_channel.clear()
-
-        while not self.write_command_queue.empty():
-            cmd = self.write_command_queue.get_nowait()
-            self.log.warning("Flushed write operation during reset: %s", cmd)
-            if cmd.event:
-                cmd.event.set(None)
-
-        if self.current_write_command:
-            cmd = self.current_write_command
-            self.current_write_command = None
-            self.log.warning("Flushed write operation during reset: %s", cmd)
-            if cmd.event:
-                cmd.event.set(None)
-
-        while not self.int_write_resp_command_queue.empty():
-            cmd = self.int_write_resp_command_queue.get_nowait()
-            self.log.warning("Flushed write operation during reset: %s", cmd)
-            if cmd.event:
-                cmd.event.set(None)
-
-        if self.current_write_resp_command:
-            cmd = self.current_write_resp_command
-            self.current_write_resp_command = None
-            self.log.warning("Flushed write operation during reset: %s", cmd)
-            if cmd.event:
-                cmd.event.set(None)
-
-        while not self.write_resp_queue.empty():
-            resp = self.write_resp_queue.get_nowait()
-            self.log.warning("Flushed write response during reset: %s", resp)
-
-        self.in_flight_operations = 0
-        self._idle.set()
 
     async def _process_write(self):
         while True:
@@ -384,48 +384,48 @@ class AxiLiteMasterRead(Reset):
             if self._process_read_resp_cr is not None:
                 self._process_read_resp_cr.kill()
                 self._process_read_resp_cr = None
+
+            self.ar_channel.clear()
+            self.r_channel.clear()
+
+            while not self.read_command_queue.empty():
+                cmd = self.read_command_queue.get_nowait()
+                self.log.warning("Flushed read operation during reset: %s", cmd)
+                if cmd.event:
+                    cmd.event.set(None)
+
+            if self.current_read_command:
+                cmd = self.current_read_command
+                self.current_read_command = None
+                self.log.warning("Flushed read operation during reset: %s", cmd)
+                if cmd.event:
+                    cmd.event.set(None)
+
+            while not self.int_read_resp_command_queue.empty():
+                cmd = self.int_read_resp_command_queue.get_nowait()
+                self.log.warning("Flushed read operation during reset: %s", cmd)
+                if cmd.event:
+                    cmd.event.set(None)
+
+            if self.current_read_resp_command:
+                cmd = self.current_read_resp_command
+                self.current_read_resp_command = None
+                self.log.warning("Flushed read operation during reset: %s", cmd)
+                if cmd.event:
+                    cmd.event.set(None)
+
+            while not self.read_data_queue.empty():
+                resp = self.read_data_queue.get_nowait()
+                self.log.warning("Flushed read response during reset: %s", resp)
+
+            self.in_flight_operations = 0
+            self._idle.set()
         else:
             self.log.info("Reset de-asserted")
             if self._process_read_cr is None:
                 self._process_read_cr = cocotb.scheduler.start_soon(self._process_read())
             if self._process_read_resp_cr is None:
                 self._process_read_resp_cr = cocotb.scheduler.start_soon(self._process_read_resp())
-
-        self.ar_channel.clear()
-        self.r_channel.clear()
-
-        while not self.read_command_queue.empty():
-            cmd = self.read_command_queue.get_nowait()
-            self.log.warning("Flushed read operation during reset: %s", cmd)
-            if cmd.event:
-                cmd.event.set(None)
-
-        if self.current_read_command:
-            cmd = self.current_read_command
-            self.current_read_command = None
-            self.log.warning("Flushed read operation during reset: %s", cmd)
-            if cmd.event:
-                cmd.event.set(None)
-
-        while not self.int_read_resp_command_queue.empty():
-            cmd = self.int_read_resp_command_queue.get_nowait()
-            self.log.warning("Flushed read operation during reset: %s", cmd)
-            if cmd.event:
-                cmd.event.set(None)
-
-        if self.current_read_resp_command:
-            cmd = self.current_read_resp_command
-            self.current_read_resp_command = None
-            self.log.warning("Flushed read operation during reset: %s", cmd)
-            if cmd.event:
-                cmd.event.set(None)
-
-        while not self.read_data_queue.empty():
-            resp = self.read_data_queue.get_nowait()
-            self.log.warning("Flushed read response during reset: %s", resp)
-
-        self.in_flight_operations = 0
-        self._idle.set()
 
     async def _process_read(self):
         while True:

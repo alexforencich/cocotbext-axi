@@ -75,14 +75,14 @@ class AxiRamWrite(Memory, Reset):
             if self._process_write_cr is not None:
                 self._process_write_cr.kill()
                 self._process_write_cr = None
+
+            self.aw_channel.clear()
+            self.w_channel.clear()
+            self.b_channel.clear()
         else:
             self.log.info("Reset de-asserted")
             if self._process_write_cr is None:
                 self._process_write_cr = cocotb.scheduler.start_soon(self._process_write())
-
-        self.aw_channel.clear()
-        self.w_channel.clear()
-        self.b_channel.clear()
 
     async def _process_write(self):
         while True:
@@ -195,13 +195,13 @@ class AxiRamRead(Memory, Reset):
             if self._process_read_cr is not None:
                 self._process_read_cr.kill()
                 self._process_read_cr = None
+
+            self.ar_channel.clear()
+            self.r_channel.clear()
         else:
             self.log.info("Reset de-asserted")
             if self._process_read_cr is None:
                 self._process_read_cr = cocotb.scheduler.start_soon(self._process_read())
-
-        self.ar_channel.clear()
-        self.r_channel.clear()
 
     async def _process_read(self):
         while True:
