@@ -277,6 +277,7 @@ class AxiStreamBase(Reset):
 
         self.active = False
         self.queue = Queue()
+        self.current_frame = None
         self.idle_event = Event()
         self.idle_event.set()
         self.active_event = Event()
@@ -459,6 +460,11 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
             if hasattr(self.bus, "tuser"):
                 self.bus.tuser <= 0
 
+            if self.current_frame:
+                self.log.warning("Flushed transmit frame during reset: %s", self.current_frame)
+                self.current_frame.handle_tx_complete()
+                self.current_frame = None
+
     async def _run(self):
         frame = None
         self.active = False
@@ -475,6 +481,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                     frame = self.queue.get_nowait()
                     self.queue_occupancy_bytes -= len(frame)
                     self.queue_occupancy_frames -= 1
+                    self.current_frame = frame
                     frame.sim_time_start = get_sim_time()
                     frame.sim_time_end = None
                     self.log.info("TX frame: %s", frame)
@@ -501,6 +508,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                             frame.sim_time_end = get_sim_time()
                             frame.handle_tx_complete()
                             frame = None
+                            self.current_frame = None
                             break
 
                     self.bus.tdata <= tdata_val
