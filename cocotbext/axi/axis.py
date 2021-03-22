@@ -354,7 +354,9 @@ class AxiStreamBase(Reset):
 
     def clear(self):
         while not self.queue.empty():
-            self.queue.get_nowait()
+            frame = self.queue.get_nowait()
+            frame.sim_time_end = None
+            frame.handle_tx_complete()
         self.idle_event.set()
         self.active_event.clear()
         self.queue_occupancy_bytes = 0
