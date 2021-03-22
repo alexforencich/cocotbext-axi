@@ -25,7 +25,7 @@ THE SOFTWARE.
 import logging
 
 import cocotb
-from cocotb.queue import Queue
+from cocotb.queue import Queue, QueueFull
 from cocotb.triggers import RisingEdge, Event, First, Timer
 from cocotb_bus.bus import Bus
 
@@ -95,6 +95,7 @@ class StreamBase(Reset):
         self.active = False
 
         self.queue = Queue()
+        self.dequeue_event = Event()
         self.idle_event = Event()
         self.idle_event.set()
         self.active_event = Event()
@@ -134,6 +135,7 @@ class StreamBase(Reset):
     def clear(self):
         while not self.queue.empty():
             self.queue.get_nowait()
+        self.dequeue_event.set()
         self.idle_event.set()
         self.active_event.clear()
 
@@ -191,13 +193,29 @@ class StreamSource(StreamBase, StreamPause):
     _valid_init = 0
     _ready_init = None
 
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, *args, **kwargs):
+        super().__init__(bus, clock, reset, reset_active_level, *args, **kwargs)
+
+        self.queue_occupancy_limit = -1
+
     async def send(self, obj):
+        while self.full():
+            self.dequeue_event.clear()
+            await self.dequeue_event.wait()
         await self.queue.put(obj)
         self.idle_event.clear()
 
     def send_nowait(self, obj):
+        if self.full():
+            raise QueueFull()
         self.queue.put_nowait(obj)
         self.idle_event.clear()
+
+    def full(self):
+        if self.queue_occupancy_limit > 0 and self.count() >= self.queue_occupancy_limit:
+            return True
+        else:
+            return False
 
     def idle(self):
         return self.empty() and not self.active
@@ -223,6 +241,7 @@ class StreamSource(StreamBase, StreamPause):
             if (ready_sample and valid_sample) or (not valid_sample):
                 if not self.queue.empty() and not self.pause:
                     self.bus.drive(self.queue.get_nowait())
+                    self.dequeue_event.set()
                     if self.valid is not None:
                         self.valid <= 1
                     self.active = True

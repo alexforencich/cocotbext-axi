@@ -270,7 +270,7 @@ Note: _byte_size_, _byte_lanes_, `len(tdata)`, and `len(tkeep)` are all related,
 * `read_nowait(count)`: read _count_ bytes from buffer (non-blocking) (sink/monitor)
 * `count()`: returns the number of items in the queue (all)
 * `empty()`: returns _True_ if the queue is empty (all)
-* `full()`: returns _True_ if the queue occupancy limits are met (sink)
+* `full()`: returns _True_ if the queue occupancy limits are met (source/sink)
 * `idle()`: returns _True_ if no transfer is in progress (all) or if the queue is not empty (source)
 * `clear()`: drop all data in queue (all)
 * `wait()`: wait for idle (source)

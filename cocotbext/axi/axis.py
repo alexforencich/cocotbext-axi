@@ -25,7 +25,7 @@ THE SOFTWARE.
 import logging
 
 import cocotb
-from cocotb.queue import Queue
+from cocotb.queue import Queue, QueueFull
 from cocotb.triggers import RisingEdge, Timer, First, Event
 from cocotb.utils import get_sim_time
 from cocotb_bus.bus import Bus
@@ -277,6 +277,7 @@ class AxiStreamBase(Reset):
 
         self.active = False
         self.queue = Queue()
+        self.dequeue_event = Event()
         self.current_frame = None
         self.idle_event = Event()
         self.idle_event.set()
@@ -357,6 +358,7 @@ class AxiStreamBase(Reset):
             frame = self.queue.get_nowait()
             frame.sim_time_end = None
             frame.handle_tx_complete()
+        self.dequeue_event.set()
         self.idle_event.set()
         self.active_event.clear()
         self.queue_occupancy_bytes = 0
@@ -418,7 +420,18 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
     _valid_init = 0
     _ready_init = None
 
+    def __init__(self, bus, clock, reset=None, reset_active_level=True,
+            byte_size=None, byte_lanes=None, *args, **kwargs):
+
+        super().__init__(bus, clock, reset, reset_active_level, byte_size, byte_lanes, *args, **kwargs)
+
+        self.queue_occupancy_limit_bytes = -1
+        self.queue_occupancy_limit_frames = -1
+
     async def send(self, frame):
+        while self.full():
+            self.dequeue_event.clear()
+            await self.dequeue_event.wait()
         frame = AxiStreamFrame(frame)
         await self.queue.put(frame)
         self.idle_event.clear()
@@ -426,6 +439,8 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
         self.queue_occupancy_frames += 1
 
     def send_nowait(self, frame):
+        if self.full():
+            raise QueueFull()
         frame = AxiStreamFrame(frame)
         self.queue.put_nowait(frame)
         self.idle_event.clear()
@@ -437,6 +452,14 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
 
     def write_nowait(self, data):
         self.send_nowait(data)
+
+    def full(self):
+        if self.queue_occupancy_limit_bytes > 0 and self.queue_occupancy_bytes > self.queue_occupancy_limit_bytes:
+            return True
+        elif self.queue_occupancy_limit_frames > 0 and self.queue_occupancy_frames > self.queue_occupancy_limit_frames:
+            return True
+        else:
+            return False
 
     def idle(self):
         return self.empty() and not self.active
@@ -481,6 +504,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
             if (tready_sample and tvalid_sample) or not tvalid_sample:
                 if frame is None and not self.queue.empty():
                     frame = self.queue.get_nowait()
+                    self.dequeue_event.set()
                     self.queue_occupancy_bytes -= len(frame)
                     self.queue_occupancy_frames -= 1
                     self.current_frame = frame
