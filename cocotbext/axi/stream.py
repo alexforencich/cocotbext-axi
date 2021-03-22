@@ -145,6 +145,9 @@ class StreamBase(Reset):
                 self._run_cr = None
 
             self.active = False
+
+            if self.queue.empty():
+                self.idle_event.set()
         else:
             self.log.info("Reset de-asserted")
             if self._run_cr is None:
