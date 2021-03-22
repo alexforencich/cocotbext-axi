@@ -241,19 +241,18 @@ class StreamMonitor(StreamBase):
     _valid_init = None
     _ready_init = None
 
-    async def recv(self):
-        item = await self.queue.get()
+    def _recv(self, item):
         if self.queue.empty():
             self.active_event.clear()
         return item
 
+    async def recv(self):
+        item = await self.queue.get()
+        return self._recv(item)
+
     def recv_nowait(self):
-        if not self.queue.empty():
-            item = self.queue.get_nowait()
-            if self.queue.empty():
-                self.active_event.clear()
-            return item
-        return None
+        item = self.queue.get_nowait()
+        return self._recv(item)
 
     async def wait(self, timeout=0, timeout_unit=None):
         if not self.empty():

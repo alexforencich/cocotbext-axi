@@ -552,8 +552,7 @@ class AxiStreamMonitor(AxiStreamBase):
 
         self.read_queue = []
 
-    async def recv(self, compact=True):
-        frame = await self.queue.get()
+    def _recv(self, frame, compact=True):
         if self.queue.empty():
             self.active_event.clear()
         self.queue_occupancy_bytes -= len(frame)
@@ -562,17 +561,13 @@ class AxiStreamMonitor(AxiStreamBase):
             frame.compact()
         return frame
 
+    async def recv(self, compact=True):
+        frame = await self.queue.get()
+        return self._recv(frame, compact)
+
     def recv_nowait(self, compact=True):
-        if not self.queue.empty():
-            frame = self.queue.get_nowait()
-            if self.queue.empty():
-                self.active_event.clear()
-            self.queue_occupancy_bytes -= len(frame)
-            self.queue_occupancy_frames -= 1
-            if compact:
-                frame.compact()
-            return frame
-        return None
+        frame = self.queue.get_nowait()
+        return self._recv(frame, compact)
 
     async def read(self, count=-1):
         while not self.read_queue:
