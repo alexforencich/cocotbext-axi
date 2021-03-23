@@ -60,7 +60,6 @@ class AxiLiteMasterWrite(Reset):
 
         self.write_command_queue = Queue()
         self.current_write_command = None
-        self.write_resp_queue = Queue()
 
         self.int_write_resp_command_queue = Queue()
         self.current_write_resp_command = None
@@ -88,13 +87,18 @@ class AxiLiteMasterWrite(Reset):
         self._init_reset(reset, reset_active_level)
 
     def init_write(self, address, data, prot=AxiProt.NONSECURE, event=None):
-        if event is not None and not isinstance(event, Event):
+        if event is None:
+            event = Event()
+
+        if not isinstance(event, Event):
             raise ValueError("Expected event object")
 
         self.in_flight_operations += 1
         self._idle.clear()
 
         self.write_command_queue.put_nowait(AxiLiteWriteCmd(address, bytearray(data), prot, event))
+
+        return event
 
     def idle(self):
         return not self.in_flight_operations
@@ -103,17 +107,8 @@ class AxiLiteMasterWrite(Reset):
         while not self.idle():
             await self._idle.wait()
 
-    def write_resp_ready(self):
-        return not self.write_resp_queue.empty()
-
-    def get_write_resp(self):
-        if not self.write_resp_queue.empty():
-            return self.write_resp_queue.get_nowait()
-        return None
-
     async def write(self, address, data, prot=AxiProt.NONSECURE):
-        event = Event()
-        self.init_write(address, data, prot, event)
+        event = self.init_write(address, data, prot)
         await event.wait()
         return event.data
 
@@ -181,10 +176,6 @@ class AxiLiteMasterWrite(Reset):
                 self.log.warning("Flushed write operation during reset: %s", cmd)
                 if cmd.event:
                     cmd.event.set(None)
-
-            while not self.write_resp_queue.empty():
-                resp = self.write_resp_queue.get_nowait()
-                self.log.warning("Flushed write response during reset: %s", resp)
 
             self.in_flight_operations = 0
             self._idle.set()
@@ -268,10 +259,7 @@ class AxiLiteMasterWrite(Reset):
 
             write_resp = AxiLiteWriteResp(cmd.address, cmd.length, resp)
 
-            if cmd.event is not None:
-                cmd.event.set(write_resp)
-            else:
-                self.write_resp_queue.put_nowait(write_resp)
+            cmd.event.set(write_resp)
 
             self.current_write_resp_command = None
 
@@ -295,7 +283,6 @@ class AxiLiteMasterRead(Reset):
 
         self.read_command_queue = Queue()
         self.current_read_command = None
-        self.read_data_queue = Queue()
 
         self.int_read_resp_command_queue = Queue()
         self.current_read_resp_command = None
@@ -321,13 +308,18 @@ class AxiLiteMasterRead(Reset):
         self._init_reset(reset, reset_active_level)
 
     def init_read(self, address, length, prot=AxiProt.NONSECURE, event=None):
-        if event is not None and not isinstance(event, Event):
+        if event is None:
+            event = Event()
+
+        if not isinstance(event, Event):
             raise ValueError("Expected event object")
 
         self.in_flight_operations += 1
         self._idle.clear()
 
         self.read_command_queue.put_nowait(AxiLiteReadCmd(address, length, prot, event))
+
+        return event
 
     def idle(self):
         return not self.in_flight_operations
@@ -336,17 +328,8 @@ class AxiLiteMasterRead(Reset):
         while not self.idle():
             await self._idle.wait()
 
-    def read_data_ready(self):
-        return not self.read_data_queue.empty()
-
-    def get_read_data(self):
-        if not self.read_data_queue.empty():
-            return self.read_data_queue.get_nowait()
-        return None
-
     async def read(self, address, length, prot=AxiProt.NONSECURE):
-        event = Event()
-        self.init_read(address, length, prot, event)
+        event = self.init_read(address, length, prot)
         await event.wait()
         return event.data
 
@@ -413,10 +396,6 @@ class AxiLiteMasterRead(Reset):
                 self.log.warning("Flushed read operation during reset: %s", cmd)
                 if cmd.event:
                     cmd.event.set(None)
-
-            while not self.read_data_queue.empty():
-                resp = self.read_data_queue.get_nowait()
-                self.log.warning("Flushed read response during reset: %s", resp)
 
             self.in_flight_operations = 0
             self._idle.set()
@@ -488,10 +467,7 @@ class AxiLiteMasterRead(Reset):
 
             read_resp = AxiLiteReadResp(cmd.address, data, resp)
 
-            if cmd.event is not None:
-                cmd.event.set(read_resp)
-            else:
-                self.read_data_queue.put_nowait(read_resp)
+            cmd.event.set(read_resp)
 
             self.current_read_resp_command = None
 
@@ -510,10 +486,10 @@ class AxiLiteMaster:
         self.read_if = AxiLiteMasterRead(bus.read, clock, reset, reset_active_level)
 
     def init_read(self, address, length, prot=AxiProt.NONSECURE, event=None):
-        self.read_if.init_read(address, length, prot, event)
+        return self.read_if.init_read(address, length, prot, event)
 
     def init_write(self, address, data, prot=AxiProt.NONSECURE, event=None):
-        self.write_if.init_write(address, data, prot, event)
+        return self.write_if.init_write(address, data, prot, event)
 
     def idle(self):
         return (not self.read_if or self.read_if.idle()) and (not self.write_if or self.write_if.idle())
@@ -528,18 +504,6 @@ class AxiLiteMaster:
 
     async def wait_write(self):
         await self.write_if.wait()
-
-    def read_data_ready(self):
-        return self.read_if.read_data_ready()
-
-    def get_read_data(self):
-        return self.read_if.get_read_data()
-
-    def write_resp_ready(self):
-        return self.write_if.write_resp_ready()
-
-    def get_write_resp(self):
-        return self.write_if.get_write_resp()
 
     async def read(self, address, length, prot=AxiProt.NONSECURE):
         return await self.read_if.read(address, length, prot)

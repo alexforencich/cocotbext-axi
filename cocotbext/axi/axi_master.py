@@ -64,7 +64,6 @@ class AxiMasterWrite(Reset):
 
         self.write_command_queue = Queue()
         self.current_write_command = None
-        self.write_resp_queue = Queue()
 
         self.id_count = 2**len(self.aw_channel.bus.awid)
         self.cur_id = 0
@@ -108,7 +107,10 @@ class AxiMasterWrite(Reset):
     def init_write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL,
             cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0, event=None):
 
-        if event is not None and not isinstance(event, Event):
+        if event is None:
+            event = Event()
+
+        if not isinstance(event, Event):
             raise ValueError("Expected event object")
 
         if awid is None or awid < 0:
@@ -140,6 +142,8 @@ class AxiMasterWrite(Reset):
             cache, prot, qos, region, user, wuser, event)
         self.write_command_queue.put_nowait(cmd)
 
+        return event
+
     def idle(self):
         return not self.in_flight_operations
 
@@ -147,18 +151,9 @@ class AxiMasterWrite(Reset):
         while not self.idle():
             await self._idle.wait()
 
-    def write_resp_ready(self):
-        return not self.write_resp_queue.empty()
-
-    def get_write_resp(self):
-        if not self.write_resp_queue.empty():
-            return self.write_resp_queue.get_nowait()
-        return None
-
     async def write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        event = Event()
-        self.init_write(address, data, awid, burst, size, lock, cache, prot, qos, region, user, wuser, event)
+        event = self.init_write(address, data, awid, burst, size, lock, cache, prot, qos, region, user, wuser)
         await event.wait()
         return event.data
 
@@ -238,10 +233,6 @@ class AxiMasterWrite(Reset):
                 self.log.warning("Flushed write operation during reset: %s", cmd)
                 if cmd.event:
                     cmd.event.set(None)
-
-            while not self.write_resp_queue.empty():
-                resp = self.write_resp_queue.get_nowait()
-                self.log.warning("Flushed write response during reset: %s", resp)
 
             self.in_flight_operations = 0
             self._idle.set()
@@ -401,10 +392,7 @@ class AxiMasterWrite(Reset):
 
             write_resp = AxiWriteResp(cmd.address, cmd.length, resp, user)
 
-            if cmd.event is not None:
-                cmd.event.set(write_resp)
-            else:
-                self.write_resp_queue.put_nowait(write_resp)
+            cmd.event.set(write_resp)
 
             self.current_write_resp_command = None
 
@@ -428,7 +416,6 @@ class AxiMasterRead(Reset):
 
         self.read_command_queue = Queue()
         self.current_read_command = None
-        self.read_data_queue = Queue()
 
         self.id_count = 2**len(self.ar_channel.bus.arid)
         self.cur_id = 0
@@ -470,7 +457,10 @@ class AxiMasterRead(Reset):
     def init_read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, event=None):
 
-        if event is not None and not isinstance(event, Event):
+        if event is None:
+            event = Event()
+
+        if not isinstance(event, Event):
             raise ValueError("Expected event object")
 
         if length < 0:
@@ -497,6 +487,8 @@ class AxiMasterRead(Reset):
         cmd = AxiReadCmd(address, length, arid, burst, size, lock, cache, prot, qos, region, user, event)
         self.read_command_queue.put_nowait(cmd)
 
+        return event
+
     def idle(self):
         return not self.in_flight_operations
 
@@ -504,18 +496,9 @@ class AxiMasterRead(Reset):
         while not self.idle():
             await self._idle.wait()
 
-    def read_data_ready(self):
-        return not self.read_data_queue.empty()
-
-    def get_read_data(self):
-        if not self.read_data_queue.empty():
-            return self.read_data_queue.get_nowait()
-        return None
-
     async def read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        event = Event()
-        self.init_read(address, length, arid, burst, size, lock, cache, prot, qos, region, user, event)
+        event = self.init_read(address, length, arid, burst, size, lock, cache, prot, qos, region, user)
         await event.wait()
         return event.data
 
@@ -594,10 +577,6 @@ class AxiMasterRead(Reset):
                 self.log.warning("Flushed read operation during reset: %s", cmd)
                 if cmd.event:
                     cmd.event.set(None)
-
-            while not self.read_data_queue.empty():
-                resp = self.read_data_queue.get_nowait()
-                self.log.warning("Flushed read response during reset: %s", resp)
 
             self.in_flight_operations = 0
             self._idle.set()
@@ -748,10 +727,7 @@ class AxiMasterRead(Reset):
 
             read_resp = AxiReadResp(cmd.address, data, resp, user)
 
-            if cmd.event is not None:
-                cmd.event.set(read_resp)
-            else:
-                self.read_data_queue.put_nowait(read_resp)
+            cmd.event.set(read_resp)
 
             self.current_read_resp_command = None
 
@@ -771,11 +747,11 @@ class AxiMaster:
 
     def init_read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, event=None):
-        self.read_if.init_read(address, length, arid, burst, size, lock, cache, prot, qos, region, user, event)
+        return self.read_if.init_read(address, length, arid, burst, size, lock, cache, prot, qos, region, user, event)
 
     def init_write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL,
             cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0, event=None):
-        self.write_if.init_write(address, data, awid, burst, size, lock, cache, prot, qos, region, user, wuser, event)
+        return self.write_if.init_write(address, data, awid, burst, size, lock, cache, prot, qos, region, user, wuser, event)
 
     def idle(self):
         return (not self.read_if or self.read_if.idle()) and (not self.write_if or self.write_if.idle())
@@ -790,18 +766,6 @@ class AxiMaster:
 
     async def wait_write(self):
         await self.write_if.wait()
-
-    def read_data_ready(self):
-        return self.read_if.read_data_ready()
-
-    def get_read_data(self):
-        return self.read_if.get_read_data()
-
-    def write_resp_ready(self):
-        return self.write_if.write_resp_ready()
-
-    def get_write_resp(self):
-        return self.write_if.get_write_resp()
 
     async def read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
