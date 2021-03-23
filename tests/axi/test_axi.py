@@ -161,6 +161,11 @@ async def run_test_write_words(dut):
             addr = offset+0x1000
 
             test_data = bytearray([x % 256 for x in range(length)])
+            event = tb.axi_master.init_write(addr, test_data)
+            await event.wait()
+            assert tb.axi_ram.read(addr, length) == test_data
+
+            test_data = bytearray([x % 256 for x in range(length)])
             await tb.axi_master.write(addr, test_data)
             assert tb.axi_ram.read(addr, length) == test_data
 
@@ -208,6 +213,12 @@ async def run_test_read_words(dut):
         for offset in list(range(byte_width)):
             tb.log.info("length %d, offset %d", length, offset)
             addr = offset+0x1000
+
+            test_data = bytearray([x % 256 for x in range(length)])
+            tb.axi_ram.write(addr, test_data)
+            event = tb.axi_master.init_read(addr, length)
+            await event.wait()
+            assert event.data.data == test_data
 
             test_data = bytearray([x % 256 for x in range(length)])
             tb.axi_ram.write(addr, test_data)
