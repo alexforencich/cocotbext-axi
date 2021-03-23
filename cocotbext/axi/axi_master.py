@@ -234,6 +234,13 @@ class AxiMasterWrite(Reset):
                 if cmd.event:
                     cmd.event.set(None)
 
+            for q in self.int_write_resp_queue_list:
+                while not q.empty():
+                    q.get_nowait()
+
+            self.cur_id = 0
+            self.active_id = Counter()
+
             self.in_flight_operations = 0
             self._idle.set()
         else:
@@ -577,6 +584,13 @@ class AxiMasterRead(Reset):
                 self.log.warning("Flushed read operation during reset: %s", cmd)
                 if cmd.event:
                     cmd.event.set(None)
+
+            for q in self.int_read_resp_queue_list:
+                while not q.empty():
+                    q.get_nowait()
+
+            self.cur_id = 0
+            self.active_id = Counter()
 
             self.in_flight_operations = 0
             self._idle.set()
