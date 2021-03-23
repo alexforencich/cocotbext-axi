@@ -151,31 +151,28 @@ class AxiLiteMasterWrite(Reset):
             self.w_channel.clear()
             self.b_channel.clear()
 
-            while not self.write_command_queue.empty():
-                cmd = self.write_command_queue.get_nowait()
+            def flush_cmd(cmd):
                 self.log.warning("Flushed write operation during reset: %s", cmd)
                 if cmd.event:
                     cmd.event.set(None)
+
+            while not self.write_command_queue.empty():
+                cmd = self.write_command_queue.get_nowait()
+                flush_cmd(cmd)
 
             if self.current_write_command:
                 cmd = self.current_write_command
                 self.current_write_command = None
-                self.log.warning("Flushed write operation during reset: %s", cmd)
-                if cmd.event:
-                    cmd.event.set(None)
+                flush_cmd(cmd)
 
             while not self.int_write_resp_command_queue.empty():
                 cmd = self.int_write_resp_command_queue.get_nowait()
-                self.log.warning("Flushed write operation during reset: %s", cmd)
-                if cmd.event:
-                    cmd.event.set(None)
+                flush_cmd(cmd)
 
             if self.current_write_resp_command:
                 cmd = self.current_write_resp_command
                 self.current_write_resp_command = None
-                self.log.warning("Flushed write operation during reset: %s", cmd)
-                if cmd.event:
-                    cmd.event.set(None)
+                flush_cmd(cmd)
 
             self.in_flight_operations = 0
             self._idle.set()
@@ -371,31 +368,28 @@ class AxiLiteMasterRead(Reset):
             self.ar_channel.clear()
             self.r_channel.clear()
 
-            while not self.read_command_queue.empty():
-                cmd = self.read_command_queue.get_nowait()
+            def flush_cmd(cmd):
                 self.log.warning("Flushed read operation during reset: %s", cmd)
                 if cmd.event:
                     cmd.event.set(None)
+
+            while not self.read_command_queue.empty():
+                cmd = self.read_command_queue.get_nowait()
+                flush_cmd(cmd)
 
             if self.current_read_command:
                 cmd = self.current_read_command
                 self.current_read_command = None
-                self.log.warning("Flushed read operation during reset: %s", cmd)
-                if cmd.event:
-                    cmd.event.set(None)
+                flush_cmd(cmd)
 
             while not self.int_read_resp_command_queue.empty():
                 cmd = self.int_read_resp_command_queue.get_nowait()
-                self.log.warning("Flushed read operation during reset: %s", cmd)
-                if cmd.event:
-                    cmd.event.set(None)
+                flush_cmd(cmd)
 
             if self.current_read_resp_command:
                 cmd = self.current_read_resp_command
                 self.current_read_resp_command = None
-                self.log.warning("Flushed read operation during reset: %s", cmd)
-                if cmd.event:
-                    cmd.event.set(None)
+                flush_cmd(cmd)
 
             self.in_flight_operations = 0
             self._idle.set()
