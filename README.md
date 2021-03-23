@@ -42,36 +42,27 @@ To use these modules, import the one you need and connect it to the DUT:
 
     axi_master = AxiMaster(AxiBus.from_prefix(dut, "s_axi"), dut.clk, dut.rst)
 
-The first argument to the constructor accepts an `AxiBus` or `AxiLiteBus` object.  These objects are containers for the interface signals and include class methods to automate connections.
+The first argument to the constructor accepts an `AxiBus` or `AxiLiteBus` object, as appropriate.  These objects are containers for the interface signals and include class methods to automate connections.
 
-Once the module is instantiated, read and write operations can be initiated in a few different ways.
+Once the module is instantiated, read and write operations can be initiated in a couple of different ways.
 
-First, non-blocking operations can be started with `init_read()` and `init_write()`.  These methods will queue up a read or write operation to be carried out over the interface.  The result of the operation can be retrieved with `get_read_data()` and `get_write_resp()`.  To monitor the status of the module, `idle()`, `wait()`, `wait_read()`, and `wait_write()` can be used.  For example:
-
-    axi_master.init_write(0x0000, b'test')
-    await axi_master.wait()
-    resp = axi_master.get_write_resp()
-    axi_master.init_read(0x0000, 4)
-    await axi_master.wait()
-    data = axi_master.get_read_data()
-
-Alternatively, an event object can be provided as an argument to `init_read()` and `init_write()`, and the result can be retrieved from `Event.data`.  For example:
-
-    event = Event()
-    axi_master.init_write(0x0000, b'test', event=event)
-    await event.wait()
-    resp = event.data
-    event = Event()
-    axi_master.init_read(0x0000, 4, event=event)
-    await event.wait()
-    resp = event.data
-
-Second, blocking operations can be carried out with `read()` and `write()` and their associated word-access wrappers.  Multiple concurrent operations started from different coroutines are handled correctly.  For example:
+First, blocking operations can be carried out with `read()` and `write()` and their associated word-access wrappers.  Multiple concurrent operations started from different coroutines are handled correctly.  For example:
 
     await axi_master.write(0x0000, b'test')
     data = await axi_master.read(0x0000, 4)
 
-`read()`, `write()`, `get_read_data()`, and `get_write_resp()` return `namedtuple` objects containing _address_, _data_ or _length_, and _resp_.
+`read()` and `write()` return `namedtuple` objects containing _address_, _data_ or _length_, and _resp_.  This is the preferred style, and this is the only style supported by the word-access wrappers.
+
+Alternatively, operations can be initiated with non-blocking `init_read()` and `init_write()`.  These functions return `Event` objects which are triggered when the operation completes, and the result can be retrieved from `Event.data`.  For example:
+
+    write_op = axi_master.init_write(0x0000, b'test')
+    await write_op.wait()
+    resp = write_op.data
+    read_op = axi_master.init_read(0x0000, 4)
+    await read_op.wait()
+    resp = read_op.data
+
+With this method, it is possible to start multiple concurrent operations from the same coroutine.  It is also possible to use the events with `Combine`, `First`, and `with_timeout`.
 
 #### `AxiMaster` and `AxiLiteMaster` constructor parameters
 
@@ -86,16 +77,12 @@ Second, blocking operations can be carried out with `read()` and `write()` and t
 
 #### Methods
 
-* `init_read(address, length, ...)`: initiate reading _length_ bytes, starting at _address_
-* `init_write(address, data, ...)`: initiate writing _data_ (bytes), starting from _address_
+* `init_read(address, length, ...)`: initiate reading _length_ bytes, starting at _address_.  Returns an `Event` object.
+* `init_write(address, data, ...)`: initiate writing _data_ (bytes), starting from _address_.  Returns an `Event` object.
 * `idle()`: returns _True_ when there are no outstanding operations in progress
 * `wait()`: blocking wait until all outstanding operations complete
 * `wait_read()`: wait until all outstanding read operations complete
 * `wait_write()`: wait until all outstanding write operations complete
-* `read_data_ready()`: determine if any read read data is available
-* `get_read_data()`: fetch first available read data
-* `write_resp_ready()`: determine if any write response is available
-* `get_write_resp()`: fetch first available write response
 * `read(address, length, ...)`: read _length_ bytes, starting at _address_
 * `read_words(address, count, byteorder='little', ws=2, ...)`: read _count_ _ws_-byte words, starting at _address_
 * `read_dwords(address, count, byteorder='little', ...)`: read _count_ 4-byte dwords, starting at _address_
@@ -125,16 +112,16 @@ Second, blocking operations can be carried out with `read()` and `write()` and t
 * _region_: AXI region field, default `0`
 * _user_: AXI user signal (awuser/aruser), default `0`
 * _wuser_: AXI wuser signal, default `0` (write-related methods only)
-* _event_: `Event` object used to wait on and retrieve result for specific operation, default `None` (`init_read()` and `init_write()` only).  If provided, the event will be triggered when the operation completes and the result returned via `Event.data` instead of `get_read_data()` or `get_write_resp()`.
+* _event_: `Event` object used to wait on and retrieve result for specific operation, default `None`.  The event will be triggered when the operation completes and the result returned via `Event.data`.  (`init_read()` and `init_write()` only)
 
 #### Additional optional arguments for `AxiLiteMaster`
 
 * _prot_: AXI protection flags, default `AxiProt.NONSECURE`
-* _event_: `Event` object used to wait on and retrieve result for specific operation, default `None` (`init_read()` and `init_write()` only).  If provided, the event will be triggered when the operation completes and the result returned via `Event.data` instead of `get_read_data()` or `get_write_resp()`.
+* _event_: `Event` object used to wait on and retrieve result for specific operation, default `None`.  The event will be triggered when the operation completes and the result returned via `Event.data`.  (`init_read()` and `init_write()` only)
 
 #### `AxiBus` and `AxiLiteBus` objects
 
-The `AxiBus`, `AxiLiteBus`, and related objects are containers for the interface signals.  These hold instances of bus objects for the individual channels, which are extensions of `cocotb.bus.Bus`.  Class methods `from_entity` and `from_prefix` are provided to facilitate signal name matching.  For AXI interfaces use `AxiBus`, `AxiReadBus`, or `AxiWriteBus`, as appropriate.  For AXI lite interfaces, use `AxiLiteBus`, `AxiLiteReadBus`, or `AxiLiteWriteBus`, as appropriate.
+The `AxiBus`, `AxiLiteBus`, and related objects are containers for the interface signals.  These hold instances of bus objects for the individual channels, which are currently extensions of `cocotb_bus.bus.Bus`.  Class methods `from_entity` and `from_prefix` are provided to facilitate signal name matching.  For AXI interfaces use `AxiBus`, `AxiReadBus`, or `AxiWriteBus`, as appropriate.  For AXI lite interfaces, use `AxiLiteBus`, `AxiLiteReadBus`, or `AxiLiteWriteBus`, as appropriate.
 
 ### AXI and AXI lite RAM
 
