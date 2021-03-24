@@ -82,7 +82,7 @@ class AxiRamWrite(Memory, Reset):
         else:
             self.log.info("Reset de-asserted")
             if self._process_write_cr is None:
-                self._process_write_cr = cocotb.scheduler.start_soon(self._process_write())
+                self._process_write_cr = cocotb.fork(self._process_write())
 
     async def _process_write(self):
         while True:
@@ -201,7 +201,7 @@ class AxiRamRead(Memory, Reset):
         else:
             self.log.info("Reset de-asserted")
             if self._process_read_cr is None:
-                self._process_read_cr = cocotb.scheduler.start_soon(self._process_read())
+                self._process_read_cr = cocotb.fork(self._process_read())
 
     async def _process_read(self):
         while True:
