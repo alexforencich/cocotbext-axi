@@ -45,8 +45,11 @@ class AxiRamWrite(Memory, Reset):
         super().__init__(size, mem, *args, **kwargs)
 
         self.aw_channel = AxiAWSink(bus.aw, clock, reset, reset_active_level)
+        self.aw_channel.queue_occupancy_limit = 2
         self.w_channel = AxiWSink(bus.w, clock, reset, reset_active_level)
+        self.w_channel.queue_occupancy_limit = 2
         self.b_channel = AxiBSource(bus.b, clock, reset, reset_active_level)
+        self.b_channel.queue_occupancy_limit = 2
 
         self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
@@ -168,7 +171,9 @@ class AxiRamRead(Memory, Reset):
         super().__init__(size, mem, *args, **kwargs)
 
         self.ar_channel = AxiARSink(bus.ar, clock, reset, reset_active_level)
+        self.ar_channel.queue_occupancy_limit = 2
         self.r_channel = AxiRSource(bus.r, clock, reset, reset_active_level)
+        self.r_channel.queue_occupancy_limit = 2
 
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8

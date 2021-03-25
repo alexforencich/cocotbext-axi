@@ -55,8 +55,11 @@ class AxiLiteMasterWrite(Reset):
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
         self.aw_channel = AxiLiteAWSource(bus.aw, clock, reset, reset_active_level)
+        self.aw_channel.queue_occupancy_limit = 2
         self.w_channel = AxiLiteWSource(bus.w, clock, reset, reset_active_level)
+        self.w_channel.queue_occupancy_limit = 2
         self.b_channel = AxiLiteBSink(bus.b, clock, reset, reset_active_level)
+        self.b_channel.queue_occupancy_limit = 2
 
         self.write_command_queue = Queue()
         self.current_write_command = None
@@ -276,7 +279,9 @@ class AxiLiteMasterRead(Reset):
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
         self.ar_channel = AxiLiteARSource(bus.ar, clock, reset, reset_active_level)
+        self.ar_channel.queue_occupancy_limit = 2
         self.r_channel = AxiLiteRSink(bus.r, clock, reset, reset_active_level)
+        self.r_channel.queue_occupancy_limit = 2
 
         self.read_command_queue = Queue()
         self.current_read_command = None
