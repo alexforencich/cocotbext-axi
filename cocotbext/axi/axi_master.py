@@ -387,7 +387,6 @@ class AxiMasterWrite(Reset):
             for burst_length in cmd.burst_list:
                 b = await self.int_write_resp_queue_list[bid].get()
 
-                burst_id = int(b.bid)
                 burst_resp = AxiResp(b.bresp)
                 burst_user = int(b.buser)
 
@@ -402,7 +401,7 @@ class AxiMasterWrite(Reset):
 
                 self.active_id[bid] -= 1
 
-                self.log.info("Write burst complete bid: 0x%x bresp: %s", burst_id, burst_resp)
+                self.log.info("Write burst complete bid: 0x%x bresp: %s", bid, burst_resp)
 
             self.log.info("Write complete addr: 0x%08x prot: %s resp: %s length: %d",
                 cmd.address, cmd.prot, resp, cmd.length)
@@ -685,15 +684,27 @@ class AxiMasterRead(Reset):
             self.current_read_command = None
 
     async def _process_read_resp(self):
+        burst = []
+        cur_rid = None
+
         while True:
             r = await self.r_channel.recv()
 
             rid = int(r.rid)
 
+            if cur_rid is not None and cur_rid != rid:
+                raise Exception(f"ID not constant within burst (expected {cur_rid}, got {rid})")
+
             if self.active_id[rid] <= 0:
                 raise Exception(f"Unexpected burst ID {rid}")
 
-            await self.int_read_resp_queue_list[rid].put(r)
+            burst.append(r)
+            cur_rid = rid
+
+            if int(r.rlast):
+                await self.int_read_resp_queue_list[rid].put(burst)
+                burst = []
+                cur_rid = None
 
     async def _process_read_resp_id(self, rid):
         while True:
@@ -716,13 +727,14 @@ class AxiMasterRead(Reset):
             first = True
 
             for burst_length in cmd.burst_list:
-                for k in range(burst_length):
-                    r = await self.int_read_resp_queue_list[rid].get()
+                burst = await self.int_read_resp_queue_list[rid].get()
 
-                    cycle_id = int(r.rid)
+                if len(burst) != burst_length:
+                    raise Exception(f"Burst length incorrect (ID {rid}, expected {burst_length}, got {len(burst)}")
+
+                for r in burst:
                     cycle_data = int(r.rdata)
                     cycle_resp = AxiResp(r.rresp)
-                    cycle_last = int(r.rlast)
                     cycle_user = int(r.ruser)
 
                     if cycle_resp != AxiResp.OKAY:
@@ -737,8 +749,6 @@ class AxiMasterRead(Reset):
                     if first:
                         start = start_offset
 
-                    assert cycle_last == (k == burst_length - 1)
-
                     for j in range(start, stop):
                         data.append((cycle_data >> j*8) & 0xff)
 
@@ -746,12 +756,9 @@ class AxiMasterRead(Reset):
 
                     first = False
 
-                if self.active_id[rid] <= 0:
-                    raise Exception(f"Unexpected burst ID {rid}")
-
                 self.active_id[rid] -= 1
 
-                self.log.info("Read burst complete rid: 0x%x rresp: %s", cycle_id, resp)
+                self.log.info("Read burst complete rid: 0x%x rresp: %s", rid, resp)
 
             data = data[:cmd.length]
 
