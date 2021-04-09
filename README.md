@@ -242,8 +242,8 @@ Note: _byte_size_, _byte_lanes_, `len(tdata)`, and `len(tkeep)` are all related,
 * _pause_: stall the interface (deassert `tready` or `tvalid`) (source/sink only)
 * _queue_occupancy_bytes_: number of bytes in queue (all)
 * _queue_occupancy_frames_: number of frames in queue (all)
-* _queue_occupancy_limit_bytes_: max number of bytes in queue allowed before tready deassert (sink only)
-* _queue_occupancy_limit_frames_: max number of frames in queue allowed before tready deassert (sink only)
+* _queue_occupancy_limit_bytes_: max number of bytes in queue allowed before backpressure is applied (source/sink only)
+* _queue_occupancy_limit_frames_: max number of frames in queue allowed before backpressure is applied (source/sink only)
 
 #### Methods
 
