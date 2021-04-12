@@ -46,12 +46,12 @@ The first argument to the constructor accepts an `AxiBus` or `AxiLiteBus` object
 
 Once the module is instantiated, read and write operations can be initiated in a couple of different ways.
 
-First, blocking operations can be carried out with `read()` and `write()` and their associated word-access wrappers.  Multiple concurrent operations started from different coroutines are handled correctly.  For example:
+First, operations can be carried out with async blocking `read()`, `write()`, and their associated word-access wrappers.  Multiple concurrent operations started from different coroutines are handled correctly, with results returned in the order that the operations complete.  For example:
 
     await axi_master.write(0x0000, b'test')
     data = await axi_master.read(0x0000, 4)
 
-`read()` and `write()` return `namedtuple` objects containing _address_, _data_ or _length_, and _resp_.  This is the preferred style, and this is the only style supported by the word-access wrappers.
+Additional parameters can be specified to control sideband signals and burst settings.  The transfer will be split into one or more bursts according to the AXI specification.  All bursts generated from the same call to `read()` or `write()` will use the same ID, which will be automatically generated if not specified.  `read()` and `write()` return `namedtuple` objects containing _address_, _data_ or _length_, and _resp_.  This is the preferred style, and this is the only style supported by the word-access wrappers.
 
 Alternatively, operations can be initiated with non-blocking `init_read()` and `init_write()`.  These functions return `Event` objects which are triggered when the operation completes, and the result can be retrieved from `Event.data`.  For example:
 
@@ -141,6 +141,7 @@ Once the module is instantiated, the memory contents can be accessed in a couple
 
     axi_ram.write(0x0000, b'test')
     data = axi_ram.read(0x0000, 4)
+    axi_ram.hexdump(0x0000, 4, prefix="RAM")
 
 Multi-port memories can be constructed by passing the `mem` object of the first instance to the other instances.  For example, here is how to create a four-port RAM:
 
