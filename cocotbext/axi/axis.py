@@ -492,6 +492,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
 
     async def _run(self):
         frame = None
+        frame_offset = 0
         self.active = False
 
         while True:
@@ -513,6 +514,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                     self.log.info("TX frame: %s", frame)
                     frame.normalize()
                     self.active = True
+                    frame_offset = 0
 
                 if frame and not self.pause:
                     tdata_val = 0
@@ -523,13 +525,14 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                     tuser_val = 0
 
                     for offset in range(self.byte_lanes):
-                        tdata_val |= (frame.tdata.pop(0) & self.byte_mask) << (offset * self.byte_size)
-                        tkeep_val |= (frame.tkeep.pop(0) & 1) << offset
-                        tid_val = frame.tid.pop(0)
-                        tdest_val = frame.tdest.pop(0)
-                        tuser_val = frame.tuser.pop(0)
+                        tdata_val |= (frame.tdata[frame_offset] & self.byte_mask) << (offset * self.byte_size)
+                        tkeep_val |= (frame.tkeep[frame_offset] & 1) << offset
+                        tid_val = frame.tid[frame_offset]
+                        tdest_val = frame.tdest[frame_offset]
+                        tuser_val = frame.tuser[frame_offset]
+                        frame_offset += 1
 
-                        if len(frame.tdata) == 0:
+                        if frame_offset >= len(frame.tdata):
                             tlast_val = 1
                             frame.sim_time_end = get_sim_time()
                             frame.handle_tx_complete()
