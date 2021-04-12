@@ -73,16 +73,16 @@ class AxiLiteMasterWrite(Reset):
 
         self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
-        self.byte_width = self.width // self.byte_size
-        self.strb_mask = 2**self.byte_width-1
+        self.byte_lanes = self.width // self.byte_size
+        self.strb_mask = 2**self.byte_lanes-1
 
         self.log.info("AXI lite master configuration:")
         self.log.info("  Address width: %d bits", len(self.aw_channel.bus.awaddr))
         self.log.info("  Byte size: %d bits", self.byte_size)
-        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
 
-        assert self.byte_width == len(self.w_channel.bus.wstrb)
-        assert self.byte_width * self.byte_size == self.width
+        assert self.byte_lanes == len(self.w_channel.bus.wstrb)
+        assert self.byte_lanes * self.byte_size == self.width
 
         self._process_write_cr = None
         self._process_write_resp_cr = None
@@ -191,15 +191,15 @@ class AxiLiteMasterWrite(Reset):
             cmd = await self.write_command_queue.get()
             self.current_write_command = cmd
 
-            word_addr = (cmd.address // self.byte_width) * self.byte_width
+            word_addr = (cmd.address // self.byte_lanes) * self.byte_lanes
 
-            start_offset = cmd.address % self.byte_width
-            end_offset = ((cmd.address + len(cmd.data) - 1) % self.byte_width) + 1
+            start_offset = cmd.address % self.byte_lanes
+            end_offset = ((cmd.address + len(cmd.data) - 1) % self.byte_lanes) + 1
 
             strb_start = (self.strb_mask << start_offset) & self.strb_mask
-            strb_end = self.strb_mask >> (self.byte_width - end_offset)
+            strb_end = self.strb_mask >> (self.byte_lanes - end_offset)
 
-            cycles = (len(cmd.data) + (cmd.address % self.byte_width) + self.byte_width-1) // self.byte_width
+            cycles = (len(cmd.data) + (cmd.address % self.byte_lanes) + self.byte_lanes-1) // self.byte_lanes
 
             resp_cmd = AxiLiteWriteRespCmd(cmd.address, len(cmd.data), cycles, cmd.prot, cmd.event)
             await self.int_write_resp_command_queue.put(resp_cmd)
@@ -211,7 +211,7 @@ class AxiLiteMasterWrite(Reset):
 
             for k in range(cycles):
                 start = 0
-                stop = self.byte_width
+                stop = self.byte_lanes
                 strb = self.strb_mask
 
                 if k == 0:
@@ -227,7 +227,7 @@ class AxiLiteMasterWrite(Reset):
                     offset += 1
 
                 aw = self.aw_channel._transaction_obj()
-                aw.awaddr = word_addr + k*self.byte_width
+                aw.awaddr = word_addr + k*self.byte_lanes
                 aw.awprot = cmd.prot
 
                 w = self.w_channel._transaction_obj()
@@ -295,14 +295,14 @@ class AxiLiteMasterRead(Reset):
 
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
-        self.byte_width = self.width // self.byte_size
+        self.byte_lanes = self.width // self.byte_size
 
         self.log.info("AXI lite master configuration:")
         self.log.info("  Address width: %d bits", len(self.ar_channel.bus.araddr))
         self.log.info("  Byte size: %d bits", self.byte_size)
-        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
 
-        assert self.byte_width * self.byte_size == self.width
+        assert self.byte_lanes * self.byte_size == self.width
 
         self._process_read_cr = None
         self._process_read_resp_cr = None
@@ -410,9 +410,9 @@ class AxiLiteMasterRead(Reset):
             cmd = await self.read_command_queue.get()
             self.current_read_command = cmd
 
-            word_addr = (cmd.address // self.byte_width) * self.byte_width
+            word_addr = (cmd.address // self.byte_lanes) * self.byte_lanes
 
-            cycles = (cmd.length + self.byte_width-1 + (cmd.address % self.byte_width)) // self.byte_width
+            cycles = (cmd.length + self.byte_lanes-1 + (cmd.address % self.byte_lanes)) // self.byte_lanes
 
             resp_cmd = AxiLiteReadRespCmd(cmd.address, cmd.length, cycles, cmd.prot, cmd.event)
             await self.int_read_resp_command_queue.put(resp_cmd)
@@ -422,7 +422,7 @@ class AxiLiteMasterRead(Reset):
 
             for k in range(cycles):
                 ar = self.ar_channel._transaction_obj()
-                ar.araddr = word_addr + k*self.byte_width
+                ar.araddr = word_addr + k*self.byte_lanes
                 ar.arprot = cmd.prot
 
                 await self.ar_channel.send(ar)
@@ -434,8 +434,8 @@ class AxiLiteMasterRead(Reset):
             cmd = await self.int_read_resp_command_queue.get()
             self.current_read_resp_command = cmd
 
-            start_offset = cmd.address % self.byte_width
-            end_offset = ((cmd.address + cmd.length - 1) % self.byte_width) + 1
+            start_offset = cmd.address % self.byte_lanes
+            end_offset = ((cmd.address + cmd.length - 1) % self.byte_lanes) + 1
 
             data = bytearray()
 
@@ -451,7 +451,7 @@ class AxiLiteMasterRead(Reset):
                     resp = cycle_resp
 
                 start = 0
-                stop = self.byte_width
+                stop = self.byte_lanes
 
                 if k == 0:
                     start = start_offset

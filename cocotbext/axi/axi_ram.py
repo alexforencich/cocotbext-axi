@@ -53,18 +53,18 @@ class AxiRamWrite(Memory, Reset):
 
         self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
-        self.byte_width = self.width // self.byte_size
-        self.strb_mask = 2**self.byte_width-1
+        self.byte_lanes = self.width // self.byte_size
+        self.strb_mask = 2**self.byte_lanes-1
 
         self.log.info("AXI RAM model configuration:")
         self.log.info("  Memory size: %d bytes", len(self.mem))
         self.log.info("  Address width: %d bits", len(self.aw_channel.bus.awaddr))
         self.log.info("  ID width: %d bits", len(self.aw_channel.bus.awid))
         self.log.info("  Byte size: %d bits", self.byte_size)
-        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
 
-        assert self.byte_width == len(self.w_channel.bus.wstrb)
-        assert self.byte_width * self.byte_size == self.width
+        assert self.byte_lanes == len(self.w_channel.bus.wstrb)
+        assert self.byte_lanes * self.byte_size == self.width
 
         assert len(self.b_channel.bus.bid) == len(self.aw_channel.bus.awid)
 
@@ -102,7 +102,7 @@ class AxiRamWrite(Memory, Reset):
                 awid, addr, length, size, prot)
 
             num_bytes = 2**size
-            assert 0 < num_bytes <= self.byte_width
+            assert 0 < num_bytes <= self.byte_lanes
 
             aligned_addr = (addr // num_bytes) * num_bytes
             length += 1
@@ -120,7 +120,7 @@ class AxiRamWrite(Memory, Reset):
             cur_addr = aligned_addr
 
             for n in range(length):
-                cur_word_addr = (cur_addr // self.byte_width) * self.byte_width
+                cur_word_addr = (cur_addr // self.byte_lanes) * self.byte_lanes
 
                 w = await self.w_channel.recv()
 
@@ -132,12 +132,12 @@ class AxiRamWrite(Memory, Reset):
 
                 self.mem.seek(cur_word_addr % self.size)
 
-                data = data.to_bytes(self.byte_width, 'little')
+                data = data.to_bytes(self.byte_lanes, 'little')
 
                 self.log.debug("Write word awid: 0x%x addr: 0x%08x wstrb: 0x%02x data: %s",
                     awid, cur_addr, strb, ' '.join((f'{c:02x}' for c in data)))
 
-                for i in range(self.byte_width):
+                for i in range(self.byte_lanes):
                     if strb & (1 << i):
                         self.mem.write(data[i:i+1])
                     else:
@@ -177,16 +177,16 @@ class AxiRamRead(Memory, Reset):
 
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
-        self.byte_width = self.width // self.byte_size
+        self.byte_lanes = self.width // self.byte_size
 
         self.log.info("AXI RAM model configuration:")
         self.log.info("  Memory size: %d bytes", len(self.mem))
         self.log.info("  Address width: %d bits", len(self.ar_channel.bus.araddr))
         self.log.info("  ID width: %d bits", len(self.ar_channel.bus.arid))
         self.log.info("  Byte size: %d bits", self.byte_size)
-        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
 
-        assert self.byte_width * self.byte_size == self.width
+        assert self.byte_lanes * self.byte_size == self.width
 
         assert len(self.r_channel.bus.rid) == len(self.ar_channel.bus.arid)
 
@@ -223,7 +223,7 @@ class AxiRamRead(Memory, Reset):
                 arid, addr, length, size, prot)
 
             num_bytes = 2**size
-            assert 0 < num_bytes <= self.byte_width
+            assert 0 < num_bytes <= self.byte_lanes
 
             aligned_addr = (addr // num_bytes) * num_bytes
             length += 1
@@ -241,11 +241,11 @@ class AxiRamRead(Memory, Reset):
             cur_addr = aligned_addr
 
             for n in range(length):
-                cur_word_addr = (cur_addr // self.byte_width) * self.byte_width
+                cur_word_addr = (cur_addr // self.byte_lanes) * self.byte_lanes
 
                 self.mem.seek(cur_word_addr % self.size)
 
-                data = self.mem.read(self.byte_width)
+                data = self.mem.read(self.byte_lanes)
 
                 r = self.r_channel._transaction_obj()
                 r.rid = arid

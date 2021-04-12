@@ -166,23 +166,23 @@ class AxiMasterWrite(Reset):
 
         self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
-        self.byte_width = self.width // self.byte_size
-        self.strb_mask = 2**self.byte_width-1
+        self.byte_lanes = self.width // self.byte_size
+        self.strb_mask = 2**self.byte_lanes-1
 
         self.max_burst_len = max(min(max_burst_len, 256), 1)
-        self.max_burst_size = (self.byte_width-1).bit_length()
+        self.max_burst_size = (self.byte_lanes-1).bit_length()
 
         self.log.info("AXI master configuration:")
         self.log.info("  Address width: %d bits", len(self.aw_channel.bus.awaddr))
         self.log.info("  ID width: %d bits", len(self.aw_channel.bus.awid))
         self.log.info("  Byte size: %d bits", self.byte_size)
-        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
         self.log.info("  Max burst size: %d (%d bytes)", self.max_burst_size, 2**self.max_burst_size)
         self.log.info("  Max burst length: %d cycles (%d bytes)",
-            self.max_burst_len, self.max_burst_len*self.byte_width)
+            self.max_burst_len, self.max_burst_len*self.byte_lanes)
 
-        assert self.byte_width == len(self.w_channel.bus.wstrb)
-        assert self.byte_width * self.byte_size == self.width
+        assert self.byte_lanes == len(self.w_channel.bus.wstrb)
+        assert self.byte_lanes * self.byte_size == self.width
 
         assert len(self.b_channel.bus.bid) == len(self.aw_channel.bus.awid)
 
@@ -332,10 +332,10 @@ class AxiMasterWrite(Reset):
             num_bytes = 2**cmd.size
 
             aligned_addr = (cmd.address // num_bytes) * num_bytes
-            word_addr = (cmd.address // self.byte_width) * self.byte_width
+            word_addr = (cmd.address // self.byte_lanes) * self.byte_lanes
 
-            start_offset = cmd.address % self.byte_width
-            end_offset = ((cmd.address + len(cmd.data) - 1) % self.byte_width) + 1
+            start_offset = cmd.address % self.byte_lanes
+            end_offset = ((cmd.address + len(cmd.data) - 1) % self.byte_lanes) + 1
 
             cycles = (len(cmd.data) + (cmd.address % num_bytes) + num_bytes-1) // num_bytes
 
@@ -368,7 +368,7 @@ class AxiMasterWrite(Reset):
                 if k == cycles-1:
                     stop = end_offset
 
-                strb = (self.strb_mask << start) & self.strb_mask & (self.strb_mask >> (self.byte_width - stop))
+                strb = (self.strb_mask << start) & self.strb_mask & (self.strb_mask >> (self.byte_lanes - stop))
 
                 val = 0
                 for j in range(start, stop):
@@ -423,7 +423,7 @@ class AxiMasterWrite(Reset):
                 await self.w_channel.send(w)
 
                 cur_addr += num_bytes
-                cycle_offset = (cycle_offset + num_bytes) % self.byte_width
+                cycle_offset = (cycle_offset + num_bytes) % self.byte_lanes
 
             resp_cmd = AxiWriteRespCmd(cmd.address, len(cmd.data), cmd.size, cycles, cmd.prot, burst_list, cmd.event)
             self.tag_context_manager.start_cmd(awid, resp_cmd)
@@ -508,21 +508,21 @@ class AxiMasterRead(Reset):
 
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
-        self.byte_width = self.width // self.byte_size
+        self.byte_lanes = self.width // self.byte_size
 
         self.max_burst_len = max(min(max_burst_len, 256), 1)
-        self.max_burst_size = (self.byte_width-1).bit_length()
+        self.max_burst_size = (self.byte_lanes-1).bit_length()
 
         self.log.info("AXI master configuration:")
         self.log.info("  Address width: %d bits", len(self.ar_channel.bus.araddr))
         self.log.info("  ID width: %d bits", len(self.ar_channel.bus.arid))
         self.log.info("  Byte size: %d bits", self.byte_size)
-        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_width)
+        self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
         self.log.info("  Max burst size: %d (%d bytes)", self.max_burst_size, 2**self.max_burst_size)
         self.log.info("  Max burst length: %d cycles (%d bytes)",
-            self.max_burst_len, self.max_burst_len*self.byte_width)
+            self.max_burst_len, self.max_burst_len*self.byte_lanes)
 
-        assert self.byte_width * self.byte_size == self.width
+        assert self.byte_lanes * self.byte_size == self.width
 
         assert len(self.r_channel.bus.rid) == len(self.ar_channel.bus.arid)
 
@@ -752,9 +752,9 @@ class AxiMasterRead(Reset):
         num_bytes = 2**cmd.size
 
         aligned_addr = (cmd.address // num_bytes) * num_bytes
-        word_addr = (cmd.address // self.byte_width) * self.byte_width
+        word_addr = (cmd.address // self.byte_lanes) * self.byte_lanes
 
-        start_offset = cmd.address % self.byte_width
+        start_offset = cmd.address % self.byte_lanes
 
         cycle_offset = aligned_addr - word_addr
         data = bytearray()
@@ -790,7 +790,7 @@ class AxiMasterRead(Reset):
                 for j in range(start, stop):
                     data.append((cycle_data >> j*8) & 0xff)
 
-                cycle_offset = (cycle_offset + num_bytes) % self.byte_width
+                cycle_offset = (cycle_offset + num_bytes) % self.byte_lanes
 
                 first = False
 
