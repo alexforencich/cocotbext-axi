@@ -415,8 +415,8 @@ class AxiMasterWrite(Reset):
                 if isinstance(wuser, int):
                     w.wuser = wuser
                 else:
-                    if wuser:
-                        w.wuser = wuser.pop(0)
+                    if wuser and k < len(wuser):
+                        w.wuser = wuser[k]
                     else:
                         w.wuser = 0
 
