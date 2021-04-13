@@ -35,6 +35,9 @@ from .reset import Reset
 
 class AxiLiteRamWrite(Memory, Reset):
     def __init__(self, bus, clock, reset=None, reset_active_level=True, size=1024, mem=None, *args, **kwargs):
+        self.bus = bus
+        self.clock = clock
+        self.reset = reset
         self.log = logging.getLogger(f"cocotb.{bus.aw._entity._name}.{bus.aw._name}")
 
         self.log.info("AXI lite RAM model (write)")
@@ -119,6 +122,9 @@ class AxiLiteRamWrite(Memory, Reset):
 
 class AxiLiteRamRead(Memory, Reset):
     def __init__(self, bus, clock, reset=None, reset_active_level=True, size=1024, mem=None, *args, **kwargs):
+        self.bus = bus
+        self.clock = clock
+        self.reset = reset
         self.log = logging.getLogger(f"cocotb.{bus.ar._entity._name}.{bus.ar._name}")
 
         self.log.info("AXI lite RAM model (read)")
