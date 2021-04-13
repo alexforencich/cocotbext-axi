@@ -66,6 +66,14 @@ class AxiRamWrite(Memory, Reset):
         self.log.info("  Byte size: %d bits", self.byte_size)
         self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
 
+        self.log.info("AXI RAM model signals:")
+        for bus in (self.bus.aw, self.bus.w, self.bus.b):
+            for sig in sorted(list(set().union(bus._signals, bus._optional_signals))):
+                if hasattr(bus, sig):
+                    self.log.info("  %s width: %d bits", sig, len(getattr(bus, sig)))
+                else:
+                    self.log.info("  %s: not present", sig)
+
         assert self.byte_lanes == len(self.w_channel.bus.wstrb)
         assert self.byte_lanes * self.byte_size == self.width
 
@@ -191,6 +199,14 @@ class AxiRamRead(Memory, Reset):
         self.log.info("  ID width: %d bits", len(self.ar_channel.bus.arid))
         self.log.info("  Byte size: %d bits", self.byte_size)
         self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
+
+        self.log.info("AXI RAM model signals:")
+        for bus in (self.bus.ar, self.bus.r):
+            for sig in sorted(list(set().union(bus._signals, bus._optional_signals))):
+                if hasattr(bus, sig):
+                    self.log.info("  %s width: %d bits", sig, len(getattr(bus, sig)))
+                else:
+                    self.log.info("  %s: not present", sig)
 
         assert self.byte_lanes * self.byte_size == self.width
 

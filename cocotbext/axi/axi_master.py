@@ -184,6 +184,14 @@ class AxiMasterWrite(Reset):
         self.log.info("  Max burst length: %d cycles (%d bytes)",
             self.max_burst_len, self.max_burst_len*self.byte_lanes)
 
+        self.log.info("AXI master signals:")
+        for bus in (self.bus.aw, self.bus.w, self.bus.b):
+            for sig in sorted(list(set().union(bus._signals, bus._optional_signals))):
+                if hasattr(bus, sig):
+                    self.log.info("  %s width: %d bits", sig, len(getattr(bus, sig)))
+                else:
+                    self.log.info("  %s: not present", sig)
+
         assert self.byte_lanes == len(self.w_channel.bus.wstrb)
         assert self.byte_lanes * self.byte_size == self.width
 
@@ -527,6 +535,14 @@ class AxiMasterRead(Reset):
         self.log.info("  Max burst size: %d (%d bytes)", self.max_burst_size, 2**self.max_burst_size)
         self.log.info("  Max burst length: %d cycles (%d bytes)",
             self.max_burst_len, self.max_burst_len*self.byte_lanes)
+
+        self.log.info("AXI master signals:")
+        for bus in (self.bus.ar, self.bus.r):
+            for sig in sorted(list(set().union(bus._signals, bus._optional_signals))):
+                if hasattr(bus, sig):
+                    self.log.info("  %s width: %d bits", sig, len(getattr(bus, sig)))
+                else:
+                    self.log.info("  %s: not present", sig)
 
         assert self.byte_lanes * self.byte_size == self.width
 

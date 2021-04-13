@@ -319,25 +319,13 @@ class AxiStreamBase(Reset):
         self.log.info("AXI stream %s configuration:", self._type)
         self.log.info("  Byte size: %d bits", self.byte_size)
         self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
-        self.log.info("  tvalid: %s", "present" if hasattr(self.bus, "tvalid") else "not present")
-        self.log.info("  tready: %s", "present" if hasattr(self.bus, "tready") else "not present")
-        self.log.info("  tlast: %s", "present" if hasattr(self.bus, "tlast") else "not present")
-        if hasattr(self.bus, "tkeep"):
-            self.log.info("  tkeep width: %d bits", len(self.bus.tkeep))
-        else:
-            self.log.info("  tkeep: not present")
-        if hasattr(self.bus, "tid"):
-            self.log.info("  tid width: %d bits", len(self.bus.tid))
-        else:
-            self.log.info("  tid: not present")
-        if hasattr(self.bus, "tdest"):
-            self.log.info("  tdest width: %d bits", len(self.bus.tdest))
-        else:
-            self.log.info("  tdest: not present")
-        if hasattr(self.bus, "tuser"):
-            self.log.info("  tuser width: %d bits", len(self.bus.tuser))
-        else:
-            self.log.info("  tuser: not present")
+
+        self.log.info("AXI stream %s signals:", self._type)
+        for sig in sorted(list(set().union(self.bus._signals, self.bus._optional_signals))):
+            if hasattr(self.bus, sig):
+                self.log.info("  %s width: %d bits", sig, len(getattr(self.bus, sig)))
+            else:
+                self.log.info("  %s: not present", sig)
 
         if self.byte_lanes * self.byte_size != self.width:
             raise ValueError(f"Bus does not evenly divide into byte lanes "
