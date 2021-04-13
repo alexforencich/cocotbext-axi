@@ -79,6 +79,8 @@ class AxiLiteMasterWrite(Reset):
         self.byte_lanes = self.width // self.byte_size
         self.strb_mask = 2**self.byte_lanes-1
 
+        self.awprot_present = hasattr(self.bus.aw, "awprot")
+
         self.log.info("AXI lite master configuration:")
         self.log.info("  Address width: %d bits", len(self.aw_channel.bus.awaddr))
         self.log.info("  Byte size: %d bits", self.byte_size)
@@ -106,6 +108,9 @@ class AxiLiteMasterWrite(Reset):
 
         if not isinstance(event, Event):
             raise ValueError("Expected event object")
+
+        if not self.awprot_present and prot != AxiProt.NONSECURE:
+            raise ValueError("awprot sideband signal value specified, but signal is not connected")
 
         self.in_flight_operations += 1
         self._idle.clear()
@@ -311,6 +316,8 @@ class AxiLiteMasterRead(Reset):
         self.byte_size = 8
         self.byte_lanes = self.width // self.byte_size
 
+        self.arprot_present = hasattr(self.bus.ar, "arprot")
+
         self.log.info("AXI lite master configuration:")
         self.log.info("  Address width: %d bits", len(self.ar_channel.bus.araddr))
         self.log.info("  Byte size: %d bits", self.byte_size)
@@ -337,6 +344,9 @@ class AxiLiteMasterRead(Reset):
 
         if not isinstance(event, Event):
             raise ValueError("Expected event object")
+
+        if not self.arprot_present and prot != AxiProt.NONSECURE:
+            raise ValueError("arprot sideband signal value specified, but signal is not connected")
 
         self.in_flight_operations += 1
         self._idle.clear()

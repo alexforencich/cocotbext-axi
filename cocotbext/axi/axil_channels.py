@@ -26,7 +26,8 @@ from .stream import define_stream
 
 # Write address channel
 AxiLiteAWBus, AxiLiteAWTransaction, AxiLiteAWSource, AxiLiteAWSink, AxiLiteAWMonitor = define_stream("AxiLiteAW",
-    signals=["awaddr", "awprot", "awvalid", "awready"],
+    signals=["awaddr", "awvalid", "awready"],
+    optional_signals=["awprot"],
     signal_widths={"awprot": 3}
 )
 
@@ -37,19 +38,22 @@ AxiLiteWBus, AxiLiteWTransaction, AxiLiteWSource, AxiLiteWSink, AxiLiteWMonitor 
 
 # Write response channel
 AxiLiteBBus, AxiLiteBTransaction, AxiLiteBSource, AxiLiteBSink, AxiLiteBMonitor = define_stream("AxiLiteB",
-    signals=["bresp", "bvalid", "bready"],
+    signals=["bvalid", "bready"],
+    optional_signals=["bresp"],
     signal_widths={"bresp": 2}
 )
 
 # Read address channel
 AxiLiteARBus, AxiLiteARTransaction, AxiLiteARSource, AxiLiteARSink, AxiLiteARMonitor = define_stream("AxiLiteAR",
-    signals=["araddr", "arprot", "arvalid", "arready"],
+    signals=["araddr", "arvalid", "arready"],
+    optional_signals=["arprot"],
     signal_widths={"arprot": 3}
 )
 
 # Read data channel
 AxiLiteRBus, AxiLiteRTransaction, AxiLiteRSource, AxiLiteRSink, AxiLiteRMonitor = define_stream("AxiLiteR",
-    signals=["rdata", "rresp", "rvalid", "rready"],
+    signals=["rdata", "rvalid", "rready"],
+    optional_signals=["rresp"],
     signal_widths={"rresp": 2}
 )
 

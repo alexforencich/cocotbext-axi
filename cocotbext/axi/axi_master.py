@@ -177,6 +177,7 @@ class AxiMasterWrite(Reset):
 
         self.awlock_present = hasattr(self.bus.aw, "awlock")
         self.awcache_present = hasattr(self.bus.aw, "awcache")
+        self.awprot_present = hasattr(self.bus.aw, "awprot")
         self.awqos_present = hasattr(self.bus.aw, "awqos")
         self.awregion_present = hasattr(self.bus.aw, "awregion")
         self.awuser_present = hasattr(self.bus.aw, "awuser")
@@ -239,6 +240,9 @@ class AxiMasterWrite(Reset):
 
         if not self.awcache_present and cache != 0b0011:
             raise ValueError("awcache sideband signal value specified, but signal is not connected")
+
+        if not self.awprot_present and prot != AxiProt.NONSECURE:
+            raise ValueError("awprot sideband signal value specified, but signal is not connected")
 
         if not self.awqos_present and qos != 0:
             raise ValueError("awqos sideband signal value specified, but signal is not connected")
@@ -558,6 +562,7 @@ class AxiMasterRead(Reset):
 
         self.arlock_present = hasattr(self.bus.ar, "arlock")
         self.arcache_present = hasattr(self.bus.ar, "arcache")
+        self.arprot_present = hasattr(self.bus.ar, "arprot")
         self.arqos_present = hasattr(self.bus.ar, "arqos")
         self.arregion_present = hasattr(self.bus.ar, "arregion")
         self.aruser_present = hasattr(self.bus.ar, "aruser")
@@ -621,6 +626,9 @@ class AxiMasterRead(Reset):
 
         if not self.arcache_present and cache != 0b0011:
             raise ValueError("arcache sideband signal value specified, but signal is not connected")
+
+        if not self.arprot_present and prot != AxiProt.NONSECURE:
+            raise ValueError("arprot sideband signal value specified, but signal is not connected")
 
         if not self.arqos_present and qos != 0:
             raise ValueError("arqos sideband signal value specified, but signal is not connected")
