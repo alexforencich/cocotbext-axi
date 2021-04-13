@@ -175,6 +175,14 @@ class AxiMasterWrite(Reset):
         self.max_burst_len = max(min(max_burst_len, 256), 1)
         self.max_burst_size = (self.byte_lanes-1).bit_length()
 
+        self.awlock_present = hasattr(self.bus.aw, "awlock")
+        self.awcache_present = hasattr(self.bus.aw, "awcache")
+        self.awqos_present = hasattr(self.bus.aw, "awqos")
+        self.awregion_present = hasattr(self.bus.aw, "awregion")
+        self.awuser_present = hasattr(self.bus.aw, "awuser")
+        self.wuser_present = hasattr(self.bus.w, "wuser")
+        self.buser_present = hasattr(self.bus.b, "buser")
+
         self.log.info("AXI master configuration:")
         self.log.info("  Address width: %d bits", len(self.aw_channel.bus.awaddr))
         self.log.info("  ID width: %d bits", len(self.aw_channel.bus.awid))
@@ -225,6 +233,24 @@ class AxiMasterWrite(Reset):
 
         lock = AxiLockType(lock)
         prot = AxiProt(prot)
+
+        if not self.awlock_present and lock != AxiLockType.NORMAL:
+            raise ValueError("awlock sideband signal value specified, but signal is not connected")
+
+        if not self.awcache_present and cache != 0b0011:
+            raise ValueError("awcache sideband signal value specified, but signal is not connected")
+
+        if not self.awqos_present and qos != 0:
+            raise ValueError("awqos sideband signal value specified, but signal is not connected")
+
+        if not self.awregion_present and region != 0:
+            raise ValueError("awregion sideband signal value specified, but signal is not connected")
+
+        if not self.awuser_present and user != 0:
+            raise ValueError("awuser sideband signal value specified, but signal is not connected")
+
+        if not self.wuser_present and wuser != 0:
+            raise ValueError("wuser sideband signal value specified, but signal is not connected")
 
         if wuser is None:
             wuser = 0
@@ -477,6 +503,9 @@ class AxiMasterWrite(Reset):
 
             self.log.info("Write burst complete bid: 0x%x bresp: %s", bid, burst_resp)
 
+        if not self.buser_present:
+            user = None
+
         self.log.info("Write complete addr: 0x%08x prot: %s resp: %s length: %d",
             cmd.address, cmd.prot, resp, cmd.length)
 
@@ -526,6 +555,13 @@ class AxiMasterRead(Reset):
 
         self.max_burst_len = max(min(max_burst_len, 256), 1)
         self.max_burst_size = (self.byte_lanes-1).bit_length()
+
+        self.arlock_present = hasattr(self.bus.ar, "arlock")
+        self.arcache_present = hasattr(self.bus.ar, "arcache")
+        self.arqos_present = hasattr(self.bus.ar, "arqos")
+        self.arregion_present = hasattr(self.bus.ar, "arregion")
+        self.aruser_present = hasattr(self.bus.ar, "aruser")
+        self.ruser_present = hasattr(self.bus.r, "ruser")
 
         self.log.info("AXI master configuration:")
         self.log.info("  Address width: %d bits", len(self.ar_channel.bus.araddr))
@@ -579,6 +615,21 @@ class AxiMasterRead(Reset):
 
         lock = AxiLockType(lock)
         prot = AxiProt(prot)
+
+        if not self.arlock_present and lock != AxiLockType.NORMAL:
+            raise ValueError("arlock sideband signal value specified, but signal is not connected")
+
+        if not self.arcache_present and cache != 0b0011:
+            raise ValueError("arcache sideband signal value specified, but signal is not connected")
+
+        if not self.arqos_present and qos != 0:
+            raise ValueError("arqos sideband signal value specified, but signal is not connected")
+
+        if not self.arregion_present and region != 0:
+            raise ValueError("arregion sideband signal value specified, but signal is not connected")
+
+        if not self.aruser_present and user != 0:
+            raise ValueError("aruser sideband signal value specified, but signal is not connected")
 
         self.in_flight_operations += 1
         self._idle.clear()
@@ -821,6 +872,9 @@ class AxiMasterRead(Reset):
             self.log.info("Read burst complete rid: 0x%x rresp: %s", rid, resp)
 
         data = data[:cmd.length]
+
+        if not self.ruser_present:
+            user = None
 
         self.log.info("Read complete addr: 0x%08x prot: %s resp: %s data: %s",
             cmd.address, cmd.prot, resp, ' '.join((f'{c:02x}' for c in data)))
