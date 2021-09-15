@@ -629,9 +629,9 @@ class AxiStreamMonitor(AxiStreamBase):
                     else:
                         frame = AxiStreamFrame([], [], [], [], [])
                     frame.sim_time_start = get_sim_time()
+                    self.active = True
 
                 for offset in range(self.byte_lanes):
-
                     frame.tdata.append((self.bus.tdata.value.integer >> (offset * self.byte_size)) & self.byte_mask)
                     if hasattr(self.bus, "tkeep"):
                         frame.tkeep.append((self.bus.tkeep.value.integer >> offset) & 1)
@@ -653,6 +653,8 @@ class AxiStreamMonitor(AxiStreamBase):
                     self.active_event.set()
 
                     frame = None
+            else:
+                self.active = bool(frame)
 
 
 class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
@@ -705,9 +707,9 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
                     else:
                         frame = AxiStreamFrame([], [], [], [], [])
                     frame.sim_time_start = get_sim_time()
+                    self.active = True
 
                 for offset in range(self.byte_lanes):
-
                     frame.tdata.append((self.bus.tdata.value.integer >> (offset * self.byte_size)) & self.byte_mask)
                     if hasattr(self.bus, "tkeep"):
                         frame.tkeep.append((self.bus.tkeep.value.integer >> offset) & 1)
@@ -729,6 +731,8 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
                     self.active_event.set()
 
                     frame = None
+            else:
+                self.active = bool(frame)
 
             if hasattr(self.bus, "tready"):
                 self.bus.tready <= (not self.full() and not self.pause)
