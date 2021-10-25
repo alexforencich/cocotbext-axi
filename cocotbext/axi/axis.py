@@ -459,19 +459,19 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
         super()._handle_reset(state)
 
         if state:
-            self.bus.tdata <= 0
+            self.bus.tdata.value = 0
             if hasattr(self.bus, "tvalid"):
-                self.bus.tvalid <= 0
+                self.bus.tvalid.value = 0
             if hasattr(self.bus, "tlast"):
-                self.bus.tlast <= 0
+                self.bus.tlast.value = 0
             if hasattr(self.bus, "tkeep"):
-                self.bus.tkeep <= 0
+                self.bus.tkeep.value = 0
             if hasattr(self.bus, "tid"):
-                self.bus.tid <= 0
+                self.bus.tid.value = 0
             if hasattr(self.bus, "tdest"):
-                self.bus.tdest <= 0
+                self.bus.tdest.value = 0
             if hasattr(self.bus, "tuser"):
-                self.bus.tuser <= 0
+                self.bus.tuser.value = 0
 
             if self.current_frame:
                 self.log.warning("Flushed transmit frame during reset: %s", self.current_frame)
@@ -528,24 +528,24 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                             self.current_frame = None
                             break
 
-                    self.bus.tdata <= tdata_val
+                    self.bus.tdata.value = tdata_val
                     if hasattr(self.bus, "tvalid"):
-                        self.bus.tvalid <= 1
+                        self.bus.tvalid.value = 1
                     if hasattr(self.bus, "tlast"):
-                        self.bus.tlast <= tlast_val
+                        self.bus.tlast.value = tlast_val
                     if hasattr(self.bus, "tkeep"):
-                        self.bus.tkeep <= tkeep_val
+                        self.bus.tkeep.value = tkeep_val
                     if hasattr(self.bus, "tid"):
-                        self.bus.tid <= tid_val
+                        self.bus.tid.value = tid_val
                     if hasattr(self.bus, "tdest"):
-                        self.bus.tdest <= tdest_val
+                        self.bus.tdest.value = tdest_val
                     if hasattr(self.bus, "tuser"):
-                        self.bus.tuser <= tuser_val
+                        self.bus.tuser.value = tuser_val
                 else:
                     if hasattr(self.bus, "tvalid"):
-                        self.bus.tvalid <= 0
+                        self.bus.tvalid.value = 0
                     if hasattr(self.bus, "tlast"):
-                        self.bus.tlast <= 0
+                        self.bus.tlast.value = 0
                     self.active = bool(frame)
                     if not frame and self.queue.empty():
                         self.idle_event.set()
@@ -687,7 +687,7 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
 
         if state:
             if hasattr(self.bus, "tready"):
-                self.bus.tready <= 0
+                self.bus.tready.value = 0
 
     async def _run(self):
         frame = None
@@ -735,4 +735,4 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
                 self.active = bool(frame)
 
             if hasattr(self.bus, "tready"):
-                self.bus.tready <= (not self.full() and not self.pause)
+                self.bus.tready.value = (not self.full() and not self.pause)

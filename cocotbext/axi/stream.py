@@ -228,7 +228,7 @@ class StreamSource(StreamBase, StreamPause):
 
         if state:
             if self.valid is not None:
-                self.valid <= 0
+                self.valid.value = 0
 
     async def _run(self):
         while True:
@@ -243,11 +243,11 @@ class StreamSource(StreamBase, StreamPause):
                     self.bus.drive(self.queue.get_nowait())
                     self.dequeue_event.set()
                     if self.valid is not None:
-                        self.valid <= 1
+                        self.valid.value = 1
                     self.active = True
                 else:
                     if self.valid is not None:
-                        self.valid <= 0
+                        self.valid.value = 0
                     self.active = not self.queue.empty()
                     if self.queue.empty():
                         self.idle_event.set()
@@ -319,7 +319,7 @@ class StreamSink(StreamMonitor, StreamPause):
 
         if state:
             if self.ready is not None:
-                self.ready <= 0
+                self.ready.value = 0
 
     async def _run(self):
         while True:
@@ -336,7 +336,7 @@ class StreamSink(StreamMonitor, StreamPause):
                 self.active_event.set()
 
             if self.ready is not None:
-                self.ready <= (not self.full() and not self.pause)
+                self.ready.value = (not self.full() and not self.pause)
 
 
 def define_stream(name, signals, optional_signals=None, valid_signal=None, ready_signal=None, signal_widths=None):
