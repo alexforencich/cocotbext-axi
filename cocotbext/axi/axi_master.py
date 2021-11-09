@@ -778,7 +778,7 @@ class AxiMasterRead(Reset):
 
                     burst_list.append(burst_length)
 
-                    ar = self.r_channel._transaction_obj()
+                    ar = self.ar_channel._transaction_obj()
                     ar.arid = arid
                     ar.araddr = cur_addr
                     ar.arlen = burst_length-1
