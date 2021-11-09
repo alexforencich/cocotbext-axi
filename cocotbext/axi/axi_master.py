@@ -397,8 +397,9 @@ class AxiMasterWrite(Reset):
 
             wuser = cmd.wuser
 
-            self.log.info("Write start addr: 0x%08x awid: 0x%x prot: %s data: %s",
-                cmd.address, awid, cmd.prot, ' '.join((f'{c:02x}' for c in cmd.data)))
+            if self.log.isEnabledFor(logging.INFO):
+                self.log.info("Write start addr: 0x%08x awid: 0x%x prot: %s data: %s",
+                        cmd.address, awid, cmd.prot, ' '.join((f'{c:02x}' for c in cmd.data)))
 
             for k in range(cycles):
                 start = cycle_offset
@@ -444,7 +445,7 @@ class AxiMasterWrite(Reset):
                     await self.aw_channel.send(aw)
 
                     self.log.info("Write burst start awid: 0x%x awaddr: 0x%08x awlen: %d awsize: %d awprot: %s",
-                        awid, cur_addr, burst_length-1, cmd.size, cmd.prot)
+                            awid, cur_addr, burst_length-1, cmd.size, cmd.prot)
 
                 n += 1
 
@@ -511,7 +512,7 @@ class AxiMasterWrite(Reset):
             user = None
 
         self.log.info("Write complete addr: 0x%08x prot: %s resp: %s length: %d",
-            cmd.address, cmd.prot, resp, cmd.length)
+                cmd.address, cmd.prot, resp, cmd.length)
 
         write_resp = AxiWriteResp(cmd.address, cmd.length, resp, user)
 
@@ -795,7 +796,7 @@ class AxiMasterRead(Reset):
                     await self.ar_channel.send(ar)
 
                     self.log.info("Read burst start arid: 0x%x araddr: 0x%08x arlen: %d arsize: %d arprot: %s",
-                        arid, cur_addr, burst_length-1, cmd.size, cmd.prot)
+                            arid, cur_addr, burst_length-1, cmd.size, cmd.prot)
 
                 cur_addr += num_bytes
 
@@ -884,8 +885,9 @@ class AxiMasterRead(Reset):
         if not self.ruser_present:
             user = None
 
-        self.log.info("Read complete addr: 0x%08x prot: %s resp: %s data: %s",
-            cmd.address, cmd.prot, resp, ' '.join((f'{c:02x}' for c in data)))
+        if self.log.isEnabledFor(logging.INFO):
+            self.log.info("Read complete addr: 0x%08x prot: %s resp: %s data: %s",
+                    cmd.address, cmd.prot, resp, ' '.join((f'{c:02x}' for c in data)))
 
         read_resp = AxiReadResp(cmd.address, data, resp, user)
 

@@ -112,7 +112,7 @@ class AxiRamWrite(Memory, Reset):
             prot = AxiProt(getattr(aw, 'awprot', AxiProt.NONSECURE))
 
             self.log.info("Write burst awid: 0x%x awaddr: 0x%08x awlen: %d awsize: %d awprot: %s",
-                awid, addr, length, size, prot)
+                    awid, addr, length, size, prot)
 
             num_bytes = 2**size
             assert 0 < num_bytes <= self.byte_lanes
@@ -147,8 +147,9 @@ class AxiRamWrite(Memory, Reset):
 
                 data = data.to_bytes(self.byte_lanes, 'little')
 
-                self.log.debug("Write word awid: 0x%x addr: 0x%08x wstrb: 0x%02x data: %s",
-                    awid, cur_addr, strb, ' '.join((f'{c:02x}' for c in data)))
+                if self.log.isEnabledFor(logging.DEBUG):
+                    self.log.debug("Write word awid: 0x%x addr: 0x%08x wstrb: 0x%02x data: %s",
+                            awid, cur_addr, strb, ' '.join((f'{c:02x}' for c in data)))
 
                 for i in range(self.byte_lanes):
                     if strb & (1 << i):
@@ -246,7 +247,7 @@ class AxiRamRead(Memory, Reset):
             prot = AxiProt(getattr(ar, 'arprot', AxiProt.NONSECURE))
 
             self.log.info("Read burst arid: 0x%x araddr: 0x%08x arlen: %d arsize: %d arprot: %s",
-                arid, addr, length, size, prot)
+                    arid, addr, length, size, prot)
 
             num_bytes = 2**size
             assert 0 < num_bytes <= self.byte_lanes
@@ -281,8 +282,9 @@ class AxiRamRead(Memory, Reset):
 
                 await self.r_channel.send(r)
 
-                self.log.debug("Read word awid: 0x%x addr: 0x%08x data: %s",
-                    arid, cur_addr, ' '.join((f'{c:02x}' for c in data)))
+                if self.log.isEnabledFor(logging.DEBUG):
+                    self.log.debug("Read word awid: 0x%x addr: 0x%08x data: %s",
+                            arid, cur_addr, ' '.join((f'{c:02x}' for c in data)))
 
                 if burst != AxiBurstType.FIXED:
                     cur_addr += num_bytes

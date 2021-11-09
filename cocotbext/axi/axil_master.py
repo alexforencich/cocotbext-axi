@@ -222,8 +222,9 @@ class AxiLiteMasterWrite(Reset):
 
             offset = 0
 
-            self.log.info("Write start addr: 0x%08x prot: %s data: %s",
-                cmd.address, cmd.prot, ' '.join((f'{c:02x}' for c in cmd.data)))
+            if self.log.isEnabledFor(logging.INFO):
+                self.log.info("Write start addr: 0x%08x prot: %s data: %s",
+                        cmd.address, cmd.prot, ' '.join((f'{c:02x}' for c in cmd.data)))
 
             for k in range(cycles):
                 start = 0
@@ -271,7 +272,7 @@ class AxiLiteMasterWrite(Reset):
                     resp = cycle_resp
 
             self.log.info("Write complete addr: 0x%08x prot: %s resp: %s length: %d",
-                cmd.address, cmd.prot, resp, cmd.length)
+                    cmd.address, cmd.prot, resp, cmd.length)
 
             write_resp = AxiLiteWriteResp(cmd.address, cmd.length, resp)
 
@@ -450,7 +451,7 @@ class AxiLiteMasterRead(Reset):
             await self.int_read_resp_command_queue.put(resp_cmd)
 
             self.log.info("Read start addr: 0x%08x prot: %s length: %d",
-                cmd.address, cmd.prot, cmd.length)
+                    cmd.address, cmd.prot, cmd.length)
 
             for k in range(cycles):
                 ar = self.ar_channel._transaction_obj()
@@ -493,8 +494,9 @@ class AxiLiteMasterRead(Reset):
                 for j in range(start, stop):
                     data.extend(bytearray([(cycle_data >> j*8) & 0xff]))
 
-            self.log.info("Read complete addr: 0x%08x prot: %s resp: %s data: %s",
-                cmd.address, cmd.prot, resp, ' '.join((f'{c:02x}' for c in data)))
+            if self.log.isEnabledFor(logging.INFO):
+                self.log.info("Read complete addr: 0x%08x prot: %s resp: %s data: %s",
+                        cmd.address, cmd.prot, resp, ' '.join((f'{c:02x}' for c in data)))
 
             read_resp = AxiLiteReadResp(cmd.address, data, resp)
 

@@ -113,8 +113,9 @@ class AxiLiteRamWrite(Memory, Reset):
 
             data = data.to_bytes(self.byte_lanes, 'little')
 
-            self.log.info("Write data awaddr: 0x%08x awprot: %s wstrb: 0x%02x data: %s",
-                addr, prot, strb, ' '.join((f'{c:02x}' for c in data)))
+            if self.log.isEnabledFor(logging.INFO):
+                self.log.info("Write data awaddr: 0x%08x awprot: %s wstrb: 0x%02x data: %s",
+                        addr, prot, strb, ' '.join((f'{c:02x}' for c in data)))
 
             for i in range(self.byte_lanes):
                 if strb & (1 << i):
@@ -204,8 +205,9 @@ class AxiLiteRamRead(Memory, Reset):
 
             await self.r_channel.send(r)
 
-            self.log.info("Read data araddr: 0x%08x arprot: %s data: %s",
-                addr, prot, ' '.join((f'{c:02x}' for c in data)))
+            if self.log.isEnabledFor(logging.INFO):
+                self.log.info("Read data araddr: 0x%08x arprot: %s data: %s",
+                        addr, prot, ' '.join((f'{c:02x}' for c in data)))
 
 
 class AxiLiteRam(Memory):
