@@ -265,7 +265,7 @@ class AxiLiteMasterWrite(Reset):
             for k in range(cmd.cycles):
                 b = await self.b_channel.recv()
 
-                cycle_resp = AxiResp(b.bresp)
+                cycle_resp = AxiResp(getattr(b, 'bresp', AxiResp.OKAY))
 
                 if cycle_resp != AxiResp.OKAY:
                     resp = cycle_resp
@@ -477,7 +477,7 @@ class AxiLiteMasterRead(Reset):
                 r = await self.r_channel.recv()
 
                 cycle_data = int(r.rdata)
-                cycle_resp = AxiResp(r.rresp)
+                cycle_resp = AxiResp(getattr(r, 'rresp', AxiResp.OKAY))
 
                 if cycle_resp != AxiResp.OKAY:
                     resp = cycle_resp

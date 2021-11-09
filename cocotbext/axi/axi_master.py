@@ -475,7 +475,7 @@ class AxiMasterWrite(Reset):
         while True:
             b = await self.b_channel.recv()
 
-            bid = int(b.bid)
+            bid = int(getattr(b, 'bid', 0))
 
             if self.active_id[bid] <= 0:
                 raise Exception(f"Unexpected burst ID {bid}")
@@ -491,8 +491,8 @@ class AxiMasterWrite(Reset):
         for burst_length in cmd.burst_list:
             b = await context.get_resp()
 
-            burst_resp = AxiResp(b.bresp)
-            burst_user = int(b.buser)
+            burst_resp = AxiResp(getattr(b, 'bresp', AxiResp.OKAY))
+            burst_user = int(getattr(b, 'buser', 0))
 
             if burst_resp != AxiResp.OKAY:
                 resp = burst_resp
@@ -811,7 +811,7 @@ class AxiMasterRead(Reset):
         while True:
             r = await self.r_channel.recv()
 
-            rid = int(r.rid)
+            rid = int(getattr(r, 'rid', 0))
 
             if cur_rid is not None and cur_rid != rid:
                 raise Exception(f"ID not constant within burst (expected {cur_rid}, got {rid})")
@@ -853,8 +853,8 @@ class AxiMasterRead(Reset):
 
             for r in burst:
                 cycle_data = int(r.rdata)
-                cycle_resp = AxiResp(r.rresp)
-                cycle_user = int(r.ruser)
+                cycle_resp = AxiResp(getattr(r, "rresp", AxiResp.OKAY))
+                cycle_user = int(getattr(r, "ruser", 0))
 
                 if cycle_resp != AxiResp.OKAY:
                     resp = cycle_resp

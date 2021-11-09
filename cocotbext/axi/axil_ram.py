@@ -100,12 +100,12 @@ class AxiLiteRamWrite(Memory, Reset):
             aw = await self.aw_channel.recv()
 
             addr = (int(aw.awaddr) // self.byte_lanes) * self.byte_lanes
-            prot = AxiProt(aw.awprot)
+            prot = AxiProt(getattr(aw, 'awprot', AxiProt.NONSECURE))
 
             w = await self.w_channel.recv()
 
             data = int(w.wdata)
-            strb = int(w.wstrb)
+            strb = int(getattr(w, 'wstrb', self.strb_mask))
 
             # todo latency
 
@@ -190,7 +190,7 @@ class AxiLiteRamRead(Memory, Reset):
             ar = await self.ar_channel.recv()
 
             addr = (int(ar.araddr) // self.byte_lanes) * self.byte_lanes
-            prot = AxiProt(ar.arprot)
+            prot = AxiProt(getattr(ar, 'arprot', AxiProt.NONSECURE))
 
             # todo latency
 

@@ -59,6 +59,8 @@ class AxiRamWrite(Memory, Reset):
         self.byte_lanes = self.width // self.byte_size
         self.strb_mask = 2**self.byte_lanes-1
 
+        self.max_burst_size = (self.byte_lanes-1).bit_length()
+
         self.log.info("AXI RAM model configuration:")
         self.log.info("  Memory size: %d bytes", len(self.mem))
         self.log.info("  Address width: %d bits", len(self.aw_channel.bus.awaddr))
@@ -102,12 +104,12 @@ class AxiRamWrite(Memory, Reset):
         while True:
             aw = await self.aw_channel.recv()
 
-            awid = int(aw.awid)
+            awid = int(getattr(aw, 'awid', 0))
             addr = int(aw.awaddr)
-            length = int(aw.awlen)
-            size = int(aw.awsize)
-            burst = int(aw.awburst)
-            prot = AxiProt(int(aw.awprot))
+            length = int(getattr(aw, 'awlen', 0))
+            size = int(getattr(aw, 'awsize', self.max_burst_size))
+            burst = AxiBurstType(getattr(aw, 'awburst', AxiBurstType.INCR))
+            prot = AxiProt(getattr(aw, 'awprot', AxiProt.NONSECURE))
 
             self.log.info("Write burst awid: 0x%x awaddr: 0x%08x awlen: %d awsize: %d awprot: %s",
                 awid, addr, length, size, prot)
@@ -136,7 +138,7 @@ class AxiRamWrite(Memory, Reset):
                 w = await self.w_channel.recv()
 
                 data = int(w.wdata)
-                strb = int(w.wstrb)
+                strb = int(getattr(w, 'wstrb', self.strb_mask))
                 last = int(w.wlast)
 
                 # todo latency
@@ -193,6 +195,8 @@ class AxiRamRead(Memory, Reset):
         self.byte_size = 8
         self.byte_lanes = self.width // self.byte_size
 
+        self.max_burst_size = (self.byte_lanes-1).bit_length()
+
         self.log.info("AXI RAM model configuration:")
         self.log.info("  Memory size: %d bytes", len(self.mem))
         self.log.info("  Address width: %d bits", len(self.ar_channel.bus.araddr))
@@ -234,12 +238,12 @@ class AxiRamRead(Memory, Reset):
         while True:
             ar = await self.ar_channel.recv()
 
-            arid = int(ar.arid)
+            arid = int(getattr(ar, 'arid', 0))
             addr = int(ar.araddr)
-            length = int(ar.arlen)
-            size = int(ar.arsize)
-            burst = int(ar.arburst)
-            prot = AxiProt(ar.arprot)
+            length = int(getattr(ar, 'arlen', 0))
+            size = int(getattr(ar, 'arsize', self.max_burst_size))
+            burst = AxiBurstType(getattr(ar, 'arburst', AxiBurstType.INCR))
+            prot = AxiProt(getattr(ar, 'arprot', AxiProt.NONSECURE))
 
             self.log.info("Read burst arid: 0x%x araddr: 0x%08x arlen: %d arsize: %d arprot: %s",
                 arid, addr, length, size, prot)
