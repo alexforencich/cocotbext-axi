@@ -279,6 +279,9 @@ class AxiMasterWrite(Reset):
         if not isinstance(event, Event):
             raise ValueError("Expected event object")
 
+        if address < 0 or address >= 2**self.address_width:
+            raise ValueError("Address out of range")
+
         if awid is None or awid < 0:
             awid = None
         elif awid > self.id_count:
@@ -664,6 +667,9 @@ class AxiMasterRead(Reset):
 
         if not isinstance(event, Event):
             raise ValueError("Expected event object")
+
+        if address < 0 or address >= 2**self.address_width:
+            raise ValueError("Address out of range")
 
         if length < 0:
             raise ValueError("Read length must be positive")

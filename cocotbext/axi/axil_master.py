@@ -147,6 +147,9 @@ class AxiLiteMasterWrite(Reset):
         if not isinstance(event, Event):
             raise ValueError("Expected event object")
 
+        if address < 0 or address >= 2**self.address_width:
+            raise ValueError("Address out of range")
+
         if not self.awprot_present and prot != AxiProt.NONSECURE:
             raise ValueError("awprot sideband signal value specified, but signal is not connected")
 
@@ -384,6 +387,9 @@ class AxiLiteMasterRead(Reset):
 
         if not isinstance(event, Event):
             raise ValueError("Expected event object")
+
+        if address < 0 or address >= 2**self.address_width:
+            raise ValueError("Address out of range")
 
         if not self.arprot_present and prot != AxiProt.NONSECURE:
             raise ValueError("arprot sideband signal value specified, but signal is not connected")
