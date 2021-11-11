@@ -153,7 +153,7 @@ class AxiLiteMasterWrite(Reset):
         self.in_flight_operations += 1
         self._idle.clear()
 
-        self.write_command_queue.put_nowait(AxiLiteWriteCmd(address, bytearray(data), prot, event))
+        self.write_command_queue.put_nowait(AxiLiteWriteCmd(address, bytes(data), prot, event))
 
         return event
 

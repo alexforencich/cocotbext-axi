@@ -325,7 +325,7 @@ class AxiMasterWrite(Reset):
         self.in_flight_operations += 1
         self._idle.clear()
 
-        cmd = AxiWriteCmd(address, bytearray(data), awid, burst, size, lock,
+        cmd = AxiWriteCmd(address, bytes(data), awid, burst, size, lock,
             cache, prot, qos, region, user, wuser, event)
         self.write_command_queue.put_nowait(cmd)
 
