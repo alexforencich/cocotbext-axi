@@ -282,6 +282,9 @@ class AxiMasterWrite(Reset):
         if address < 0 or address >= 2**self.address_width:
             raise ValueError("Address out of range")
 
+        if isinstance(data, int):
+            raise ValueError("Expected bytes or bytearray for data")
+
         if awid is None or awid < 0:
             awid = None
         elif awid > self.id_count:

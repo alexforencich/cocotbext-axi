@@ -150,6 +150,9 @@ class AxiLiteMasterWrite(Reset):
         if address < 0 or address >= 2**self.address_width:
             raise ValueError("Address out of range")
 
+        if isinstance(data, int):
+            raise ValueError("Expected bytes or bytearray for data")
+
         if not self.awprot_present and prot != AxiProt.NONSECURE:
             raise ValueError("awprot sideband signal value specified, but signal is not connected")
 
