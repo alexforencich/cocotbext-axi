@@ -212,6 +212,9 @@ class AxiMasterWrite(Reset):
         self.b_channel.queue_occupancy_limit = 2
 
         self.write_command_queue = Queue()
+        self.generator = None
+        self.generator_done_cb = None
+        self.command_available = Event()
         self.current_write_command = None
 
         self.id_count = 2**len(self.aw_channel.bus.awid)
@@ -270,8 +273,10 @@ class AxiMasterWrite(Reset):
 
         self._init_reset(reset, reset_active_level)
 
-    def init_write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL,
-            cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0, event=None):
+    def _prepare_write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
+            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0,
+            wuser=0, event=None):
+        '''Validate a write request from init_write() or generator, and return AxiWriteCmd object'''
 
         if event is None:
             event = Event()
@@ -328,17 +333,42 @@ class AxiMasterWrite(Reset):
         else:
             wuser = list(wuser)
 
-        self.in_flight_operations += 1
-        self._idle.clear()
-
         cmd = AxiWriteCmd(address, bytes(data), awid, burst, size, lock,
             cache, prot, qos, region, user, wuser, event)
-        self.write_command_queue.put_nowait(cmd)
 
-        return event
+        return cmd
+
+    def generate_writes(self, generator, done_callback=None):
+        '''Supplied generator will be used for write requests until it is exhausted, at which
+        time done_callback (if any) will be called.
+        Any discrete writes from init_write() and co. will be sent before the next generator write.
+        The generator must yield a tuple (address, data) or (address, data, params)
+        where params is a dict with keys and values mapping to optional arguments to init_write()
+        '''
+        self.generator = generator
+        self.generator_done_cb = done_callback
+        self.command_available.set()
+        self._idle.clear()
+
+    def init_write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL,
+            cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0, event=None):
+
+        cmd = self._prepare_write(address, data, awid, burst, size, lock,
+            cache, prot, qos, region, user, wuser, event)
+
+        self.write_command_queue.put_nowait(cmd)
+        self.command_available.set()
+        self._idle.clear()
+
+        return cmd.event
 
     def idle(self):
-        return not self.in_flight_operations
+        if (self.write_command_queue.qsize() == 0
+                and self.generator is None
+                and self.in_flight_operations == 0):
+            return True
+        else:
+            return False
 
     async def wait(self):
         while not self.idle():
@@ -421,7 +451,10 @@ class AxiMasterWrite(Reset):
             self.cur_id = 0
             self.active_id = Counter()
 
+            self.generator = None
+            self.generator_done_cb = None # Should this be called?
             self.in_flight_operations = 0
+            self.command_available.clear()
             self._idle.set()
         else:
             self.log.info("Reset de-asserted")
@@ -430,10 +463,44 @@ class AxiMasterWrite(Reset):
             if self._process_write_resp_cr is None:
                 self._process_write_resp_cr = cocotb.fork(self._process_write_resp())
 
+    async def _get_next_write(self):
+        cmd = None
+        while cmd is None:
+            callback = None
+
+            # prioritise queued writes over generated
+            if not self.write_command_queue.empty():
+                cmd = self.write_command_queue.get_nowait()
+            elif self.generator is not None:
+                args = next(self.generator, None)
+                if args is None:
+                    # generator exhausted
+                    self.generator = None
+                    callback = self.generator_done_cb
+                    self.generator_done_cb = None
+                else:
+                    address, data = args[:2]
+                    kwargs = args[2] if len(args) > 2 else {}
+                    cmd = self._prepare_write(address, data, **kwargs)
+
+            if cmd is None:
+                # empty queue and no generator or it's exhausted. wait for command source
+                self.command_available.clear()
+
+                # callback may set new generator or queue writes causing immediate wakeup
+                # is it possible to transition into the idle state here?
+                if callback is not None:
+                    callback()
+
+                await self.command_available.wait()
+
+        return cmd
+
     async def _process_write(self):
         while True:
-            cmd = await self.write_command_queue.get()
+            cmd = await self._get_next_write()
             self.current_write_command = cmd
+            self.in_flight_operations += 1
 
             num_bytes = 2**cmd.size
 
@@ -585,7 +652,7 @@ class AxiMasterWrite(Reset):
 
         self.in_flight_operations -= 1
 
-        if self.in_flight_operations == 0:
+        if self.idle():
             self._idle.set()
 
 
@@ -607,6 +674,9 @@ class AxiMasterRead(Reset):
         self.r_channel.queue_occupancy_limit = 2
 
         self.read_command_queue = Queue()
+        self.generator = None
+        self.generator_done_cb = None
+        self.command_available = Event()
         self.current_read_command = None
 
         self.id_count = 2**len(self.ar_channel.bus.arid)
@@ -662,7 +732,7 @@ class AxiMasterRead(Reset):
 
         self._init_reset(reset, reset_active_level)
 
-    def init_read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
+    def _prepare_read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, event=None):
 
         if event is None:
@@ -710,16 +780,35 @@ class AxiMasterRead(Reset):
         if not self.aruser_present and user != 0:
             raise ValueError("aruser sideband signal value specified, but signal is not connected")
 
-        self.in_flight_operations += 1
+        cmd = AxiReadCmd(address, length, arid, burst, size, lock, cache, prot, qos, region, user, event)
+
+        return cmd
+
+    def generate_reads(self, generator, done_callback=None):
+        self.generator = generator
+        self.generator_done_cb = done_callback
+        self.command_available.set()
         self._idle.clear()
 
-        cmd = AxiReadCmd(address, length, arid, burst, size, lock, cache, prot, qos, region, user, event)
-        self.read_command_queue.put_nowait(cmd)
+    def init_read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
+            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, event=None):
 
-        return event
+        cmd = self._prepare_read(address, length, arid, burst, size,
+                lock, cache, prot, qos, region, user, event)
+
+        self.read_command_queue.put_nowait(cmd)
+        self.command_available.set()
+        self._idle.clear()
+
+        return cmd.event
 
     def idle(self):
-        return not self.in_flight_operations
+        if (self.read_command_queue.qsize() == 0
+                and self.generator is None
+                and self.in_flight_operations == 0):
+            return True
+        else:
+            return False
 
     async def wait(self):
         while not self.idle():
@@ -801,7 +890,10 @@ class AxiMasterRead(Reset):
             self.cur_id = 0
             self.active_id = Counter()
 
+            self.generator = None
+            self.generator_done_cb = None # Should this be called?
             self.in_flight_operations = 0
+            self.command_available.clear()
             self._idle.set()
         else:
             self.log.info("Reset de-asserted")
@@ -810,10 +902,44 @@ class AxiMasterRead(Reset):
             if self._process_read_resp_cr is None:
                 self._process_read_resp_cr = cocotb.fork(self._process_read_resp())
 
+    async def _get_next_read(self):
+        cmd = None
+        while cmd is None:
+            callback = None
+
+            # prioritise queued requests over generated
+            if not self.read_command_queue.empty():
+                cmd = self.read_command_queue.get_nowait()
+            elif self.generator is not None:
+                args = next(self.generator, None)
+                if args is None:
+                    # generator exhausted
+                    self.generator = None
+                    callback = self.generator_done_cb
+                    self.generator_done_cb = None
+                else:
+                    address, length = args[:2]
+                    kwargs = args[2] if len(args) > 2 else {}
+                    cmd = self._prepare_read(address, length, **kwargs)
+
+            if cmd is None:
+                # empty queue and no generator or it's exhausted. wait for command source
+                self.command_available.clear()
+
+                # callback may set new generator or queue writes causing immediate wakeup
+                # is it possible to transition into the idle state here?
+                if callback is not None:
+                    callback()
+
+                await self.command_available.wait()
+
+        return cmd
+
     async def _process_read(self):
         while True:
-            cmd = await self.read_command_queue.get()
+            cmd = await self._get_next_read()
             self.current_read_command = cmd
+            self.in_flight_operations += 1
 
             num_bytes = 2**cmd.size
 
@@ -965,7 +1091,7 @@ class AxiMasterRead(Reset):
 
         self.in_flight_operations -= 1
 
-        if self.in_flight_operations == 0:
+        if self.idle():
             self._idle.set()
 
 
@@ -984,6 +1110,12 @@ class AxiMaster:
     def init_write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None, lock=AxiLockType.NORMAL,
             cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0, event=None):
         return self.write_if.init_write(address, data, awid, burst, size, lock, cache, prot, qos, region, user, wuser, event)
+
+    def generate_reads(self, generator, done_callback=None):
+        return self.read_if.generate_reads(generator, done_callback)
+
+    def generate_writes(self, generator, done_callback=None):
+        return self.write_if.generate_writes(generator, done_callback)
 
     def idle(self):
         return (not self.read_if or self.read_if.idle()) and (not self.write_if or self.write_if.idle())
