@@ -54,6 +54,7 @@ class AxiLiteRamWrite(Memory, Reset):
         self.b_channel = AxiLiteBSource(bus.b, clock, reset, reset_active_level)
         self.b_channel.queue_occupancy_limit = 2
 
+        self.address_width = len(self.aw_channel.bus.awaddr)
         self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
         self.byte_lanes = self.width // self.byte_size
@@ -61,7 +62,7 @@ class AxiLiteRamWrite(Memory, Reset):
 
         self.log.info("AXI lite RAM model configuration:")
         self.log.info("  Memory size: %d bytes", len(self.mem))
-        self.log.info("  Address width: %d bits", len(self.aw_channel.bus.awaddr))
+        self.log.info("  Address width: %d bits", self.address_width)
         self.log.info("  Byte size: %d bits", self.byte_size)
         self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
 
@@ -148,13 +149,14 @@ class AxiLiteRamRead(Memory, Reset):
         self.r_channel = AxiLiteRSource(bus.r, clock, reset, reset_active_level)
         self.r_channel.queue_occupancy_limit = 2
 
+        self.address_width = len(self.ar_channel.bus.araddr)
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
         self.byte_lanes = self.width // self.byte_size
 
         self.log.info("AXI lite RAM model configuration:")
         self.log.info("  Memory size: %d bytes", len(self.mem))
-        self.log.info("  Address width: %d bits", len(self.ar_channel.bus.araddr))
+        self.log.info("  Address width: %d bits", self.address_width)
         self.log.info("  Byte size: %d bits", self.byte_size)
         self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
 

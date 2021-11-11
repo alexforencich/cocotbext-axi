@@ -54,6 +54,8 @@ class AxiRamWrite(Memory, Reset):
         self.b_channel = AxiBSource(bus.b, clock, reset, reset_active_level)
         self.b_channel.queue_occupancy_limit = 2
 
+        self.address_width = len(self.aw_channel.bus.awaddr)
+        self.id_width = len(self.aw_channel.bus.awid)
         self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
         self.byte_lanes = self.width // self.byte_size
@@ -63,8 +65,8 @@ class AxiRamWrite(Memory, Reset):
 
         self.log.info("AXI RAM model configuration:")
         self.log.info("  Memory size: %d bytes", len(self.mem))
-        self.log.info("  Address width: %d bits", len(self.aw_channel.bus.awaddr))
-        self.log.info("  ID width: %d bits", len(self.aw_channel.bus.awid))
+        self.log.info("  Address width: %d bits", self.address_width)
+        self.log.info("  ID width: %d bits", self.id_width)
         self.log.info("  Byte size: %d bits", self.byte_size)
         self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
 
@@ -192,6 +194,8 @@ class AxiRamRead(Memory, Reset):
         self.r_channel = AxiRSource(bus.r, clock, reset, reset_active_level)
         self.r_channel.queue_occupancy_limit = 2
 
+        self.address_width = len(self.ar_channel.bus.araddr)
+        self.id_width = len(self.ar_channel.bus.arid)
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
         self.byte_lanes = self.width // self.byte_size
@@ -200,8 +204,8 @@ class AxiRamRead(Memory, Reset):
 
         self.log.info("AXI RAM model configuration:")
         self.log.info("  Memory size: %d bytes", len(self.mem))
-        self.log.info("  Address width: %d bits", len(self.ar_channel.bus.araddr))
-        self.log.info("  ID width: %d bits", len(self.ar_channel.bus.arid))
+        self.log.info("  Address width: %d bits", self.address_width)
+        self.log.info("  ID width: %d bits", self.id_width)
         self.log.info("  Byte size: %d bits", self.byte_size)
         self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
 

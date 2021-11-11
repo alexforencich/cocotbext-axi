@@ -224,6 +224,8 @@ class AxiMasterWrite(Reset):
         self._idle = Event()
         self._idle.set()
 
+        self.address_width = len(self.aw_channel.bus.awaddr)
+        self.id_width = len(self.aw_channel.bus.awid)
         self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
         self.byte_lanes = self.width // self.byte_size
@@ -242,8 +244,8 @@ class AxiMasterWrite(Reset):
         self.buser_present = hasattr(self.bus.b, "buser")
 
         self.log.info("AXI master configuration:")
-        self.log.info("  Address width: %d bits", len(self.aw_channel.bus.awaddr))
-        self.log.info("  ID width: %d bits", len(self.aw_channel.bus.awid))
+        self.log.info("  Address width: %d bits", self.address_width)
+        self.log.info("  ID width: %d bits", self.id_width)
         self.log.info("  Byte size: %d bits", self.byte_size)
         self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
         self.log.info("  Max burst size: %d (%d bytes)", self.max_burst_size, 2**self.max_burst_size)
@@ -611,6 +613,8 @@ class AxiMasterRead(Reset):
         self._idle = Event()
         self._idle.set()
 
+        self.address_width = len(self.ar_channel.bus.araddr)
+        self.id_width = len(self.ar_channel.bus.arid)
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
         self.byte_lanes = self.width // self.byte_size
@@ -627,8 +631,8 @@ class AxiMasterRead(Reset):
         self.ruser_present = hasattr(self.bus.r, "ruser")
 
         self.log.info("AXI master configuration:")
-        self.log.info("  Address width: %d bits", len(self.ar_channel.bus.araddr))
-        self.log.info("  ID width: %d bits", len(self.ar_channel.bus.arid))
+        self.log.info("  Address width: %d bits", self.address_width)
+        self.log.info("  ID width: %d bits", self.id_width)
         self.log.info("  Byte size: %d bits", self.byte_size)
         self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
         self.log.info("  Max burst size: %d (%d bytes)", self.max_burst_size, 2**self.max_burst_size)

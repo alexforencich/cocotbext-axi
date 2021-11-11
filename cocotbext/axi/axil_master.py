@@ -111,6 +111,7 @@ class AxiLiteMasterWrite(Reset):
         self._idle = Event()
         self._idle.set()
 
+        self.address_width = len(self.aw_channel.bus.awaddr)
         self.width = len(self.w_channel.bus.wdata)
         self.byte_size = 8
         self.byte_lanes = self.width // self.byte_size
@@ -119,7 +120,7 @@ class AxiLiteMasterWrite(Reset):
         self.awprot_present = hasattr(self.bus.aw, "awprot")
 
         self.log.info("AXI lite master configuration:")
-        self.log.info("  Address width: %d bits", len(self.aw_channel.bus.awaddr))
+        self.log.info("  Address width: %d bits", self.address_width)
         self.log.info("  Byte size: %d bits", self.byte_size)
         self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
 
@@ -350,6 +351,7 @@ class AxiLiteMasterRead(Reset):
         self._idle = Event()
         self._idle.set()
 
+        self.address_width = len(self.ar_channel.bus.araddr)
         self.width = len(self.r_channel.bus.rdata)
         self.byte_size = 8
         self.byte_lanes = self.width // self.byte_size
@@ -357,7 +359,7 @@ class AxiLiteMasterRead(Reset):
         self.arprot_present = hasattr(self.bus.ar, "arprot")
 
         self.log.info("AXI lite master configuration:")
-        self.log.info("  Address width: %d bits", len(self.ar_channel.bus.araddr))
+        self.log.info("  Address width: %d bits", self.address_width)
         self.log.info("  Byte size: %d bits", self.byte_size)
         self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
 
