@@ -23,7 +23,7 @@ THE SOFTWARE.
 """
 
 import logging
-from collections import namedtuple
+from typing import NamedTuple
 
 import cocotb
 from cocotb.queue import Queue
@@ -34,15 +34,52 @@ from .constants import AxiProt, AxiResp
 from .axil_channels import AxiLiteAWSource, AxiLiteWSource, AxiLiteBSink, AxiLiteARSource, AxiLiteRSink
 from .reset import Reset
 
-# AXI lite master write
-AxiLiteWriteCmd = namedtuple("AxiLiteWriteCmd", ["address", "data", "prot", "event"])
-AxiLiteWriteRespCmd = namedtuple("AxiLiteWriteRespCmd", ["address", "length", "cycles", "prot", "event"])
-AxiLiteWriteResp = namedtuple("AxiLiteWriteResp", ["address", "length", "resp"])
 
-# AXI lite master read
-AxiLiteReadCmd = namedtuple("AxiLiteReadCmd", ["address", "length", "prot", "event"])
-AxiLiteReadRespCmd = namedtuple("AxiLiteReadRespCmd", ["address", "length", "cycles", "prot", "event"])
-AxiLiteReadResp = namedtuple("AxiLiteReadResp", ["address", "data", "resp"])
+# AXI lite master write helper objects
+class AxiLiteWriteCmd(NamedTuple):
+    address: int
+    data: bytes
+    prot: AxiProt
+    event: Event
+
+
+class AxiLiteWriteRespCmd(NamedTuple):
+    address: int
+    length: int
+    cycles: int
+    prot: AxiProt
+    event: Event
+
+
+class AxiLiteWriteResp(NamedTuple):
+    address: int
+    length: int
+    resp: AxiResp
+
+
+# AXI lite master read helper objects
+class AxiLiteReadCmd(NamedTuple):
+    address: int
+    length: int
+    prot: AxiProt
+    event: Event
+
+
+class AxiLiteReadRespCmd(NamedTuple):
+    address: int
+    length: int
+    cycles: int
+    prot: AxiProt
+    event: Event
+
+
+class AxiLiteReadResp(NamedTuple):
+    address: int
+    data: bytes
+    resp: AxiResp
+
+    def __bytes__(self):
+        return self.data
 
 
 class AxiLiteMasterWrite(Reset):
@@ -498,7 +535,7 @@ class AxiLiteMasterRead(Reset):
                 self.log.info("Read complete addr: 0x%08x prot: %s resp: %s data: %s",
                         cmd.address, cmd.prot, resp, ' '.join((f'{c:02x}' for c in data)))
 
-            read_resp = AxiLiteReadResp(cmd.address, data, resp)
+            read_resp = AxiLiteReadResp(cmd.address, bytes(data), resp)
 
             cmd.event.set(read_resp)
 

@@ -23,7 +23,8 @@ THE SOFTWARE.
 """
 
 import logging
-from collections import namedtuple, Counter
+from collections import Counter
+from typing import List, NamedTuple, Union
 
 import cocotb
 from cocotb.queue import Queue
@@ -34,19 +35,75 @@ from .constants import AxiBurstType, AxiLockType, AxiProt, AxiResp
 from .axi_channels import AxiAWSource, AxiWSource, AxiBSink, AxiARSource, AxiRSink
 from .reset import Reset
 
+
 # AXI master write helper objects
-AxiWriteCmd = namedtuple("AxiWriteCmd", ["address", "data", "awid", "burst", "size",
-    "lock", "cache", "prot", "qos", "region", "user", "wuser", "event"])
-AxiWriteRespCmd = namedtuple("AxiWriteRespCmd", ["address", "length", "size", "cycles",
-    "prot", "burst_list", "event"])
-AxiWriteResp = namedtuple("AxiWriteResp", ["address", "length", "resp", "user"])
+class AxiWriteCmd(NamedTuple):
+    address: int
+    data: bytes
+    awid: int
+    burst: AxiBurstType
+    size: int
+    lock: AxiLockType
+    cache: int
+    prot: AxiProt
+    qos: int
+    region: int
+    user: int
+    wuser: Union[list, int, None]
+    event: Event
+
+
+class AxiWriteRespCmd(NamedTuple):
+    address: int
+    length: int
+    size: int
+    cycles: int
+    prot: AxiProt
+    burst_list: list[int]
+    event: Event
+
+
+class AxiWriteResp(NamedTuple):
+    address: int
+    length: int
+    resp: AxiResp
+    user: Union[list, None]
+
 
 # AXI master read helper objects
-AxiReadCmd = namedtuple("AxiReadCmd", ["address", "length", "arid", "burst", "size",
-    "lock", "cache", "prot", "qos", "region", "user", "event"])
-AxiReadRespCmd = namedtuple("AxiReadRespCmd", ["address", "length", "size", "cycles",
-    "prot", "burst_list", "event"])
-AxiReadResp = namedtuple("AxiReadResp", ["address", "data", "resp", "user"])
+class AxiReadCmd(NamedTuple):
+    address: int
+    length: int
+    arid: int
+    burst: AxiBurstType
+    size: int
+    lock: AxiLockType
+    cache: int
+    prot: AxiProt
+    qos: int
+    region: int
+    user: int
+    event: Event
+
+
+class AxiReadRespCmd(NamedTuple):
+    address: int
+    length: int
+    size: int
+    cycles: int
+    prot: AxiProt
+    burst_list: list[int]
+    event: Event
+
+
+class AxiReadResp(NamedTuple):
+    address: int
+    data: bytes
+    resp: AxiResp
+    user: Union[list, None]
+
+    def __bytes__(self):
+        return self.data
 
 
 class TagContext:
@@ -889,7 +946,7 @@ class AxiMasterRead(Reset):
             self.log.info("Read complete addr: 0x%08x prot: %s resp: %s data: %s",
                     cmd.address, cmd.prot, resp, ' '.join((f'{c:02x}' for c in data)))
 
-        read_resp = AxiReadResp(cmd.address, data, resp, user)
+        read_resp = AxiReadResp(cmd.address, bytes(data), resp, user)
 
         cmd.event.set(read_resp)
 
