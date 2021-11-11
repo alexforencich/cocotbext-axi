@@ -59,7 +59,7 @@ class AxiWriteRespCmd(NamedTuple):
     size: int
     cycles: int
     prot: AxiProt
-    burst_list: list[int]
+    burst_list: List[int]
     event: Event
 
 
@@ -92,7 +92,7 @@ class AxiReadRespCmd(NamedTuple):
     size: int
     cycles: int
     prot: AxiProt
-    burst_list: list[int]
+    burst_list: List[int]
     event: Event
 
 
