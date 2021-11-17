@@ -28,13 +28,13 @@ from .utils import hexdump, hexdump_lines, hexdump_str
 
 
 class Memory:
-    def __init__(self, size=1024, mem=None, *args, **kwargs):
+    def __init__(self, size=1024, mem=None, **kwargs):
         if mem is not None:
             self.mem = mem
         else:
             self.mem = mmap.mmap(-1, size)
         self.size = len(self.mem)
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
 
     def read(self, address, length):
         self.mem.seek(address)
