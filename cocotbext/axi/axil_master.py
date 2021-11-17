@@ -32,6 +32,7 @@ from cocotb.triggers import Event
 from .version import __version__
 from .constants import AxiProt, AxiResp
 from .axil_channels import AxiLiteAWSource, AxiLiteWSource, AxiLiteBSink, AxiLiteARSource, AxiLiteRSink
+from .address_space import Region
 from .reset import Reset
 
 
@@ -82,8 +83,8 @@ class AxiLiteReadResp(NamedTuple):
         return self.data
 
 
-class AxiLiteMasterWrite(Reset):
-    def __init__(self, bus, clock, reset=None, reset_active_level=True):
+class AxiLiteMasterWrite(Region, Reset):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, **kwargs):
         self.bus = bus
         self.clock = clock
         self.reset = reset
@@ -118,6 +119,8 @@ class AxiLiteMasterWrite(Reset):
         self.strb_mask = 2**self.byte_lanes-1
 
         self.awprot_present = hasattr(self.bus.aw, "awprot")
+
+        super().__init__(2**self.address_width, **kwargs)
 
         self.log.info("AXI lite master configuration:")
         self.log.info("  Address width: %d bits", self.address_width)
@@ -174,31 +177,6 @@ class AxiLiteMasterWrite(Reset):
         event = self.init_write(address, data, prot)
         await event.wait()
         return event.data
-
-    async def write_words(self, address, data, byteorder='little', ws=2, prot=AxiProt.NONSECURE):
-        words = data
-        data = bytearray()
-        for w in words:
-            data.extend(w.to_bytes(ws, byteorder))
-        await self.write(address, data, prot)
-
-    async def write_dwords(self, address, data, byteorder='little', prot=AxiProt.NONSECURE):
-        await self.write_words(address, data, byteorder, 4, prot)
-
-    async def write_qwords(self, address, data, byteorder='little', prot=AxiProt.NONSECURE):
-        await self.write_words(address, data, byteorder, 8, prot)
-
-    async def write_byte(self, address, data, prot=AxiProt.NONSECURE):
-        await self.write(address, [data], prot)
-
-    async def write_word(self, address, data, byteorder='little', ws=2, prot=AxiProt.NONSECURE):
-        await self.write_words(address, [data], byteorder, ws, prot)
-
-    async def write_dword(self, address, data, byteorder='little', prot=AxiProt.NONSECURE):
-        await self.write_dwords(address, [data], byteorder, prot)
-
-    async def write_qword(self, address, data, byteorder='little', prot=AxiProt.NONSECURE):
-        await self.write_qwords(address, [data], byteorder, prot)
 
     def _handle_reset(self, state):
         if state:
@@ -330,8 +308,8 @@ class AxiLiteMasterWrite(Reset):
                 self._idle.set()
 
 
-class AxiLiteMasterRead(Reset):
-    def __init__(self, bus, clock, reset=None, reset_active_level=True):
+class AxiLiteMasterRead(Region, Reset):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, **kwargs):
         self.bus = bus
         self.clock = clock
         self.reset = reset
@@ -363,6 +341,8 @@ class AxiLiteMasterRead(Reset):
         self.byte_lanes = self.width // self.byte_size
 
         self.arprot_present = hasattr(self.bus.ar, "arprot")
+
+        super().__init__(2**self.address_width, **kwargs)
 
         self.log.info("AXI lite master configuration:")
         self.log.info("  Address width: %d bits", self.address_width)
@@ -415,31 +395,6 @@ class AxiLiteMasterRead(Reset):
         event = self.init_read(address, length, prot)
         await event.wait()
         return event.data
-
-    async def read_words(self, address, count, byteorder='little', ws=2, prot=AxiProt.NONSECURE):
-        data = await self.read(address, count*ws, prot)
-        words = []
-        for k in range(count):
-            words.append(int.from_bytes(data.data[ws*k:ws*(k+1)], byteorder))
-        return words
-
-    async def read_dwords(self, address, count, byteorder='little', prot=AxiProt.NONSECURE):
-        return await self.read_words(address, count, byteorder, 4, prot)
-
-    async def read_qwords(self, address, count, byteorder='little', prot=AxiProt.NONSECURE):
-        return await self.read_words(address, count, byteorder, 8, prot)
-
-    async def read_byte(self, address, prot=AxiProt.NONSECURE):
-        return (await self.read(address, 1, prot)).data[0]
-
-    async def read_word(self, address, byteorder='little', ws=2, prot=AxiProt.NONSECURE):
-        return (await self.read_words(address, 1, byteorder, ws, prot))[0]
-
-    async def read_dword(self, address, byteorder='little', prot=AxiProt.NONSECURE):
-        return (await self.read_dwords(address, 1, byteorder, prot))[0]
-
-    async def read_qword(self, address, byteorder='little', prot=AxiProt.NONSECURE):
-        return (await self.read_qwords(address, 1, byteorder, prot))[0]
 
     def _handle_reset(self, state):
         if state:
@@ -558,13 +513,15 @@ class AxiLiteMasterRead(Reset):
                 self._idle.set()
 
 
-class AxiLiteMaster:
-    def __init__(self, bus, clock, reset=None, reset_active_level=True):
+class AxiLiteMaster(Region):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, **kwargs):
         self.write_if = None
         self.read_if = None
 
-        self.write_if = AxiLiteMasterWrite(bus.write, clock, reset, reset_active_level)
-        self.read_if = AxiLiteMasterRead(bus.read, clock, reset, reset_active_level)
+        self.write_if = AxiLiteMasterWrite(bus.write, clock, reset, reset_active_level, **kwargs)
+        self.read_if = AxiLiteMasterRead(bus.read, clock, reset, reset_active_level, **kwargs)
+
+        super().__init__(max(self.write_if.size, self.read_if.size), **kwargs)
 
     def init_read(self, address, length, prot=AxiProt.NONSECURE, event=None):
         return self.read_if.init_read(address, length, prot, event)
@@ -589,47 +546,5 @@ class AxiLiteMaster:
     async def read(self, address, length, prot=AxiProt.NONSECURE):
         return await self.read_if.read(address, length, prot)
 
-    async def read_words(self, address, count, byteorder='little', ws=2, prot=AxiProt.NONSECURE):
-        return await self.read_if.read_words(address, count, byteorder, ws, prot)
-
-    async def read_dwords(self, address, count, byteorder='little', prot=AxiProt.NONSECURE):
-        return await self.read_if.read_dwords(address, count, byteorder, prot)
-
-    async def read_qwords(self, address, count, byteorder='little', prot=AxiProt.NONSECURE):
-        return await self.read_if.read_qwords(address, count, byteorder, prot)
-
-    async def read_byte(self, address, prot=AxiProt.NONSECURE):
-        return await self.read_if.read_byte(address, prot)
-
-    async def read_word(self, address, byteorder='little', ws=2, prot=AxiProt.NONSECURE):
-        return await self.read_if.read_word(address, byteorder, ws, prot)
-
-    async def read_dword(self, address, byteorder='little', prot=AxiProt.NONSECURE):
-        return await self.read_if.read_dword(address, byteorder, prot)
-
-    async def read_qword(self, address, byteorder='little', prot=AxiProt.NONSECURE):
-        return await self.read_if.read_qword(address, byteorder, prot)
-
     async def write(self, address, data, prot=AxiProt.NONSECURE):
         return await self.write_if.write(address, data, prot)
-
-    async def write_words(self, address, data, byteorder='little', ws=2, prot=AxiProt.NONSECURE):
-        return await self.write_if.write_words(address, data, byteorder, ws, prot)
-
-    async def write_dwords(self, address, data, byteorder='little', prot=AxiProt.NONSECURE):
-        return await self.write_if.write_dwords(address, data, byteorder, prot)
-
-    async def write_qwords(self, address, data, byteorder='little', prot=AxiProt.NONSECURE):
-        return await self.write_if.write_qwords(address, data, byteorder, prot)
-
-    async def write_byte(self, address, data, prot=AxiProt.NONSECURE):
-        return await self.write_if.write_byte(address, data, prot)
-
-    async def write_word(self, address, data, byteorder='little', ws=2, prot=AxiProt.NONSECURE):
-        return await self.write_if.write_word(address, data, byteorder, ws, prot)
-
-    async def write_dword(self, address, data, byteorder='little', prot=AxiProt.NONSECURE):
-        return await self.write_if.write_dword(address, data, byteorder, prot)
-
-    async def write_qword(self, address, data, byteorder='little', prot=AxiProt.NONSECURE):
-        return await self.write_if.write_qword(address, data, byteorder, prot)

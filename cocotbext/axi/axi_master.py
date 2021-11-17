@@ -33,6 +33,7 @@ from cocotb.triggers import Event
 from .version import __version__
 from .constants import AxiBurstType, AxiLockType, AxiProt, AxiResp
 from .axi_channels import AxiAWSource, AxiWSource, AxiBSink, AxiARSource, AxiRSink
+from .address_space import Region
 from .reset import Reset
 
 
@@ -192,8 +193,8 @@ class TagContextManager:
         return flushed_cmds
 
 
-class AxiMasterWrite(Reset):
-    def __init__(self, bus, clock, reset=None, reset_active_level=True, max_burst_len=256):
+class AxiMasterWrite(Region, Reset):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, max_burst_len=256, **kwargs):
         self.bus = bus
         self.clock = clock
         self.reset = reset
@@ -242,6 +243,8 @@ class AxiMasterWrite(Reset):
         self.awuser_present = hasattr(self.bus.aw, "awuser")
         self.wuser_present = hasattr(self.bus.w, "wuser")
         self.buser_present = hasattr(self.bus.b, "buser")
+
+        super().__init__(2**self.address_width, **kwargs)
 
         self.log.info("AXI master configuration:")
         self.log.info("  Address width: %d bits", self.address_width)
@@ -349,43 +352,6 @@ class AxiMasterWrite(Reset):
         event = self.init_write(address, data, awid, burst, size, lock, cache, prot, qos, region, user, wuser)
         await event.wait()
         return event.data
-
-    async def write_words(self, address, data, byteorder='little', ws=2, awid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        words = data
-        data = bytearray()
-        for w in words:
-            data.extend(w.to_bytes(ws, byteorder))
-        await self.write(address, data, awid, burst, size, lock, cache, prot, qos, region, user, wuser)
-
-    async def write_dwords(self, address, data, byteorder='little', awid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        await self.write_words(address, data, byteorder, 4, awid, burst, size,
-            lock, cache, prot, qos, region, user, wuser)
-
-    async def write_qwords(self, address, data, byteorder='little', awid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        await self.write_words(address, data, byteorder, 8, awid, burst, size,
-            lock, cache, prot, qos, region, user, wuser)
-
-    async def write_byte(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        await self.write(address, [data], awid, burst, size, lock, cache, prot, qos, region, user, wuser)
-
-    async def write_word(self, address, data, byteorder='little', ws=2, awid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        await self.write_words(address, [data], byteorder, ws, awid, burst, size,
-            lock, cache, prot, qos, region, user, wuser)
-
-    async def write_dword(self, address, data, byteorder='little', awid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        await self.write_dwords(address, [data], byteorder, awid, burst, size,
-            lock, cache, prot, qos, region, user, wuser)
-
-    async def write_qword(self, address, data, byteorder='little', awid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        await self.write_qwords(address, [data], byteorder, awid, burst, size,
-            lock, cache, prot, qos, region, user, wuser)
 
     def _handle_reset(self, state):
         if state:
@@ -589,8 +555,8 @@ class AxiMasterWrite(Reset):
             self._idle.set()
 
 
-class AxiMasterRead(Reset):
-    def __init__(self, bus, clock, reset=None, reset_active_level=True, max_burst_len=256):
+class AxiMasterRead(Region, Reset):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, max_burst_len=256, **kwargs):
         self.bus = bus
         self.clock = clock
         self.reset = reset
@@ -635,6 +601,8 @@ class AxiMasterRead(Reset):
         self.arregion_present = hasattr(self.bus.ar, "arregion")
         self.aruser_present = hasattr(self.bus.ar, "aruser")
         self.ruser_present = hasattr(self.bus.r, "ruser")
+
+        super().__init__(2**self.address_width, **kwargs)
 
         self.log.info("AXI master configuration:")
         self.log.info("  Address width: %d bits", self.address_width)
@@ -730,43 +698,6 @@ class AxiMasterRead(Reset):
         event = self.init_read(address, length, arid, burst, size, lock, cache, prot, qos, region, user)
         await event.wait()
         return event.data
-
-    async def read_words(self, address, count, byteorder='little', ws=2, arid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        data = await self.read(address, count*ws, arid, burst, size, lock, cache, prot, qos, region, user)
-        words = []
-        for k in range(count):
-            words.append(int.from_bytes(data.data[ws*k:ws*(k+1)], byteorder))
-        return words
-
-    async def read_dwords(self, address, count, byteorder='little', arid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_words(address, count, byteorder, 4, arid, burst, size,
-            lock, cache, prot, qos, region, user)
-
-    async def read_qwords(self, address, count, byteorder='little', arid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_words(address, count, byteorder, 8, arid, burst, size,
-            lock, cache, prot, qos, region, user)
-
-    async def read_byte(self, address, arid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return (await self.read(address, 1, arid, burst, size, lock, cache, prot, qos, region, user)).data[0]
-
-    async def read_word(self, address, byteorder='little', ws=2, arid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return (await self.read_words(address, 1, byteorder, ws, arid, burst, size,
-            lock, cache, prot, qos, region, user))[0]
-
-    async def read_dword(self, address, byteorder='little', arid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return (await self.read_dwords(address, 1, byteorder, arid, burst, size,
-            lock, cache, prot, qos, region, user))[0]
-
-    async def read_qword(self, address, byteorder='little', arid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return (await self.read_qwords(address, 1, byteorder, arid, burst, size,
-            lock, cache, prot, qos, region, user))[0]
 
     def _handle_reset(self, state):
         if state:
@@ -969,13 +900,15 @@ class AxiMasterRead(Reset):
             self._idle.set()
 
 
-class AxiMaster:
-    def __init__(self, bus, clock, reset=None, reset_active_level=True, max_burst_len=256):
+class AxiMaster(Region):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, max_burst_len=256, **kwargs):
         self.write_if = None
         self.read_if = None
 
-        self.write_if = AxiMasterWrite(bus.write, clock, reset, reset_active_level, max_burst_len)
-        self.read_if = AxiMasterRead(bus.read, clock, reset, reset_active_level, max_burst_len)
+        self.write_if = AxiMasterWrite(bus.write, clock, reset, reset_active_level, max_burst_len, **kwargs)
+        self.read_if = AxiMasterRead(bus.read, clock, reset, reset_active_level, max_burst_len, **kwargs)
+
+        super().__init__(max(self.write_if.size, self.read_if.size), **kwargs)
 
     def init_read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, event=None):
@@ -1004,77 +937,7 @@ class AxiMaster:
         return await self.read_if.read(address, length, arid,
             burst, size, lock, cache, prot, qos, region, user)
 
-    async def read_words(self, address, count, byteorder='little', ws=2, arid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read_words(address, count, byteorder, ws, arid,
-            burst, size, lock, cache, prot, qos, region, user)
-
-    async def read_dwords(self, address, count, byteorder='little', arid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read_dwords(address, count, byteorder, arid,
-            burst, size, lock, cache, prot, qos, region, user)
-
-    async def read_qwords(self, address, count, byteorder='little', arid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read_qwords(address, count, byteorder, arid,
-            burst, size, lock, cache, prot, qos, region, user)
-
-    async def read_byte(self, address, arid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read_byte(address, arid,
-            burst, size, lock, cache, prot, qos, region, user)
-
-    async def read_word(self, address, byteorder='little', ws=2, arid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read_word(address, byteorder, ws, arid,
-            burst, size, lock, cache, prot, qos, region, user)
-
-    async def read_dword(self, address, byteorder='little', arid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read_dword(address, byteorder, arid,
-            burst, size, lock, cache, prot, qos, region, user)
-
-    async def read_qword(self, address, byteorder='little', arid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        return await self.read_if.read_qword(address, byteorder, arid,
-            burst, size, lock, cache, prot, qos, region, user)
-
     async def write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
         return await self.write_if.write(address, data, awid,
-            burst, size, lock, cache, prot, qos, region, user, wuser)
-
-    async def write_words(self, address, data, byteorder='little', ws=2, awid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        return await self.write_if.write_words(address, data, byteorder, ws, awid,
-            burst, size, lock, cache, prot, qos, region, user, wuser)
-
-    async def write_dwords(self, address, data, byteorder='little', awid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        return await self.write_if.write_dwords(address, data, byteorder, awid,
-            burst, size, lock, cache, prot, qos, region, user, wuser)
-
-    async def write_qwords(self, address, data, byteorder='little', awid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        return await self.write_if.write_qwords(address, data, byteorder, awid,
-            burst, size, lock, cache, prot, qos, region, user, wuser)
-
-    async def write_byte(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        return await self.write_if.write_byte(address, data, awid,
-            burst, size, lock, cache, prot, qos, region, user, wuser)
-
-    async def write_word(self, address, data, byteorder='little', ws=2, awid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        return await self.write_if.write_word(address, data, byteorder, ws, awid,
-            burst, size, lock, cache, prot, qos, region, user, wuser)
-
-    async def write_dword(self, address, data, byteorder='little', awid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        return await self.write_if.write_dword(address, data, byteorder, awid,
-            burst, size, lock, cache, prot, qos, region, user, wuser)
-
-    async def write_qword(self, address, data, byteorder='little', awid=None, burst=AxiBurstType.INCR, size=None,
-            lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        return await self.write_if.write_qword(address, data, byteorder, awid,
             burst, size, lock, cache, prot, qos, region, user, wuser)
