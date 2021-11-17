@@ -31,7 +31,7 @@ class AxiRamWrite(AxiSlaveWrite, Memory):
         super().__init__(bus, clock, reset, reset_active_level=reset_active_level, size=size, mem=mem, **kwargs)
 
     async def _write(self, address, data):
-        self.write(address, data)
+        self.write(address % self.size, data)
 
 
 class AxiRamRead(AxiSlaveRead, Memory):
@@ -39,7 +39,7 @@ class AxiRamRead(AxiSlaveRead, Memory):
         super().__init__(bus, clock, reset, reset_active_level=reset_active_level, size=size, mem=mem, **kwargs)
 
     async def _read(self, address, length):
-        return self.read(address, length)
+        return self.read(address % self.size, length)
 
 
 class AxiRam(Memory):
