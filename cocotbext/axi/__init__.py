@@ -35,9 +35,11 @@ from .axis import AxiStreamFrame, AxiStreamBus, AxiStreamSource, AxiStreamSink, 
 from .axil_channels import AxiLiteAWBus, AxiLiteWBus, AxiLiteBBus, AxiLiteARBus, AxiLiteRBus
 from .axil_channels import AxiLiteWriteBus, AxiLiteReadBus, AxiLiteBus
 from .axil_master import AxiLiteMasterWrite, AxiLiteMasterRead, AxiLiteMaster
+from .axil_slave import AxiLiteSlaveWrite, AxiLiteSlaveRead, AxiLiteSlave
 from .axil_ram import AxiLiteRamWrite, AxiLiteRamRead, AxiLiteRam
 
 from .axi_channels import AxiAWBus, AxiWBus, AxiBBus, AxiARBus, AxiRBus
 from .axi_channels import AxiWriteBus, AxiReadBus, AxiBus
 from .axi_master import AxiMasterWrite, AxiMasterRead, AxiMaster
+from .axi_slave import AxiSlaveWrite, AxiSlaveRead, AxiSlave
 from .axi_ram import AxiRamWrite, AxiRamRead, AxiRam
