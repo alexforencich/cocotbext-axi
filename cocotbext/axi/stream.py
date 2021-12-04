@@ -181,9 +181,11 @@ class StreamPause:
         self.set_pause_generator(None)
 
     async def _run_pause(self):
+        clock_edge_event = RisingEdge(self.clock)
+
         for val in self._pause_generator:
             self.pause = val
-            await RisingEdge(self.clock)
+            await clock_edge_event
 
 
 class StreamSource(StreamBase, StreamPause):
@@ -231,8 +233,10 @@ class StreamSource(StreamBase, StreamPause):
                 self.valid.value = 0
 
     async def _run(self):
+        clock_edge_event = RisingEdge(self.clock)
+
         while True:
-            await RisingEdge(self.clock)
+            await clock_edge_event
 
             # read handshake signals
             ready_sample = self.ready is None or self.ready.value
@@ -282,8 +286,10 @@ class StreamMonitor(StreamBase):
             await self.active_event.wait()
 
     async def _run(self):
+        clock_edge_event = RisingEdge(self.clock)
+
         while True:
-            await RisingEdge(self.clock)
+            await clock_edge_event
 
             # read handshake signals
             ready_sample = self.ready is None or self.ready.value
@@ -322,8 +328,10 @@ class StreamSink(StreamMonitor, StreamPause):
                 self.ready.value = 0
 
     async def _run(self):
+        clock_edge_event = RisingEdge(self.clock)
+
         while True:
-            await RisingEdge(self.clock)
+            await clock_edge_event
 
             # read handshake signals
             ready_sample = self.ready is None or self.ready.value

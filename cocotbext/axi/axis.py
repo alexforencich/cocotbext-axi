@@ -394,9 +394,11 @@ class AxiStreamPause:
         self.set_pause_generator(None)
 
     async def _run_pause(self):
+        clock_edge_event = RisingEdge(self.clock)
+
         for val in self._pause_generator:
             self.pause = val
-            await RisingEdge(self.clock)
+            await clock_edge_event
 
 
 class AxiStreamSource(AxiStreamBase, AxiStreamPause):
@@ -483,8 +485,10 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
         frame_offset = 0
         self.active = False
 
+        clock_edge_event = RisingEdge(self.clock)
+
         while True:
-            await RisingEdge(self.clock)
+            await clock_edge_event
 
             # read handshake signals
             tready_sample = (not hasattr(self.bus, "tready")) or self.bus.tready.value
@@ -615,8 +619,10 @@ class AxiStreamMonitor(AxiStreamBase):
         frame = None
         self.active = False
 
+        clock_edge_event = RisingEdge(self.clock)
+
         while True:
-            await RisingEdge(self.clock)
+            await clock_edge_event
 
             # read handshake signals
             tready_sample = (not hasattr(self.bus, "tready")) or self.bus.tready.value
@@ -693,8 +699,10 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
         frame = None
         self.active = False
 
+        clock_edge_event = RisingEdge(self.clock)
+
         while True:
-            await RisingEdge(self.clock)
+            await clock_edge_event
 
             # read handshake signals
             tready_sample = (not hasattr(self.bus, "tready")) or self.bus.tready.value
