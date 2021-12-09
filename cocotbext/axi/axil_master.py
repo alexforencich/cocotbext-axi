@@ -220,9 +220,9 @@ class AxiLiteMasterWrite(Region, Reset):
         else:
             self.log.info("Reset de-asserted")
             if self._process_write_cr is None:
-                self._process_write_cr = cocotb.fork(self._process_write())
+                self._process_write_cr = cocotb.start_soon(self._process_write())
             if self._process_write_resp_cr is None:
-                self._process_write_resp_cr = cocotb.fork(self._process_write_resp())
+                self._process_write_resp_cr = cocotb.start_soon(self._process_write_resp())
 
     async def _process_write(self):
         while True:
@@ -437,9 +437,9 @@ class AxiLiteMasterRead(Region, Reset):
         else:
             self.log.info("Reset de-asserted")
             if self._process_read_cr is None:
-                self._process_read_cr = cocotb.fork(self._process_read())
+                self._process_read_cr = cocotb.start_soon(self._process_read())
             if self._process_read_resp_cr is None:
-                self._process_read_resp_cr = cocotb.fork(self._process_read_resp())
+                self._process_read_resp_cr = cocotb.start_soon(self._process_read_resp())
 
     async def _process_read(self):
         while True:
