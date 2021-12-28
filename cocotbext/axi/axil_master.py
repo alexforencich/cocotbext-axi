@@ -103,6 +103,7 @@ class AxiLiteMasterWrite(Region, Reset):
         self.b_channel.queue_occupancy_limit = 2
 
         self.write_command_queue = Queue()
+        self.write_command_queue.queue_occupancy_limit = 2
         self.current_write_command = None
 
         self.int_write_resp_command_queue = Queue()
@@ -161,10 +162,9 @@ class AxiLiteMasterWrite(Region, Reset):
         if not self.awprot_present and prot != AxiProt.NONSECURE:
             raise ValueError("awprot sideband signal value specified, but signal is not connected")
 
-        self.in_flight_operations += 1
-        self._idle.clear()
+        data = bytes(data)
 
-        self.write_command_queue.put_nowait(AxiLiteWriteCmd(address, bytes(data), prot, event))
+        cocotb.start_soon(self._write_wrapper(address, bytes(data), prot, event))
 
         return event
 
@@ -176,9 +176,27 @@ class AxiLiteMasterWrite(Region, Reset):
             await self._idle.wait()
 
     async def write(self, address, data, prot=AxiProt.NONSECURE):
-        event = self.init_write(address, data, prot)
+        if address < 0 or address >= 2**self.address_width:
+            raise ValueError("Address out of range")
+
+        if isinstance(data, int):
+            raise ValueError("Expected bytes or bytearray for data")
+
+        if not self.awprot_present and prot != AxiProt.NONSECURE:
+            raise ValueError("awprot sideband signal value specified, but signal is not connected")
+
+        event = Event()
+        data = bytes(data)
+
+        self.in_flight_operations += 1
+        self._idle.clear()
+
+        await self.write_command_queue.put(AxiLiteWriteCmd(address, data, prot, event))
         await event.wait()
         return event.data
+
+    async def _write_wrapper(self, address, data, prot, event):
+        event.set(await self.write(address, data, prot))
 
     def _handle_reset(self, state):
         if state:
@@ -331,6 +349,7 @@ class AxiLiteMasterRead(Region, Reset):
         self.r_channel.queue_occupancy_limit = 2
 
         self.read_command_queue = Queue()
+        self.read_command_queue.queue_occupancy_limit = 2
         self.current_read_command = None
 
         self.int_read_resp_command_queue = Queue()
@@ -382,10 +401,7 @@ class AxiLiteMasterRead(Region, Reset):
         if not self.arprot_present and prot != AxiProt.NONSECURE:
             raise ValueError("arprot sideband signal value specified, but signal is not connected")
 
-        self.in_flight_operations += 1
-        self._idle.clear()
-
-        self.read_command_queue.put_nowait(AxiLiteReadCmd(address, length, prot, event))
+        cocotb.start_soon(self._read_wrapper(address, length, prot, event))
 
         return event
 
@@ -397,9 +413,24 @@ class AxiLiteMasterRead(Region, Reset):
             await self._idle.wait()
 
     async def read(self, address, length, prot=AxiProt.NONSECURE):
-        event = self.init_read(address, length, prot)
+        if address < 0 or address >= 2**self.address_width:
+            raise ValueError("Address out of range")
+
+        if not self.arprot_present and prot != AxiProt.NONSECURE:
+            raise ValueError("arprot sideband signal value specified, but signal is not connected")
+
+        event = Event()
+
+        self.in_flight_operations += 1
+        self._idle.clear()
+
+        await self.read_command_queue.put(AxiLiteReadCmd(address, length, prot, event))
+
         await event.wait()
         return event.data
+
+    async def _read_wrapper(self, address, length, prot, event):
+        event.set(await self.read(address, length, prot))
 
     def _handle_reset(self, state):
         if state:

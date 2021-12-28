@@ -213,6 +213,7 @@ class AxiMasterWrite(Region, Reset):
         self.b_channel.queue_occupancy_limit = 2
 
         self.write_command_queue = Queue()
+        self.write_command_queue.queue_occupancy_limit = 2
         self.current_write_command = None
 
         self.id_count = 2**len(self.aw_channel.bus.awid)
@@ -333,12 +334,10 @@ class AxiMasterWrite(Region, Reset):
         else:
             wuser = list(wuser)
 
-        self.in_flight_operations += 1
-        self._idle.clear()
+        data = bytes(data)
 
-        cmd = AxiWriteCmd(address, bytes(data), awid, burst, size, lock,
-            cache, prot, qos, region, user, wuser, event)
-        self.write_command_queue.put_nowait(cmd)
+        cocotb.start_soon(self._write_wrapper(address, data, awid, burst, size,
+                lock, cache, prot, qos, region, user, wuser, event))
 
         return event
 
@@ -351,9 +350,73 @@ class AxiMasterWrite(Region, Reset):
 
     async def write(self, address, data, awid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0, wuser=0):
-        event = self.init_write(address, data, awid, burst, size, lock, cache, prot, qos, region, user, wuser)
+
+        if address < 0 or address >= 2**self.address_width:
+            raise ValueError("Address out of range")
+
+        if isinstance(data, int):
+            raise ValueError("Expected bytes or bytearray for data")
+
+        if awid is None or awid < 0:
+            awid = None
+        elif awid > self.id_count:
+            raise ValueError("Requested ID exceeds maximum ID allowed for ID signal width")
+
+        burst = AxiBurstType(burst)
+
+        if size is None or size < 0:
+            size = self.max_burst_size
+        elif size > self.max_burst_size:
+            raise ValueError("Requested burst size exceeds maximum burst size allowed for bus width")
+
+        lock = AxiLockType(lock)
+        prot = AxiProt(prot)
+
+        if not self.awlock_present and lock != AxiLockType.NORMAL:
+            raise ValueError("awlock sideband signal value specified, but signal is not connected")
+
+        if not self.awcache_present and cache != 0b0011:
+            raise ValueError("awcache sideband signal value specified, but signal is not connected")
+
+        if not self.awprot_present and prot != AxiProt.NONSECURE:
+            raise ValueError("awprot sideband signal value specified, but signal is not connected")
+
+        if not self.awqos_present and qos != 0:
+            raise ValueError("awqos sideband signal value specified, but signal is not connected")
+
+        if not self.awregion_present and region != 0:
+            raise ValueError("awregion sideband signal value specified, but signal is not connected")
+
+        if not self.awuser_present and user != 0:
+            raise ValueError("awuser sideband signal value specified, but signal is not connected")
+
+        if not self.wuser_present and wuser != 0:
+            raise ValueError("wuser sideband signal value specified, but signal is not connected")
+
+        if wuser is None:
+            wuser = 0
+        elif isinstance(wuser, int):
+            pass
+        else:
+            wuser = list(wuser)
+
+        event = Event()
+        data = bytes(data)
+
+        self.in_flight_operations += 1
+        self._idle.clear()
+
+        cmd = AxiWriteCmd(address, data, awid, burst, size, lock,
+            cache, prot, qos, region, user, wuser, event)
+        await self.write_command_queue.put(cmd)
+
         await event.wait()
         return event.data
+
+    async def _write_wrapper(self, address, data, awid, burst, size,
+            lock, cache, prot, qos, region, user, wuser, event):
+        event.set(await self.write(address, data, awid, burst, size,
+                lock, cache, prot, qos, region, user, wuser))
 
     def _handle_reset(self, state):
         if state:
@@ -578,6 +641,7 @@ class AxiMasterRead(Region, Reset):
         self.r_channel.queue_occupancy_limit = 2
 
         self.read_command_queue = Queue()
+        self.read_command_queue.queue_occupancy_limit = 2
         self.current_read_command = None
 
         self.id_count = 2**len(self.ar_channel.bus.arid)
@@ -683,11 +747,8 @@ class AxiMasterRead(Region, Reset):
         if not self.aruser_present and user != 0:
             raise ValueError("aruser sideband signal value specified, but signal is not connected")
 
-        self.in_flight_operations += 1
-        self._idle.clear()
-
-        cmd = AxiReadCmd(address, length, arid, burst, size, lock, cache, prot, qos, region, user, event)
-        self.read_command_queue.put_nowait(cmd)
+        cocotb.start_soon(self._read_wrapper(address, length, arid, burst, size,
+                lock, cache, prot, qos, region, user, event))
 
         return event
 
@@ -700,9 +761,61 @@ class AxiMasterRead(Region, Reset):
 
     async def read(self, address, length, arid=None, burst=AxiBurstType.INCR, size=None,
             lock=AxiLockType.NORMAL, cache=0b0011, prot=AxiProt.NONSECURE, qos=0, region=0, user=0):
-        event = self.init_read(address, length, arid, burst, size, lock, cache, prot, qos, region, user)
+
+        if address < 0 or address >= 2**self.address_width:
+            raise ValueError("Address out of range")
+
+        if length < 0:
+            raise ValueError("Read length must be positive")
+
+        if arid is None or arid < 0:
+            arid = None
+        elif arid > self.id_count:
+            raise ValueError("Requested ID exceeds maximum ID allowed for ID signal width")
+
+        burst = AxiBurstType(burst)
+
+        if size is None or size < 0:
+            size = self.max_burst_size
+        elif size > self.max_burst_size:
+            raise ValueError("Requested burst size exceeds maximum burst size allowed for bus width")
+
+        lock = AxiLockType(lock)
+        prot = AxiProt(prot)
+
+        if not self.arlock_present and lock != AxiLockType.NORMAL:
+            raise ValueError("arlock sideband signal value specified, but signal is not connected")
+
+        if not self.arcache_present and cache != 0b0011:
+            raise ValueError("arcache sideband signal value specified, but signal is not connected")
+
+        if not self.arprot_present and prot != AxiProt.NONSECURE:
+            raise ValueError("arprot sideband signal value specified, but signal is not connected")
+
+        if not self.arqos_present and qos != 0:
+            raise ValueError("arqos sideband signal value specified, but signal is not connected")
+
+        if not self.arregion_present and region != 0:
+            raise ValueError("arregion sideband signal value specified, but signal is not connected")
+
+        if not self.aruser_present and user != 0:
+            raise ValueError("aruser sideband signal value specified, but signal is not connected")
+
+        event = Event()
+
+        self.in_flight_operations += 1
+        self._idle.clear()
+
+        cmd = AxiReadCmd(address, length, arid, burst, size, lock, cache, prot, qos, region, user, event)
+        await self.read_command_queue.put(cmd)
+
         await event.wait()
         return event.data
+
+    async def _read_wrapper(self, address, length, arid, burst, size,
+            lock, cache, prot, qos, region, user, event):
+        event.set(await self.read(address, length, arid, burst, size,
+                lock, cache, prot, qos, region, user))
 
     def _handle_reset(self, state):
         if state:
