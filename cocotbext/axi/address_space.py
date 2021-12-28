@@ -33,6 +33,8 @@ class MemoryInterface:
         self._parent = parent
         self._size = size
         self._base = base
+        self.window_type = Window
+        self.window_pool_type = WindowPool
         super().__init__(**kwargs)
 
     @property
@@ -125,19 +127,22 @@ class MemoryInterface:
     async def write_qword(self, address, data, byteorder='little', **kwargs):
         await self.write_qwords(address, [data], byteorder, **kwargs)
 
-    def create_window(self, offset, size=None):
+    def create_window(self, offset, size=None, window_type=None):
         if not size or size < 0:
             size = self.size - offset
+        window_type = window_type or self.window_type or Window
         self.check_range(offset, size)
-        return Window(self, offset, size, base=self.get_absolute_address(offset))
+        return window_type(self, offset, size, base=self.get_absolute_address(offset))
 
-    def create_window_pool(self, offset=None, size=None):
+    def create_window_pool(self, offset=None, size=None, window_pool_type=None, window_type=None):
         if offset is None:
             offset = 0
         if size is None:
             size = self.size - offset
+        window_pool_type = window_pool_type or self.window_pool_type or WindowPool
+        window_type = window_type or self.window_type
         self.check_range(offset, size)
-        return WindowPool(self, offset, size, base=self.get_absolute_address(offset))
+        return window_pool_type(self, offset, size, base=self.get_absolute_address(offset), window_type=window_type)
 
     def __len__(self):
         return self._size
@@ -165,12 +170,13 @@ class Window(MemoryInterface):
 
 
 class WindowPool(Window):
-    def __init__(self, parent, offset, size, base=None, **kwargs):
+    def __init__(self, parent, offset, size, base=None, window_type=None, **kwargs):
         super().__init__(parent, offset, size, base=base, **kwargs)
+        self.window_type = window_type or Window
         self.allocator = BuddyAllocator(size)
 
-    def alloc_window(self, size):
-        return self.create_window(self.allocator.alloc(size), size)
+    def alloc_window(self, size, window_type=None):
+        return self.create_window(self.allocator.alloc(size), size, window_type)
 
 
 class Region(MemoryInterface):
@@ -231,6 +237,7 @@ class PeripheralRegion(Region):
 class AddressSpace(Region):
     def __init__(self, size=2**64, base=0, parent=None, **kwargs):
         super().__init__(size=size, base=base, parent=parent, **kwargs)
+        self.pool_type = Pool
         self.regions = []
 
     def find_regions(self, address, length=1):
@@ -299,24 +306,27 @@ class AddressSpace(Region):
         if length > 0:
             raise Exception("Invalid address")
 
-    def create_pool(self, base=None, size=None):
+    def create_pool(self, base=None, size=None, pool_type=None, region_type=None):
         if base is None:
             base = 0
         if size is None:
             size = self.size - base
+        pool_type = pool_type or self.pool_type or Pool
         self.check_range(base, size)
-        pool = Pool(self, base, size)
+        pool = pool_type(self, base, size, region_type=region_type)
         self.register_region(pool, base, size)
         return pool
 
 
 class Pool(AddressSpace):
-    def __init__(self, parent, base, size, **kwargs):
+    def __init__(self, parent, base, size, region_type=None, **kwargs):
         super().__init__(parent=parent, base=base, size=size, **kwargs)
+        self.region_type = region_type or MemoryRegion
         self.allocator = BuddyAllocator(size)
 
-    def alloc_region(self, size):
+    def alloc_region(self, size, region_type=None):
+        region_type = region_type or self.region_type or MemoryRegion
         base = self.allocator.alloc(size)
-        region = MemoryRegion(size)
+        region = region_type(size)
         self.register_region(region, base)
         return region
