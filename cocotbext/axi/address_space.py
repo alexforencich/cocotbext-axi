@@ -125,7 +125,9 @@ class MemoryInterface:
     async def write_qword(self, address, data, byteorder='little', **kwargs):
         await self.write_qwords(address, [data], byteorder, **kwargs)
 
-    def create_window(self, offset, size):
+    def create_window(self, offset, size=None):
+        if not size or size < 0:
+            size = self.size - offset
         self.check_range(offset, size)
         return Window(self, offset, size, base=self.get_absolute_address(offset))
 
