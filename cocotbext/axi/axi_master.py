@@ -241,6 +241,7 @@ class AxiMasterWrite(Region, Reset):
         self.awqos_present = hasattr(self.bus.aw, "awqos")
         self.awregion_present = hasattr(self.bus.aw, "awregion")
         self.awuser_present = hasattr(self.bus.aw, "awuser")
+        self.wstrb_present = hasattr(self.bus.w, "wstrb")
         self.wuser_present = hasattr(self.bus.w, "wuser")
         self.buser_present = hasattr(self.bus.b, "buser")
 
@@ -263,7 +264,8 @@ class AxiMasterWrite(Region, Reset):
                 else:
                     self.log.info("  %s: not present", sig)
 
-        assert self.byte_lanes == len(self.w_channel.bus.wstrb)
+        if self.wstrb_present:
+            assert self.byte_lanes == len(self.w_channel.bus.wstrb)
         assert self.byte_lanes * self.byte_size == self.width
 
         assert len(self.b_channel.bus.bid) == len(self.aw_channel.bus.awid)
@@ -479,6 +481,9 @@ class AxiMasterWrite(Region, Reset):
                             awid, cur_addr, burst_length-1, cmd.size, cmd.prot)
 
                 n += 1
+
+                if not self.wstrb_present and strb != self.strb_mask:
+                    self.log.warning("Partial operation requested with wstrb not connected, write will be zero-padded (0x%x != 0x%x)", strb, self.strb_mask)
 
                 w = self.w_channel._transaction_obj()
                 w.wdata = val

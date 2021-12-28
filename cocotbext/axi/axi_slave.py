@@ -63,6 +63,8 @@ class AxiSlaveWrite(Reset):
 
         self.max_burst_size = (self.byte_lanes-1).bit_length()
 
+        self.wstrb_present = hasattr(self.bus.w, "wstrb")
+
         self.log.info("AXI slave model configuration:")
         self.log.info("  Address width: %d bits", self.address_width)
         self.log.info("  ID width: %d bits", self.id_width)
@@ -77,7 +79,8 @@ class AxiSlaveWrite(Reset):
                 else:
                     self.log.info("  %s: not present", sig)
 
-        assert self.byte_lanes == len(self.w_channel.bus.wstrb)
+        if self.wstrb_present:
+            assert self.byte_lanes == len(self.w_channel.bus.wstrb)
         assert self.byte_lanes * self.byte_size == self.width
 
         assert len(self.b_channel.bus.bid) == len(self.aw_channel.bus.awid)
@@ -146,7 +149,10 @@ class AxiSlaveWrite(Reset):
                 w = await self.w_channel.recv()
 
                 data = int(w.wdata)
-                strb = int(getattr(w, 'wstrb', self.strb_mask))
+                if self.wstrb_present:
+                    strb = int(getattr(w, 'wstrb', self.strb_mask))
+                else:
+                    strb = self.strb_mask
                 last = int(w.wlast)
 
                 # generate operation list

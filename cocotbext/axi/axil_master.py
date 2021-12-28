@@ -119,6 +119,7 @@ class AxiLiteMasterWrite(Region, Reset):
         self.strb_mask = 2**self.byte_lanes-1
 
         self.awprot_present = hasattr(self.bus.aw, "awprot")
+        self.wstrb_present = hasattr(self.bus.w, "wstrb")
 
         super().__init__(2**self.address_width, **kwargs)
 
@@ -135,7 +136,8 @@ class AxiLiteMasterWrite(Region, Reset):
                 else:
                     self.log.info("  %s: not present", sig)
 
-        assert self.byte_lanes == len(self.w_channel.bus.wstrb)
+        if self.wstrb_present:
+            assert self.byte_lanes == len(self.w_channel.bus.wstrb)
         assert self.byte_lanes * self.byte_size == self.width
 
         self._process_write_cr = None
@@ -268,6 +270,9 @@ class AxiLiteMasterWrite(Region, Reset):
                 aw = self.aw_channel._transaction_obj()
                 aw.awaddr = word_addr + k*self.byte_lanes
                 aw.awprot = cmd.prot
+
+                if not self.wstrb_present and strb != self.strb_mask:
+                    self.log.warning("Partial operation requested with wstrb not connected, write will be zero-padded (0x%x != 0x%x)", strb, self.strb_mask)
 
                 w = self.w_channel._transaction_obj()
                 w.wdata = val

@@ -34,8 +34,8 @@ AxiAWBus, AxiAWTransaction, AxiAWSource, AxiAWSink, AxiAWMonitor = define_stream
 
 # Write data channel
 AxiWBus, AxiWTransaction, AxiWSource, AxiWSink, AxiWMonitor = define_stream("AxiW",
-    signals=["wdata", "wstrb", "wlast", "wvalid", "wready"],
-    optional_signals=["wuser"],
+    signals=["wdata", "wlast", "wvalid", "wready"],
+    optional_signals=["wstrb", "wuser"],
     signal_widths={"wlast": 1}
 )
 

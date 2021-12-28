@@ -60,6 +60,8 @@ class AxiLiteSlaveWrite(Reset):
         self.byte_lanes = self.width // self.byte_size
         self.strb_mask = 2**self.byte_lanes-1
 
+        self.wstrb_present = hasattr(self.bus.w, "wstrb")
+
         self.log.info("AXI lite slave model configuration:")
         self.log.info("  Memory size: %d bytes", len(self.mem))
         self.log.info("  Address width: %d bits", self.address_width)
@@ -74,7 +76,8 @@ class AxiLiteSlaveWrite(Reset):
                 else:
                     self.log.info("  %s: not present", sig)
 
-        assert self.byte_lanes == len(self.w_channel.bus.wstrb)
+        if self.wstrb_present:
+            assert self.byte_lanes == len(self.w_channel.bus.wstrb)
         assert self.byte_lanes * self.byte_size == self.width
 
         self._process_write_cr = None
@@ -109,7 +112,10 @@ class AxiLiteSlaveWrite(Reset):
             w = await self.w_channel.recv()
 
             data = int(w.wdata)
-            strb = int(getattr(w, 'wstrb', self.strb_mask))
+            if self.wstrb_present:
+                strb = int(getattr(w, 'wstrb', self.strb_mask))
+            else:
+                strb = self.strb_mask
 
             # generate operation list
             offset = 0
