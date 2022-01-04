@@ -63,7 +63,6 @@ class AxiLiteSlaveWrite(Reset):
         self.wstrb_present = hasattr(self.bus.w, "wstrb")
 
         self.log.info("AXI lite slave model configuration:")
-        self.log.info("  Memory size: %d bytes", len(self.mem))
         self.log.info("  Address width: %d bits", self.address_width)
         self.log.info("  Byte size: %d bits", self.byte_size)
         self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
@@ -182,7 +181,6 @@ class AxiLiteSlaveRead(Reset):
         self.byte_lanes = self.width // self.byte_size
 
         self.log.info("AXI lite slave model configuration:")
-        self.log.info("  Memory size: %d bytes", len(self.mem))
         self.log.info("  Address width: %d bits", self.address_width)
         self.log.info("  Byte size: %d bits", self.byte_size)
         self.log.info("  Data width: %d bits (%d bytes)", self.width, self.byte_lanes)
