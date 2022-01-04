@@ -249,5 +249,5 @@ class AxiLiteSlave:
 
         super().__init__(**kwargs)
 
-        self.write_if = AxiLiteSlaveWrite(target, bus.write, clock, reset, reset_active_level)
-        self.read_if = AxiLiteSlaveRead(target, bus.read, clock, reset, reset_active_level)
+        self.write_if = AxiLiteSlaveWrite(bus.write, clock, reset, target, reset_active_level)
+        self.read_if = AxiLiteSlaveRead(bus.read, clock, reset, target, reset_active_level)
