@@ -115,8 +115,8 @@ class AxiSlaveWrite(Reset):
             addr = int(aw.awaddr)
             length = int(getattr(aw, 'awlen', 0))
             size = int(getattr(aw, 'awsize', self.max_burst_size))
-            burst = AxiBurstType(getattr(aw, 'awburst', AxiBurstType.INCR))
-            prot = AxiProt(getattr(aw, 'awprot', AxiProt.NONSECURE))
+            burst = AxiBurstType(int(getattr(aw, 'awburst', AxiBurstType.INCR)))
+            prot = AxiProt(int(getattr(aw, 'awprot', AxiProt.NONSECURE)))
 
             self.log.info("Write burst awid: 0x%x awaddr: 0x%08x awlen: %d awsize: %d awprot: %s",
                     awid, addr, length, size, prot)
@@ -275,8 +275,8 @@ class AxiSlaveRead(Reset):
             addr = int(ar.araddr)
             length = int(getattr(ar, 'arlen', 0))
             size = int(getattr(ar, 'arsize', self.max_burst_size))
-            burst = AxiBurstType(getattr(ar, 'arburst', AxiBurstType.INCR))
-            prot = AxiProt(getattr(ar, 'arprot', AxiProt.NONSECURE))
+            burst = AxiBurstType(int(getattr(ar, 'arburst', AxiBurstType.INCR)))
+            prot = AxiProt(int(getattr(ar, 'arprot', AxiProt.NONSECURE)))
 
             self.log.info("Read burst arid: 0x%x araddr: 0x%08x arlen: %d arsize: %d arprot: %s",
                     arid, addr, length, size, prot)

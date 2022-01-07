@@ -106,7 +106,7 @@ class AxiLiteSlaveWrite(Reset):
             aw = await self.aw_channel.recv()
 
             addr = (int(aw.awaddr) // self.byte_lanes) * self.byte_lanes
-            prot = AxiProt(getattr(aw, 'awprot', AxiProt.NONSECURE))
+            prot = AxiProt(int(getattr(aw, 'awprot', AxiProt.NONSECURE)))
 
             w = await self.w_channel.recv()
 
@@ -221,7 +221,7 @@ class AxiLiteSlaveRead(Reset):
             ar = await self.ar_channel.recv()
 
             addr = (int(ar.araddr) // self.byte_lanes) * self.byte_lanes
-            prot = AxiProt(getattr(ar, 'arprot', AxiProt.NONSECURE))
+            prot = AxiProt(int(getattr(ar, 'arprot', AxiProt.NONSECURE)))
 
             r = self.r_channel._transaction_obj()
             r.rresp = AxiResp.OKAY

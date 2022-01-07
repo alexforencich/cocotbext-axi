@@ -591,7 +591,7 @@ class AxiMasterWrite(Region, Reset):
         for burst_length in cmd.burst_list:
             b = await context.get_resp()
 
-            burst_resp = AxiResp(getattr(b, 'bresp', AxiResp.OKAY))
+            burst_resp = AxiResp(int(getattr(b, 'bresp', AxiResp.OKAY)))
             burst_user = int(getattr(b, 'buser', 0))
 
             if burst_resp != AxiResp.OKAY:
@@ -973,7 +973,7 @@ class AxiMasterRead(Region, Reset):
 
             for r in burst:
                 cycle_data = int(r.rdata)
-                cycle_resp = AxiResp(getattr(r, "rresp", AxiResp.OKAY))
+                cycle_resp = AxiResp(int(getattr(r, "rresp", AxiResp.OKAY)))
                 cycle_user = int(getattr(r, "ruser", 0))
 
                 if cycle_resp != AxiResp.OKAY:
