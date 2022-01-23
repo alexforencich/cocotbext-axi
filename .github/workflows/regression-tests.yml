@@ -26,10 +26,12 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install tox tox-gh-actions
+        pip install tox tox-gh-actions tox-direct pytest cocotb-test pytest-xdist coverage pytest-cov
 
     - name: Test with tox
-      run: tox
+      run: |
+        pip install -e .
+        tox --direct
 
     - name: Upload coverage to codecov
       run: |
