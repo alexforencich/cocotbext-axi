@@ -577,8 +577,7 @@ class AxiMasterWrite(Region, Reset):
 
             bid = int(getattr(b, 'bid', 0))
 
-            if self.active_id[bid] <= 0:
-                raise Exception(f"Unexpected burst ID {bid}")
+            assert self.active_id[bid] > 0, "unexpected burst ID"
 
             self.tag_context_manager.put_resp(bid, b)
 
@@ -600,8 +599,7 @@ class AxiMasterWrite(Region, Reset):
             if burst_user is not None:
                 user.append(burst_user)
 
-            if self.active_id[bid] <= 0:
-                raise Exception(f"Unexpected burst ID {bid}")
+            assert self.active_id[bid] > 0, "unexpected burst ID"
 
             self.active_id[bid] -= 1
 
@@ -925,27 +923,14 @@ class AxiMasterRead(Region, Reset):
             self.current_read_command = None
 
     async def _process_read_resp(self):
-        burst = []
-        cur_rid = None
-
         while True:
             r = await self.r_channel.recv()
 
             rid = int(getattr(r, 'rid', 0))
 
-            if cur_rid is not None and cur_rid != rid:
-                raise Exception(f"ID not constant within burst (expected {cur_rid}, got {rid})")
+            assert self.active_id[rid] > 0, "unexpected burst ID"
 
-            if self.active_id[rid] <= 0:
-                raise Exception(f"Unexpected burst ID {rid}")
-
-            burst.append(r)
-            cur_rid = rid
-
-            if int(r.rlast):
-                self.tag_context_manager.put_resp(rid, burst)
-                burst = []
-                cur_rid = None
+            self.tag_context_manager.put_resp(rid, r)
 
     async def _process_read_resp_id(self, context, cmd):
         rid = context.current_tag
@@ -966,12 +951,16 @@ class AxiMasterRead(Region, Reset):
         first = True
 
         for burst_length in cmd.burst_list:
-            burst = await context.get_resp()
+            for k in range(burst_length):
+                r = await context.get_resp()
 
-            if len(burst) != burst_length:
-                raise Exception(f"Burst length incorrect (ID {rid}, expected {burst_length}, got {len(burst)}")
+                assert self.active_id[rid] > 0, "unexpected burst ID"
 
-            for r in burst:
+                if k == burst_length-1:
+                    assert int(r.rlast), "missing rlast at end of burst"
+                else:
+                    assert not int(r.rlast), "unexpected rlast within burst"
+
                 cycle_data = int(r.rdata)
                 cycle_resp = AxiResp(int(getattr(r, "rresp", AxiResp.OKAY)))
                 cycle_user = int(getattr(r, "ruser", 0))
