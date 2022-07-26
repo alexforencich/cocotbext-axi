@@ -33,7 +33,8 @@ AxiLiteAWBus, AxiLiteAWTransaction, AxiLiteAWSource, AxiLiteAWSink, AxiLiteAWMon
 
 # Write data channel
 AxiLiteWBus, AxiLiteWTransaction, AxiLiteWSource, AxiLiteWSink, AxiLiteWMonitor = define_stream("AxiLiteW",
-    signals=["wdata", "wstrb", "wvalid", "wready"]
+    signals=["wdata", "wvalid", "wready"],
+    optional_signals=["wstrb"]
 )
 
 # Write response channel

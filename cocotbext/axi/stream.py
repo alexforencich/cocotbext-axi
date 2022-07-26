@@ -153,7 +153,7 @@ class StreamBase(Reset):
         else:
             self.log.info("Reset de-asserted")
             if self._run_cr is None:
-                self._run_cr = cocotb.fork(self._run())
+                self._run_cr = cocotb.start_soon(self._run())
 
     async def _run(self):
         raise NotImplementedError()
@@ -175,15 +175,17 @@ class StreamPause:
         self._pause_generator = generator
 
         if self._pause_generator is not None:
-            self._pause_cr = cocotb.fork(self._run_pause())
+            self._pause_cr = cocotb.start_soon(self._run_pause())
 
     def clear_pause_generator(self):
         self.set_pause_generator(None)
 
     async def _run_pause(self):
+        clock_edge_event = RisingEdge(self.clock)
+
         for val in self._pause_generator:
             self.pause = val
-            await RisingEdge(self.clock)
+            await clock_edge_event
 
 
 class StreamSource(StreamBase, StreamPause):
@@ -228,11 +230,13 @@ class StreamSource(StreamBase, StreamPause):
 
         if state:
             if self.valid is not None:
-                self.valid <= 0
+                self.valid.value = 0
 
     async def _run(self):
+        clock_edge_event = RisingEdge(self.clock)
+
         while True:
-            await RisingEdge(self.clock)
+            await clock_edge_event
 
             # read handshake signals
             ready_sample = self.ready is None or self.ready.value
@@ -243,11 +247,11 @@ class StreamSource(StreamBase, StreamPause):
                     self.bus.drive(self.queue.get_nowait())
                     self.dequeue_event.set()
                     if self.valid is not None:
-                        self.valid <= 1
+                        self.valid.value = 1
                     self.active = True
                 else:
                     if self.valid is not None:
-                        self.valid <= 0
+                        self.valid.value = 0
                     self.active = not self.queue.empty()
                     if self.queue.empty():
                         self.idle_event.set()
@@ -282,8 +286,10 @@ class StreamMonitor(StreamBase):
             await self.active_event.wait()
 
     async def _run(self):
+        clock_edge_event = RisingEdge(self.clock)
+
         while True:
-            await RisingEdge(self.clock)
+            await clock_edge_event
 
             # read handshake signals
             ready_sample = self.ready is None or self.ready.value
@@ -319,11 +325,13 @@ class StreamSink(StreamMonitor, StreamPause):
 
         if state:
             if self.ready is not None:
-                self.ready <= 0
+                self.ready.value = 0
 
     async def _run(self):
+        clock_edge_event = RisingEdge(self.clock)
+
         while True:
-            await RisingEdge(self.clock)
+            await clock_edge_event
 
             # read handshake signals
             ready_sample = self.ready is None or self.ready.value
@@ -336,7 +344,7 @@ class StreamSink(StreamMonitor, StreamPause):
                 self.active_event.set()
 
             if self.ready is not None:
-                self.ready <= (not self.full() and not self.pause)
+                self.ready.value = (not self.full() and not self.pause)
 
 
 def define_stream(name, signals, optional_signals=None, valid_signal=None, ready_signal=None, signal_widths=None):

@@ -32,7 +32,7 @@ See the `tests` directory, [verilog-axi](https://github.com/alexforencich/verilo
 
 ### AXI and AXI lite master
 
-The `AxiMaster` and `AxiLiteMaster` classes implement AXI masters and are capable of generating read and write operations against AXI slaves.  Requested operations will be split and aligned according to the AXI specification.  The `AxiMaster` module is capable of generating narrow bursts, handling multiple in-flight operations, and handling reordering and interleaving in responses across different transaction IDs.
+The `AxiMaster` and `AxiLiteMaster` classes implement AXI masters and are capable of generating read and write operations against AXI slaves.  Requested operations will be split and aligned according to the AXI specification.  The `AxiMaster` module is capable of generating narrow bursts, handling multiple in-flight operations, and handling reordering and interleaving in responses across different transaction IDs.  `AxiMaster` and `AxiLiteMaster` and related objects all extend `Region`, so they can be attached to `AddressSpace` objects to handle memory operations in the specified region.
 
 The `AxiMaster` is a wrapper around `AxiMasterWrite` and `AxiMasterRead`.  Similarly, `AxiLiteMaster` is a wrapper around `AxiLiteMasterWrite` and `AxiLiteMasterRead`.  If a read-only or write-only interface is required instead of a full interface, use the corresponding read-only or write-only variant, the usage and API are exactly the same.
 
@@ -123,9 +123,39 @@ With this method, it is possible to start multiple concurrent operations from th
 
 The `AxiBus`, `AxiLiteBus`, and related objects are containers for the interface signals.  These hold instances of bus objects for the individual channels, which are currently extensions of `cocotb_bus.bus.Bus`.  Class methods `from_entity` and `from_prefix` are provided to facilitate signal name matching.  For AXI interfaces use `AxiBus`, `AxiReadBus`, or `AxiWriteBus`, as appropriate.  For AXI lite interfaces, use `AxiLiteBus`, `AxiLiteReadBus`, or `AxiLiteWriteBus`, as appropriate.
 
+### AXI and AXI lite slave
+
+The `AxiSlave` and `AxiLiteSlave` classes implement AXI slaves and are capable of completing read and write operations from upstream AXI masters.  The `AxiSlave` module is capable of handling narrow bursts.  These modules can either be used to perform memory reads and writes on a `MemoryInterface` on behalf of the DUT, or they can be extended to implement customized functionality.
+
+The `AxiSlave` is a wrapper around `AxiSlaveWrite` and `AxiSlaveRead`.  Similarly, `AxiLiteSlave` is a wrapper around `AxiLiteSlaveWrite` and `AxiLiteSlaveRead`.  If a read-only or write-only interface is required instead of a full interface, use the corresponding read-only or write-only variant, the usage and API are exactly the same.
+
+To use these modules, import the one you need and connect it to the DUT:
+
+    from cocotbext.axi import AxiBus, AxiSlave, MemoryRegion
+
+    axi_slave = AxiSlave(AxiBus.from_prefix(dut, "m_axi"), dut.clk, dut.rst)
+    region = MemoryRegion(2**axi_slave.read_if.address_width)
+    axi_slave.target = region
+
+The first argument to the constructor accepts an `AxiBus` or `AxiLiteBus` object.  These objects are containers for the interface signals and include class methods to automate connections.
+
+It is also possible to extend these modules; operation can be customized by overriding the internal `_read()` and `_write()` methods.  See `AxiRam` and `AxiLiteRam` for an example.
+
+#### `AxiSlave` and `AxiLiteSlave` constructor parameters
+
+* _bus_: `AxiBus` or `AxiLiteBus` object containing AXI interface signals
+* _clock_: clock signal
+* _reset_: reset signal (optional)
+* _reset_active_level_: reset active level (optional, default `True`)
+* _target_: target region (optional, default `None`)
+
+#### Attributes:
+
+* _target_: target region
+
 ### AXI and AXI lite RAM
 
-The `AxiRam` and `AxiLiteRam` classes implement AXI RAMs and are capable of completing read and write operations from upstream AXI masters.  The `AxiRam` module is capable of handling narrow bursts.
+The `AxiRam` and `AxiLiteRam` classes implement AXI RAMs and are capable of completing read and write operations from upstream AXI masters.  The `AxiRam` module is capable of handling narrow bursts.  These modules are extensions of the corresponding `AxiSlave` and `AxiLiteSlave` modules.
 
 The `AxiRam` is a wrapper around `AxiRamWrite` and `AxiRamRead`.  Similarly, `AxiLiteRam` is a wrapper around `AxiLiteRamWrite` and `AxiLiteRamRead`.  If a read-only or write-only interface is required instead of a full interface, use the corresponding read-only or write-only variant, the usage and API are exactly the same.
 
@@ -289,6 +319,66 @@ Methods:
 
 * `normalize()`: pack `tkeep`, `tid`, `tdest`, and `tuser` to the same length as `tdata`, replicating last element if necessary, initialize `tkeep` to list of `1` and `tid`, `tdest`, and `tuser` to list of `0` if not specified.
 * `compact()`: remove `tdata`, `tid`, `tdest`, and `tuser` values based on `tkeep`, remove `tkeep`, compact `tid`, `tdest`, and `tuser` to an int if all values are identical.
+
+### Address space abstraction
+
+The address space abstraction provides a framework for cross-connecting multiple memory-mapped interfaces for testing components that interface with complex systems, including components with DMA engines.
+
+`MemoryInterface` is the base class for all components in the address space abstraction.  `MemoryInterface` provides the core `read()` and `write()` methods, which implement bounds checking, as well as word-access wrappers.  Methods for creating `Window` and `WindowPool` objects are also provided.  The function `get_absolute_address()` translates addresses to the system address space.  `MemoryInterface` can be extended to implement custom functionality by overriding `_read()` and `_write()`.
+
+`Window` objects represent views onto a parent address space with some length and offset.  `read()` and `write()` operations on a `Window` are translated to the equivalent operations on the parent address space.  Multiple `Window` instances can overlap and access the same portion of address space.
+
+`WindowPool` provides a method for dynamically allocating windows from a section of address space.  It uses a standard memory management algorithm to provide naturally-aligned `Window` objects of the requested size.
+
+`Region` is the base class for all components which implement a portion of address space.  `Region` objects can be registered with `AddressSpace` objects to handle `read()` and `write()` operations in a specified region.  `Region` can be extended by components that implement a portion of address space.
+
+`MemoryRegion` is an extension of `Region` that uses an `mmap` instance to handle memory operations.  `MemoryRegion` also provides hex dump methods as well as indexing and slicing.
+
+`PeripheralRegion` is an extension of `Region` that can wrap another object that implements `read()` and `write()`, as an alternative to extending `Region`.
+
+`AddressSpace` is the core object for handling address spaces.  `Region` objects can be registered with `AddressSpace` with specified base address, size, and offset.  The `AddressSpace` object will then direct `read()` and `write()` operations to the appropriate `Region`s, splitting requests appropriately when necessary and translating addresses.  Regions registered with `offset` other than `None` are translated such that accesses to base address + N map to N + offset.  Regions registered with an `offset` of `None` are not translated.  `Region` objects registered with the same `AddressSpace` cannot overlap, however the same `Region` can be registered multiple times.  `AddressSpace` also provides a method for creating `Pool` objects.
+
+`Pool` is an extension of `AddressSpace` that supports dynamic allocation of `MemoryRegion`s.  It uses a standard memory management algorithm to provide naturally-aligned `MemoryRegion` objects of the requested size.
+
+#### Example
+
+This is a simple example that shows how the address space abstraction components can be used to connect a DUT to a simulated host system, including simulated RAM, an AXI interface from the DUT for DMA, and an AXI lite interface to the DUT for control.
+
+    from cocotbext.axi import AddressSpace, MemoryRegion
+    from cocotbext.axi import AxiBus, AxiLiteMaster, AxiSlave
+
+    # system address space
+    address_space = AddressSpace(2**32)
+
+    # RAM
+    ram = MemoryRegion(2**24)
+    address_space.register_region(ram, 0x0000_0000)
+    ram_pool = address_space.create_window_pool(0x0000_0000, 2**20)
+
+    # DUT control register interface
+    axil_master = AxiLiteMaster(AxiLiteBus.from_prefix(dut, "s_axil_ctrl"), dut.clk, dut.rst)
+    address_space.register_region(axil_master, 0x8000_0000)
+    ctrl_regs = address_space.create_window(0x8000_0000, axil_master.size)
+
+    # DMA from DUT
+    axi_slave = AxiSlave(AxiBus.from_prefix(dut, "m_axi_dma"), dut.clk, dut.rst, target=address_space)
+
+    # exercise DUT DMA functionality
+    src_block = ram_pool.alloc_window(1024)
+    dst_block = ram_pool.alloc_window(1024)
+
+    test_data = b'test data'
+    await src_block.write(0, test_data)
+
+    await ctrl_regs.write_dword(DMA_SRC_ADDR, src_block.get_absolute_address(0))
+    await ctrl_regs.write_dword(DMA_DST_ADDR, dst_block.get_absolute_address(0))
+    await ctrl_regs.write_dword(DMA_LEN, len(test_data))
+    await ctrl_regs.write_dword(DMA_CONTROL, 1)
+
+    while await ctrl_regs.read_dword(DMA_STATUS) == 0:
+        pass
+
+    assert await dst_block.read(0, len(test_data)) == test_data
 
 ### AXI signals
 
