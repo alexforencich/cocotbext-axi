@@ -182,7 +182,9 @@ class AxiSlaveWrite(Reset):
 
                 # perform writes
                 try:
-                    for addr, data in write_ops:
+                    for write_op in write_ops:
+                        addr = write_op[0]
+                        data = write_op[1]
                         await self._write(addr, data)
                 except Exception:
                     self.log.warning("Write operation failed")
