@@ -343,3 +343,12 @@ class AxiSlave:
 
         self.write_if = AxiSlaveWrite(bus.write, clock, reset, target, reset_active_level, endian)
         self.read_if = AxiSlaveRead(bus.read, clock, reset, target, reset_active_level, endian)
+
+    @property
+    def target(self):
+        return self.write_if.target
+
+    @target.setter
+    def target(self, t):
+        self.write_if.target = t
+        self.read_if.target = t
