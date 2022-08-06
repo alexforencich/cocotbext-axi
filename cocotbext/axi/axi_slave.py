@@ -33,11 +33,12 @@ from .reset import Reset
 
 
 class AxiSlaveWrite(Reset):
-    def __init__(self, bus, clock, reset=None, target=None, reset_active_level=True, **kwargs):
+    def __init__(self, bus, clock, reset=None, target=None, reset_active_level=True, endian='little', **kwargs):
         self.bus = bus
         self.clock = clock
         self.reset = reset
         self.target = target
+        self.endian = endian
         self.log = logging.getLogger(f"cocotb.{bus.aw._entity._name}.{bus.aw._name}")
 
         self.log.info("AXI slave model (write)")
@@ -160,7 +161,7 @@ class AxiSlaveWrite(Reset):
                 start_offset = None
                 write_ops = []
 
-                data = data.to_bytes(self.byte_lanes, 'little')
+                data = data.to_bytes(self.byte_lanes, self.endian)
 
                 if self.log.isEnabledFor(logging.DEBUG):
                     self.log.debug("Write word awid: 0x%x addr: 0x%08x wstrb: 0x%02x data: %s",
@@ -203,11 +204,12 @@ class AxiSlaveWrite(Reset):
 
 
 class AxiSlaveRead(Reset):
-    def __init__(self, bus, clock, reset=None, target=None, reset_active_level=True, **kwargs):
+    def __init__(self, bus, clock, reset=None, target=None, reset_active_level=True, endian='little', **kwargs):
         self.bus = bus
         self.clock = clock
         self.reset = reset
         self.target = target
+        self.endian = endian
         self.log = logging.getLogger(f"cocotb.{bus.ar._entity._name}.{bus.ar._name}")
 
         self.log.info("AXI slave model (read)")
@@ -316,7 +318,7 @@ class AxiSlaveRead(Reset):
                     data = bytes(self.byte_lanes)
                     r.rresp = AxiResp.SLVERR
 
-                r.rdata = int.from_bytes(data, 'little')
+                r.rdata = int.from_bytes(data, self.endian)
 
                 await self.r_channel.send(r)
 
@@ -333,11 +335,11 @@ class AxiSlaveRead(Reset):
 
 
 class AxiSlave:
-    def __init__(self, bus, clock, reset=None, target=None, reset_active_level=True, **kwargs):
+    def __init__(self, bus, clock, reset=None, target=None, reset_active_level=True, endian='little', **kwargs):
         self.write_if = None
         self.read_if = None
 
         super().__init__(**kwargs)
 
-        self.write_if = AxiSlaveWrite(bus.write, clock, reset, target, reset_active_level)
-        self.read_if = AxiSlaveRead(bus.read, clock, reset, target, reset_active_level)
+        self.write_if = AxiSlaveWrite(bus.write, clock, reset, target, reset_active_level, endian)
+        self.read_if = AxiSlaveRead(bus.read, clock, reset, target, reset_active_level, endian)
