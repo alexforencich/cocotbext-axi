@@ -84,7 +84,8 @@ class MemoryInterface:
         return await self.read_words(address, count, byteorder, 8, **kwargs)
 
     async def read_byte(self, address, **kwargs):
-        return (await self.read(address, 1, **kwargs)).data[0]
+        data = bytes(await self.read(address, 1, **kwargs))
+        return data[0]
 
     async def read_word(self, address, byteorder='little', ws=2, **kwargs):
         return (await self.read_words(address, 1, byteorder, ws, **kwargs))[0]
@@ -115,8 +116,11 @@ class MemoryInterface:
     async def write_qwords(self, address, data, byteorder='little', **kwargs):
         await self.write_words(address, data, byteorder, 8, **kwargs)
 
-    async def write_byte(self, address, data, **kwargs):
-        await self.write(address, [data], **kwargs)
+    async def write_byte(self, address, data, byteorder='little', **kwargs):
+        bs = data
+        data = bytearray()
+        data.extend(bs.to_bytes(1, byteorder))
+        await self.write(address, data, **kwargs)
 
     async def write_word(self, address, data, byteorder='little', ws=2, **kwargs):
         await self.write_words(address, [data], byteorder, ws, **kwargs)
