@@ -287,7 +287,7 @@ class AxiStreamBase(Reset):
         self.queue_occupancy_frames = 0
 
         self.width = len(self.bus.tdata)
-        self.byte_lanes = 1
+        self.byte_lanes = self.width // 8
 
         if self._valid_init is not None and hasattr(self.bus, "tvalid"):
             self.bus.tvalid.setimmediatevalue(self._valid_init)
