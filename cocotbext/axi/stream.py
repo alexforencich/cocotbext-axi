@@ -206,12 +206,14 @@ class StreamSource(StreamBase, StreamPause):
             await self.dequeue_event.wait()
         await self.queue.put(obj)
         self.idle_event.clear()
+        self.active_event.set()
 
     def send_nowait(self, obj):
         if self.full():
             raise QueueFull()
         self.queue.put_nowait(obj)
         self.idle_event.clear()
+        self.active_event.set()
 
     def full(self):
         if self.queue_occupancy_limit > 0 and self.count() >= self.queue_occupancy_limit:
@@ -255,6 +257,9 @@ class StreamSource(StreamBase, StreamPause):
                     self.active = not self.queue.empty()
                     if self.queue.empty():
                         self.idle_event.set()
+                        self.active_event.clear()
+
+                        await self.active_event.wait()
 
 
 class StreamMonitor(StreamBase):
