@@ -485,17 +485,25 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
         frame_offset = 0
         self.active = False
 
+        has_tready = hasattr(self.bus, "tready")
+        has_tvalid = hasattr(self.bus, "tvalid")
+        has_tlast = hasattr(self.bus, "tlast")
+        has_tkeep = hasattr(self.bus, "tkeep")
+        has_tid = hasattr(self.bus, "tid")
+        has_tdest = hasattr(self.bus, "tdest")
+        has_tuser = hasattr(self.bus, "tuser")
+
         clock_edge_event = RisingEdge(self.clock)
 
         while True:
             await clock_edge_event
 
             # read handshake signals
-            tready_sample = (not hasattr(self.bus, "tready")) or self.bus.tready.value
-            tvalid_sample = (not hasattr(self.bus, "tvalid")) or self.bus.tvalid.value
+            tready_sample = (not has_tready) or self.bus.tready.value
+            tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
 
             if (tready_sample and tvalid_sample) or not tvalid_sample:
-                if frame is None and not self.queue.empty():
+                if not frame and not self.queue.empty():
                     frame = self.queue.get_nowait()
                     self.dequeue_event.set()
                     self.queue_occupancy_bytes -= len(frame)
@@ -533,22 +541,22 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                             break
 
                     self.bus.tdata.value = tdata_val
-                    if hasattr(self.bus, "tvalid"):
+                    if has_tvalid:
                         self.bus.tvalid.value = 1
-                    if hasattr(self.bus, "tlast"):
+                    if has_tlast:
                         self.bus.tlast.value = tlast_val
-                    if hasattr(self.bus, "tkeep"):
+                    if has_tkeep:
                         self.bus.tkeep.value = tkeep_val
-                    if hasattr(self.bus, "tid"):
+                    if has_tid:
                         self.bus.tid.value = tid_val
-                    if hasattr(self.bus, "tdest"):
+                    if has_tdest:
                         self.bus.tdest.value = tdest_val
-                    if hasattr(self.bus, "tuser"):
+                    if has_tuser:
                         self.bus.tuser.value = tuser_val
                 else:
-                    if hasattr(self.bus, "tvalid"):
+                    if has_tvalid:
                         self.bus.tvalid.value = 0
-                    if hasattr(self.bus, "tlast"):
+                    if has_tlast:
                         self.bus.tlast.value = 0
                     self.active = bool(frame)
                     if not frame and self.queue.empty():
@@ -619,17 +627,25 @@ class AxiStreamMonitor(AxiStreamBase):
         frame = None
         self.active = False
 
+        has_tready = hasattr(self.bus, "tready")
+        has_tvalid = hasattr(self.bus, "tvalid")
+        has_tlast = hasattr(self.bus, "tlast")
+        has_tkeep = hasattr(self.bus, "tkeep")
+        has_tid = hasattr(self.bus, "tid")
+        has_tdest = hasattr(self.bus, "tdest")
+        has_tuser = hasattr(self.bus, "tuser")
+
         clock_edge_event = RisingEdge(self.clock)
 
         while True:
             await clock_edge_event
 
             # read handshake signals
-            tready_sample = (not hasattr(self.bus, "tready")) or self.bus.tready.value
-            tvalid_sample = (not hasattr(self.bus, "tvalid")) or self.bus.tvalid.value
+            tready_sample = (not has_tready) or self.bus.tready.value
+            tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
 
             if tready_sample and tvalid_sample:
-                if frame is None:
+                if not frame:
                     if self.byte_size == 8:
                         frame = AxiStreamFrame(bytearray(), [], [], [], [])
                     else:
@@ -639,16 +655,16 @@ class AxiStreamMonitor(AxiStreamBase):
 
                 for offset in range(self.byte_lanes):
                     frame.tdata.append((self.bus.tdata.value.integer >> (offset * self.byte_size)) & self.byte_mask)
-                    if hasattr(self.bus, "tkeep"):
+                    if has_tkeep:
                         frame.tkeep.append((self.bus.tkeep.value.integer >> offset) & 1)
-                    if hasattr(self.bus, "tid"):
+                    if has_tid:
                         frame.tid.append(self.bus.tid.value.integer)
-                    if hasattr(self.bus, "tdest"):
+                    if has_tdest:
                         frame.tdest.append(self.bus.tdest.value.integer)
-                    if hasattr(self.bus, "tuser"):
+                    if has_tuser:
                         frame.tuser.append(self.bus.tuser.value.integer)
 
-                if not hasattr(self.bus, "tlast") or self.bus.tlast.value:
+                if not has_tlast or self.bus.tlast.value:
                     frame.sim_time_end = get_sim_time()
                     self.log.info("RX frame: %s", frame)
 
@@ -699,17 +715,25 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
         frame = None
         self.active = False
 
+        has_tready = hasattr(self.bus, "tready")
+        has_tvalid = hasattr(self.bus, "tvalid")
+        has_tlast = hasattr(self.bus, "tlast")
+        has_tkeep = hasattr(self.bus, "tkeep")
+        has_tid = hasattr(self.bus, "tid")
+        has_tdest = hasattr(self.bus, "tdest")
+        has_tuser = hasattr(self.bus, "tuser")
+
         clock_edge_event = RisingEdge(self.clock)
 
         while True:
             await clock_edge_event
 
             # read handshake signals
-            tready_sample = (not hasattr(self.bus, "tready")) or self.bus.tready.value
-            tvalid_sample = (not hasattr(self.bus, "tvalid")) or self.bus.tvalid.value
+            tready_sample = (not has_tready) or self.bus.tready.value
+            tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
 
             if tready_sample and tvalid_sample:
-                if frame is None:
+                if not frame:
                     if self.byte_size == 8:
                         frame = AxiStreamFrame(bytearray(), [], [], [], [])
                     else:
@@ -719,16 +743,16 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
 
                 for offset in range(self.byte_lanes):
                     frame.tdata.append((self.bus.tdata.value.integer >> (offset * self.byte_size)) & self.byte_mask)
-                    if hasattr(self.bus, "tkeep"):
+                    if has_tkeep:
                         frame.tkeep.append((self.bus.tkeep.value.integer >> offset) & 1)
-                    if hasattr(self.bus, "tid"):
+                    if has_tid:
                         frame.tid.append(self.bus.tid.value.integer)
-                    if hasattr(self.bus, "tdest"):
+                    if has_tdest:
                         frame.tdest.append(self.bus.tdest.value.integer)
-                    if hasattr(self.bus, "tuser"):
+                    if has_tuser:
                         frame.tuser.append(self.bus.tuser.value.integer)
 
-                if not hasattr(self.bus, "tlast") or self.bus.tlast.value:
+                if not has_tlast or self.bus.tlast.value:
                     frame.sim_time_end = get_sim_time()
                     self.log.info("RX frame: %s", frame)
 
@@ -742,5 +766,5 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
             else:
                 self.active = bool(frame)
 
-            if hasattr(self.bus, "tready"):
+            if has_tready:
                 self.bus.tready.value = (not self.full() and not self.pause)
