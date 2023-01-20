@@ -425,6 +425,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
         frame = AxiStreamFrame(frame)
         await self.queue.put(frame)
         self.idle_event.clear()
+        self.active_event.set()
         self.queue_occupancy_bytes += len(frame)
         self.queue_occupancy_frames += 1
 
@@ -434,6 +435,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
         frame = AxiStreamFrame(frame)
         self.queue.put_nowait(frame)
         self.idle_event.clear()
+        self.active_event.set()
         self.queue_occupancy_bytes += len(frame)
         self.queue_occupancy_frames += 1
 
@@ -561,6 +563,9 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                     self.active = bool(frame)
                     if not frame and self.queue.empty():
                         self.idle_event.set()
+                        self.active_event.clear()
+
+                        await self.active_event.wait()
 
 
 class AxiStreamMonitor(AxiStreamBase):
