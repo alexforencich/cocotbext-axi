@@ -99,6 +99,7 @@ class StreamBase(Reset):
         self.idle_event = Event()
         self.idle_event.set()
         self.active_event = Event()
+        self.wake_event = Event()
 
         self.ready = None
         self.valid = None
@@ -163,9 +164,22 @@ class StreamPause:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.pause = False
+        self._pause = False
         self._pause_generator = None
         self._pause_cr = None
+
+    def _pause_update(self, val):
+        pass
+
+    @property
+    def pause(self):
+        return self._pause
+
+    @pause.setter
+    def pause(self, val):
+        if self._pause != val:
+            self._pause_update(val)
+        self._pause = val
 
     def set_pause_generator(self, generator=None):
         if self._pause_cr is not None:
@@ -269,9 +283,21 @@ class StreamMonitor(StreamBase):
     _valid_init = None
     _ready_init = None
 
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, *args, **kwargs):
+        super().__init__(bus, clock, reset, reset_active_level, *args, **kwargs)
+
+        if self.valid is not None:
+            cocotb.start_soon(self._run_valid_monitor())
+        if self.ready is not None:
+            cocotb.start_soon(self._run_ready_monitor())
+
+    def _dequeue(self, item):
+        pass
+
     def _recv(self, item):
         if self.queue.empty():
             self.active_event.clear()
+        self._dequeue(item)
         return item
 
     async def recv(self):
@@ -290,8 +316,24 @@ class StreamMonitor(StreamBase):
         else:
             await self.active_event.wait()
 
+    async def _run_valid_monitor(self):
+        event = RisingEdge(self.valid)
+
+        while True:
+            await event
+            self.wake_event.set()
+
+    async def _run_ready_monitor(self):
+        event = RisingEdge(self.ready)
+
+        while True:
+            await event
+            self.wake_event.set()
+
     async def _run(self):
         clock_edge_event = RisingEdge(self.clock)
+
+        wake_event = self.wake_event.wait()
 
         while True:
             await clock_edge_event
@@ -305,6 +347,9 @@ class StreamMonitor(StreamBase):
                 self.bus.sample(obj)
                 self.queue.put_nowait(obj)
                 self.active_event.set()
+            else:
+                self.wake_event.clear()
+                await wake_event
 
 
 class StreamSink(StreamMonitor, StreamPause):
@@ -332,10 +377,20 @@ class StreamSink(StreamMonitor, StreamPause):
             if self.ready is not None:
                 self.ready.value = 0
 
+    def _pause_update(self, val):
+        self.wake_event.set()
+
+    def _dequeue(self, item):
+        self.wake_event.set()
+
     async def _run(self):
         clock_edge_event = RisingEdge(self.clock)
 
+        wake_event = self.wake_event.wait()
+
         while True:
+            pause_sample = self.pause
+
             await clock_edge_event
 
             # read handshake signals
@@ -349,7 +404,11 @@ class StreamSink(StreamMonitor, StreamPause):
                 self.active_event.set()
 
             if self.ready is not None:
-                self.ready.value = (not self.full() and not self.pause)
+                self.ready.value = (not self.full() and not pause_sample)
+
+            if not valid_sample or (self.pause and pause_sample) or self.full():
+                self.wake_event.clear()
+                await wake_event
 
 
 def define_stream(name, signals, optional_signals=None, valid_signal=None, ready_signal=None, signal_widths=None):

@@ -282,6 +282,7 @@ class AxiStreamBase(Reset):
         self.idle_event = Event()
         self.idle_event.set()
         self.active_event = Event()
+        self.wake_event = Event()
 
         self.queue_occupancy_bytes = 0
         self.queue_occupancy_frames = 0
@@ -376,9 +377,22 @@ class AxiStreamPause:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.pause = False
+        self._pause = False
         self._pause_generator = None
         self._pause_cr = None
+
+    def _pause_update(self, val):
+        pass
+
+    @property
+    def pause(self):
+        return self._pause
+
+    @pause.setter
+    def pause(self, val):
+        if self._pause != val:
+            self._pause_update(val)
+        self._pause = val
 
     def set_pause_generator(self, generator=None):
         if self._pause_cr is not None:
@@ -584,11 +598,20 @@ class AxiStreamMonitor(AxiStreamBase):
 
         self.read_queue = []
 
+        if hasattr(self.bus, "tvalid"):
+            cocotb.start_soon(self._run_tvalid_monitor())
+        if hasattr(self.bus, "tready"):
+            cocotb.start_soon(self._run_tready_monitor())
+
+    def _dequeue(self, frame):
+        pass
+
     def _recv(self, frame, compact=True):
         if self.queue.empty():
             self.active_event.clear()
         self.queue_occupancy_bytes -= len(frame)
         self.queue_occupancy_frames -= 1
+        self._dequeue(frame)
         if compact:
             frame.compact()
         return frame
@@ -628,6 +651,20 @@ class AxiStreamMonitor(AxiStreamBase):
         else:
             await self.active_event.wait()
 
+    async def _run_tvalid_monitor(self):
+        event = RisingEdge(self.bus.tvalid)
+
+        while True:
+            await event
+            self.wake_event.set()
+
+    async def _run_tready_monitor(self):
+        event = RisingEdge(self.bus.tready)
+
+        while True:
+            await event
+            self.wake_event.set()
+
     async def _run(self):
         frame = None
         self.active = False
@@ -641,6 +678,8 @@ class AxiStreamMonitor(AxiStreamBase):
         has_tuser = hasattr(self.bus, "tuser")
 
         clock_edge_event = RisingEdge(self.clock)
+
+        wake_event = self.wake_event.wait()
 
         while True:
             await clock_edge_event
@@ -683,6 +722,9 @@ class AxiStreamMonitor(AxiStreamBase):
             else:
                 self.active = bool(frame)
 
+                self.wake_event.clear()
+                await wake_event
+
 
 class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
 
@@ -716,6 +758,12 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
             if hasattr(self.bus, "tready"):
                 self.bus.tready.value = 0
 
+    def _pause_update(self, val):
+        self.wake_event.set()
+
+    def _dequeue(self, frame):
+        self.wake_event.set()
+
     async def _run(self):
         frame = None
         self.active = False
@@ -730,7 +778,11 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
 
         clock_edge_event = RisingEdge(self.clock)
 
+        wake_event = self.wake_event.wait()
+
         while True:
+            pause_sample = self.pause
+
             await clock_edge_event
 
             # read handshake signals
@@ -772,4 +824,8 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
                 self.active = bool(frame)
 
             if has_tready:
-                self.bus.tready.value = (not self.full() and not self.pause)
+                self.bus.tready.value = (not self.full() and not pause_sample)
+
+            if not tvalid_sample or (self.pause and pause_sample) or self.full():
+                self.wake_event.clear()
+                await wake_event
