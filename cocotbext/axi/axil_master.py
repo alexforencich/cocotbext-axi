@@ -286,7 +286,10 @@ class AxiLiteMasterWrite(Region, Reset):
                     offset += 1
 
                 aw = self.aw_channel._transaction_obj()
-                aw.awaddr = word_addr + k*self.byte_lanes
+                if k == 0:
+                    aw.awaddr = cmd.address
+                else:
+                    aw.awaddr = word_addr + k*self.byte_lanes
                 aw.awprot = cmd.prot
 
                 if not self.wstrb_present and strb != self.strb_mask:
@@ -494,7 +497,10 @@ class AxiLiteMasterRead(Region, Reset):
 
             for k in range(cycles):
                 ar = self.ar_channel._transaction_obj()
-                ar.araddr = word_addr + k*self.byte_lanes
+                if k == 0:
+                    ar.araddr = cmd.address
+                else:
+                    ar.araddr = word_addr + k*self.byte_lanes
                 ar.arprot = cmd.prot
 
                 await self.ar_channel.send(ar)

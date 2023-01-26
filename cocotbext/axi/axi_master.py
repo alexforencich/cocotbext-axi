@@ -476,7 +476,7 @@ class AxiMasterWrite(Region, Reset):
 
             cycles = (len(cmd.data) + (cmd.address % num_bytes) + num_bytes-1) // num_bytes
 
-            cur_addr = aligned_addr
+            cur_addr = cmd.address
             offset = 0
             cycle_offset = aligned_addr-word_addr
             n = 0
@@ -563,7 +563,10 @@ class AxiMasterWrite(Region, Reset):
 
                 await self.w_channel.send(w)
 
-                cur_addr += num_bytes
+                if k == 0:
+                    cur_addr = aligned_addr + num_bytes
+                else:
+                    cur_addr += num_bytes
                 cycle_offset = (cycle_offset + num_bytes) % self.byte_lanes
 
             resp_cmd = AxiWriteRespCmd(cmd.address, len(cmd.data), cmd.size, cycles, cmd.prot, burst_list, cmd.event)
@@ -870,7 +873,7 @@ class AxiMasterRead(Region, Reset):
 
             burst_list = []
 
-            cur_addr = aligned_addr
+            cur_addr = cmd.address
             n = 0
 
             burst_length = 0
@@ -915,7 +918,10 @@ class AxiMasterRead(Region, Reset):
                     self.log.info("Read burst start arid: 0x%x araddr: 0x%08x arlen: %d arsize: %d arprot: %s",
                             arid, cur_addr, burst_length-1, cmd.size, cmd.prot)
 
-                cur_addr += num_bytes
+                if k == 0:
+                    cur_addr = aligned_addr + num_bytes
+                else:
+                    cur_addr += num_bytes
 
             resp_cmd = AxiReadRespCmd(cmd.address, cmd.length, cmd.size, cycles, cmd.prot, burst_list, cmd.event)
             self.tag_context_manager.start_cmd(arid, resp_cmd)
