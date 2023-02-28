@@ -182,6 +182,9 @@ class AxiLiteMasterWrite(Region, Reset):
         if isinstance(data, int):
             raise ValueError("Expected bytes or bytearray for data")
 
+        if address+len(data) >= 2**self.address_width:
+            raise ValueError("Requested transfer overruns end of address space")
+
         if not self.awprot_present and prot != AxiProt.NONSECURE:
             raise ValueError("awprot sideband signal value specified, but signal is not connected")
 
@@ -418,6 +421,12 @@ class AxiLiteMasterRead(Region, Reset):
     async def read(self, address, length, prot=AxiProt.NONSECURE):
         if address < 0 or address >= 2**self.address_width:
             raise ValueError("Address out of range")
+
+        if length < 0:
+            raise ValueError("Read length must be positive")
+
+        if address+length >= 2**self.address_width:
+            raise ValueError("Requested transfer overruns end of address space")
 
         if not self.arprot_present and prot != AxiProt.NONSECURE:
             raise ValueError("arprot sideband signal value specified, but signal is not connected")

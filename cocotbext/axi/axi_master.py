@@ -291,6 +291,9 @@ class AxiMasterWrite(Region, Reset):
         if isinstance(data, int):
             raise ValueError("Expected bytes or bytearray for data")
 
+        if burst != AxiBurstType.FIXED and address+len(data) >= 2**self.address_width:
+            raise ValueError("Requested transfer overruns end of address space")
+
         if awid is None or awid < 0:
             awid = None
         elif awid > self.id_count:
@@ -356,6 +359,9 @@ class AxiMasterWrite(Region, Reset):
 
         if isinstance(data, int):
             raise ValueError("Expected bytes or bytearray for data")
+
+        if burst != AxiBurstType.FIXED and address+len(data) >= 2**self.address_width:
+            raise ValueError("Requested transfer overruns end of address space")
 
         if awid is None or awid < 0:
             awid = None
@@ -717,6 +723,9 @@ class AxiMasterRead(Region, Reset):
         if length < 0:
             raise ValueError("Read length must be positive")
 
+        if burst != AxiBurstType.FIXED and address+length >= 2**self.address_width:
+            raise ValueError("Requested transfer overruns end of address space")
+
         if arid is None or arid < 0:
             arid = None
         elif arid > self.id_count:
@@ -770,6 +779,9 @@ class AxiMasterRead(Region, Reset):
 
         if length < 0:
             raise ValueError("Read length must be positive")
+
+        if burst != AxiBurstType.FIXED and address+length >= 2**self.address_width:
+            raise ValueError("Requested transfer overruns end of address space")
 
         if arid is None or arid < 0:
             arid = None
