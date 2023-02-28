@@ -563,7 +563,9 @@ class AxiMasterWrite(Region, Reset):
 
                 await self.w_channel.send(w)
 
-                if k == 0:
+                if cmd.burst == AxiBurstType.FIXED:
+                    cur_addr = cmd.address
+                elif k == 0:
                     cur_addr = aligned_addr + num_bytes
                 else:
                     cur_addr += num_bytes
@@ -918,7 +920,9 @@ class AxiMasterRead(Region, Reset):
                     self.log.info("Read burst start arid: 0x%x araddr: 0x%08x arlen: %d arsize: %d arprot: %s",
                             arid, cur_addr, burst_length-1, cmd.size, cmd.prot)
 
-                if k == 0:
+                if cmd.burst == AxiBurstType.FIXED:
+                    cur_addr = cmd.address
+                elif k == 0:
                     cur_addr = aligned_addr + num_bytes
                 else:
                     cur_addr += num_bytes
