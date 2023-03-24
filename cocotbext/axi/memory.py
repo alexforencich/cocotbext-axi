@@ -22,27 +22,24 @@ THE SOFTWARE.
 
 """
 
-import mmap
-
+from .sparse_memory import SparseMemory
 from .utils import hexdump, hexdump_lines, hexdump_str
 
 
 class Memory:
-    def __init__(self, size=1024, mem=None, **kwargs):
+    def __init__(self, size=2**64, mem=None, **kwargs):
         if mem is not None:
             self.mem = mem
         else:
-            self.mem = mmap.mmap(-1, size)
+            self.mem = SparseMemory(size)
         self.size = len(self.mem)
         super().__init__(**kwargs)
 
     def read(self, address, length):
-        self.mem.seek(address)
-        return self.mem.read(length)
+        return self.mem.read(address, length)
 
     def write(self, address, data):
-        self.mem.seek(address)
-        self.mem.write(bytes(data))
+        self.mem.write(address, data)
 
     def write_words(self, address, data, byteorder='little', ws=2):
         words = data

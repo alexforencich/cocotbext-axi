@@ -27,7 +27,7 @@ from .memory import Memory
 
 
 class AxiRamWrite(AxiSlaveWrite, Memory):
-    def __init__(self, bus, clock, reset=None, reset_active_level=True, size=1024, mem=None, **kwargs):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, size=2**64, mem=None, **kwargs):
         super().__init__(bus, clock, reset, reset_active_level=reset_active_level, size=size, mem=mem, **kwargs)
 
     async def _write(self, address, data):
@@ -35,7 +35,7 @@ class AxiRamWrite(AxiSlaveWrite, Memory):
 
 
 class AxiRamRead(AxiSlaveRead, Memory):
-    def __init__(self, bus, clock, reset=None, reset_active_level=True, size=1024, mem=None, **kwargs):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, size=2**64, mem=None, **kwargs):
         super().__init__(bus, clock, reset, reset_active_level=reset_active_level, size=size, mem=mem, **kwargs)
 
     async def _read(self, address, length):
@@ -43,7 +43,7 @@ class AxiRamRead(AxiSlaveRead, Memory):
 
 
 class AxiRam(Memory):
-    def __init__(self, bus, clock, reset=None, reset_active_level=True, size=1024, mem=None, **kwargs):
+    def __init__(self, bus, clock, reset=None, reset_active_level=True, size=2**64, mem=None, **kwargs):
         self.write_if = None
         self.read_if = None
 
