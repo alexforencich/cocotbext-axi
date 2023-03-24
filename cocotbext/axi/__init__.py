@@ -27,7 +27,7 @@ from .version import __version__
 from .constants import AxiBurstType, AxiBurstSize, AxiLockType, AxiCacheBit, AxiProt, AxiResp
 
 from .address_space import MemoryInterface, Window, WindowPool
-from .address_space import Region, MemoryRegion, PeripheralRegion
+from .address_space import Region, MemoryRegion, SparseMemoryRegion, PeripheralRegion
 from .address_space import AddressSpace, Pool
 
 from .axis import AxiStreamFrame, AxiStreamBus, AxiStreamSource, AxiStreamSink, AxiStreamMonitor

@@ -25,6 +25,7 @@ THE SOFTWARE.
 import mmap
 
 from .buddy_allocator import BuddyAllocator
+from .sparse_memory import SparseMemory
 from .utils import hexdump, hexdump_lines, hexdump_str
 
 
@@ -214,6 +215,35 @@ class MemoryRegion(Region):
 
     def __bytes__(self):
         return bytes(self.mem)
+
+
+class SparseMemoryRegion(Region):
+    def __init__(self, size=2**64, mem=None, **kwargs):
+        super().__init__(size, **kwargs)
+        if mem is None:
+            mem = SparseMemory(size)
+        self.mem = mem
+
+    async def _read(self, address, length, **kwargs):
+        return self.mem.read(address, length)
+
+    async def _write(self, address, data, **kwargs):
+        self.mem.write(address, data)
+
+    def hexdump(self, address, length, prefix=""):
+        self.mem.hexdump(address, length, prefix=prefix)
+
+    def hexdump_lines(self, address, length, prefix=""):
+        return self.mem.hexdump_lines(address, length, prefix=prefix)
+
+    def hexdump_str(self, address, length, prefix=""):
+        return self.mem.hexdump_str(address, length, prefix=prefix)
+
+    def __getitem__(self, key):
+        return self.mem[key]
+
+    def __setitem__(self, key, value):
+        self.mem[key] = value
 
 
 class PeripheralRegion(Region):
