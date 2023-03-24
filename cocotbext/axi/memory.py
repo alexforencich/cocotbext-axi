@@ -36,10 +36,10 @@ class Memory:
         super().__init__(**kwargs)
 
     def read(self, address, length):
-        return self.mem.read(address, length)
+        return self.mem[address:address+length]
 
     def write(self, address, data):
-        self.mem.write(address, data)
+        self.mem[address:address+len(data)] = data
 
     def write_words(self, address, data, byteorder='little', ws=2):
         words = data
