@@ -155,7 +155,7 @@ It is also possible to extend these modules; operation can be customized by over
 
 ### AXI and AXI lite RAM
 
-The `AxiRam` and `AxiLiteRam` classes implement AXI RAMs and are capable of completing read and write operations from upstream AXI masters.  The `AxiRam` module is capable of handling narrow bursts.  These modules are extensions of the corresponding `AxiSlave` and `AxiLiteSlave` modules.
+The `AxiRam` and `AxiLiteRam` classes implement AXI RAMs and are capable of completing read and write operations from upstream AXI masters.  The `AxiRam` module is capable of handling narrow bursts.  These modules are extensions of the corresponding `AxiSlave` and `AxiLiteSlave` modules.  Internally, `SparseMemory` is used to support emulating very large memories.
 
 The `AxiRam` is a wrapper around `AxiRamWrite` and `AxiRamRead`.  Similarly, `AxiLiteRam` is a wrapper around `AxiLiteRamWrite` and `AxiLiteRamRead`.  If a read-only or write-only interface is required instead of a full interface, use the corresponding read-only or write-only variant, the usage and API are exactly the same.
 
@@ -163,7 +163,7 @@ To use these modules, import the one you need and connect it to the DUT:
 
     from cocotbext.axi import AxiBus, AxiRam
 
-    axi_ram = AxiRam(AxiBus.from_prefix(dut, "m_axi"), dut.clk, dut.rst, size=2**16)
+    axi_ram = AxiRam(AxiBus.from_prefix(dut, "m_axi"), dut.clk, dut.rst, size=2**32)
 
 The first argument to the constructor accepts an `AxiBus` or `AxiLiteBus` object.  These objects are containers for the interface signals and include class methods to automate connections.
 
@@ -175,7 +175,7 @@ Once the module is instantiated, the memory contents can be accessed in a couple
 
 Multi-port memories can be constructed by passing the `mem` object of the first instance to the other instances.  For example, here is how to create a four-port RAM:
 
-    axi_ram_p1 = AxiRam(AxiBus.from_prefix(dut, "m00_axi"), dut.clk, dut.rst, size=2**16)
+    axi_ram_p1 = AxiRam(AxiBus.from_prefix(dut, "m00_axi"), dut.clk, dut.rst, size=2**32)
     axi_ram_p2 = AxiRam(AxiBus.from_prefix(dut, "m01_axi"), dut.clk, dut.rst, mem=axi_ram_p1.mem)
     axi_ram_p3 = AxiRam(AxiBus.from_prefix(dut, "m02_axi"), dut.clk, dut.rst, mem=axi_ram_p1.mem)
     axi_ram_p4 = AxiRam(AxiBus.from_prefix(dut, "m03_axi"), dut.clk, dut.rst, mem=axi_ram_p1.mem)
@@ -186,12 +186,12 @@ Multi-port memories can be constructed by passing the `mem` object of the first 
 * _clock_: clock signal
 * _reset_: reset signal (optional)
 * _reset_active_level_: reset active level (optional, default `True`)
-* _size_: memory size in bytes (optional, default 1024)
-* _mem_: mmap object to use (optional, overrides _size_)
+* _size_: memory size in bytes (optional, default `2**64`)
+* _mem_: `mmap` or `SparseMemory` backing object to use (optional, overrides _size_)
 
 #### Attributes:
 
-* _mem_: directly access shared `mmap` object
+* _mem_: directly access shared `mmap` or `SparseMemory` backing object
 
 #### Methods
 
@@ -334,6 +334,8 @@ The address space abstraction provides a framework for cross-connecting multiple
 
 `MemoryRegion` is an extension of `Region` that uses an `mmap` instance to handle memory operations.  `MemoryRegion` also provides hex dump methods as well as indexing and slicing.
 
+`SparseMemoryRegion` is similar to `MemoryRegion` but is backed by `SparseMemory` instead of `mmap` and as such can emulate extremely large regions of address space.
+
 `PeripheralRegion` is an extension of `Region` that can wrap another object that implements `read()` and `write()`, as an alternative to extending `Region`.
 
 `AddressSpace` is the core object for handling address spaces.  `Region` objects can be registered with `AddressSpace` with specified base address, size, and offset.  The `AddressSpace` object will then direct `read()` and `write()` operations to the appropriate `Region`s, splitting requests appropriately when necessary and translating addresses.  Regions registered with `offset` other than `None` are translated such that accesses to base address + N map to N + offset.  Regions registered with an `offset` of `None` are not translated.  `Region` objects registered with the same `AddressSpace` cannot overlap, however the same `Region` can be registered multiple times.  `AddressSpace` also provides a method for creating `Pool` objects.
@@ -344,14 +346,14 @@ The address space abstraction provides a framework for cross-connecting multiple
 
 This is a simple example that shows how the address space abstraction components can be used to connect a DUT to a simulated host system, including simulated RAM, an AXI interface from the DUT for DMA, and an AXI lite interface to the DUT for control.
 
-    from cocotbext.axi import AddressSpace, MemoryRegion
+    from cocotbext.axi import AddressSpace, SparseMemoryRegion
     from cocotbext.axi import AxiBus, AxiLiteMaster, AxiSlave
 
     # system address space
     address_space = AddressSpace(2**32)
 
     # RAM
-    ram = MemoryRegion(2**24)
+    ram = SparseMemoryRegion(2**24)
     address_space.register_region(ram, 0x0000_0000)
     ram_pool = address_space.create_window_pool(0x0000_0000, 2**20)
 
