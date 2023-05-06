@@ -771,9 +771,9 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
         if self.deinterleave is None:
             num_frames = 1
         if self.deinterleave is "tid":
-            num_frames = len(self.bus.tid)
+            num_frames = pow(2, len(self.bus.tid))
         if self.deinterleave is "tdest":
-            num_frames = len(self.bus.tdest)
+            num_frames = pow(2, len(self.bus.tdest))
 
         frames = [None for _ in range(num_frames)]
         self.active = False
