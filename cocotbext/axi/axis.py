@@ -33,6 +33,8 @@ from cocotb_bus.bus import Bus
 from .version import __version__
 from .reset import Reset
 
+from functools import reduce
+
 
 class AxiStreamFrame:
     def __init__(self, tdata=b'', tkeep=None, tid=None, tdest=None, tuser=None, tx_complete=None):
@@ -736,8 +738,9 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
     _ready_init = 0
 
     def __init__(self, bus, clock, reset=None, reset_active_level=True,
-            byte_size=None, byte_lanes=None, *args, **kwargs):
+            byte_size=None, byte_lanes=None, deinterleave=None, *args, **kwargs):
 
+        self.deinterleave = deinterleave
         self.queue_occupancy_limit_bytes = -1
         self.queue_occupancy_limit_frames = -1
 
@@ -765,7 +768,14 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
         self.wake_event.set()
 
     async def _run(self):
-        frame = None
+        if self.deinterleave is None:
+            num_frames = 1
+        if self.deinterleave is "tid":
+            num_frames = len(self.bus.tid)
+        if self.deinterleave is "tdest":
+            num_frames = len(self.bus.tdest)
+
+        frames = [None for _ in range(num_frames)]
         self.active = False
 
         has_tready = hasattr(self.bus, "tready")
@@ -790,6 +800,15 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
             tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
 
             if tready_sample and tvalid_sample:
+                if self.deinterleave is None:
+                    qid = 0
+                if self.deinterleave is "tid":
+                    qid = self.bus.tid.value
+                if self.deinterleave is "tdest":
+                    qid = self.bus.tdest.value
+
+                frame = frames[qid]
+
                 if not frame:
                     if self.byte_size == 8:
                         frame = AxiStreamFrame(bytearray(), [], [], [], [])
@@ -820,8 +839,10 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
                     self.active_event.set()
 
                     frame = None
+
+                frames[qid] = frame
             else:
-                self.active = bool(frame)
+                self.active = reduce(lambda r, f: r or bool(f), frames, False)
 
             if has_tready:
                 self.bus.tready.value = (not self.full() and not pause_sample)

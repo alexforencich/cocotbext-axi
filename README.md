@@ -246,6 +246,11 @@ To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()`/`re
 
     data = await axis_sink.recv()
 
+To de-interleave receive data, for example the `deinterleave` parameter can be set on the `AxiStreamSink` constructor. This causes calls to `read()` and `recv()` to return data sorted by `tid` ot `tdest`, returned in order of transaction completion time.
+
+    axis_sink = AxiStreamSink(AxiStreamBus.from_prefix(dut, "m_axis"), dut.clk, dut.rst, deinterleave="tid")
+    data = await axis_sink.recv()
+
 #### Signals
 
 * `tdata`: data, required
