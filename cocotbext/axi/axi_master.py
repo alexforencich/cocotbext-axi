@@ -198,7 +198,10 @@ class AxiMasterWrite(Region, Reset):
         self.bus = bus
         self.clock = clock
         self.reset = reset
-        self.log = logging.getLogger(f"cocotb.{bus.aw._entity._name}.{bus.aw._name}")
+        if bus.aw._name:
+            self.log = logging.getLogger(f"cocotb.{bus.aw._entity._name}.{bus.aw._name}")
+        else:
+            self.log = logging.getLogger(f"cocotb.{bus.aw._entity._name}")
 
         self.log.info("AXI master (write)")
         self.log.info("cocotbext-axi version %s", __version__)
@@ -637,7 +640,10 @@ class AxiMasterRead(Region, Reset):
         self.bus = bus
         self.clock = clock
         self.reset = reset
-        self.log = logging.getLogger(f"cocotb.{bus.ar._entity._name}.{bus.ar._name}")
+        if bus.ar._name:
+            self.log = logging.getLogger(f"cocotb.{bus.ar._entity._name}.{bus.ar._name}")
+        else:
+            self.log = logging.getLogger(f"cocotb.{bus.ar._entity._name}")
 
         self.log.info("AXI master (read)")
         self.log.info("cocotbext-axi version %s", __version__)

@@ -38,7 +38,10 @@ class AxiSlaveWrite(Reset):
         self.clock = clock
         self.reset = reset
         self.target = target
-        self.log = logging.getLogger(f"cocotb.{bus.aw._entity._name}.{bus.aw._name}")
+        if bus.aw._name:
+            self.log = logging.getLogger(f"cocotb.{bus.aw._entity._name}.{bus.aw._name}")
+        else:
+            self.log = logging.getLogger(f"cocotb.{bus.aw._entity._name}")
 
         self.log.info("AXI slave model (write)")
         self.log.info("cocotbext-axi version %s", __version__)
@@ -206,7 +209,10 @@ class AxiSlaveRead(Reset):
         self.clock = clock
         self.reset = reset
         self.target = target
-        self.log = logging.getLogger(f"cocotb.{bus.ar._entity._name}.{bus.ar._name}")
+        if bus.ar._name:
+            self.log = logging.getLogger(f"cocotb.{bus.ar._entity._name}.{bus.ar._name}")
+        else:
+            self.log = logging.getLogger(f"cocotb.{bus.ar._entity._name}")
 
         self.log.info("AXI slave model (read)")
         self.log.info("cocotbext-axi version %s", __version__)
