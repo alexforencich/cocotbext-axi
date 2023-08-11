@@ -26,6 +26,7 @@ THE SOFTWARE.
 import itertools
 import logging
 import os
+import random
 
 import cocotb_test.simulator
 import pytest
@@ -125,6 +126,13 @@ def cycle_pause():
     return itertools.cycle([1, 1, 1, 0])
 
 
+def cycle_random():
+    async def ret():
+        while True:
+            yield bool(random.getrandbits(1))
+    return ret
+
+
 def size_list():
     data_width = len(cocotb.top.axis_tdata)
     byte_width = data_width // 8
@@ -140,8 +148,8 @@ if cocotb.SIM_NAME:
     factory = TestFactory(run_test)
     factory.add_option("payload_lengths", [size_list])
     factory.add_option("payload_data", [incrementing_payload])
-    factory.add_option("idle_inserter", [None, cycle_pause])
-    factory.add_option("backpressure_inserter", [None, cycle_pause])
+    factory.add_option("idle_inserter", [None, cycle_pause, cycle_random])
+    factory.add_option("backpressure_inserter", [None, cycle_pause, cycle_random])
     factory.generate_tests()
 
 

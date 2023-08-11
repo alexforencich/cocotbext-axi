@@ -23,6 +23,7 @@ THE SOFTWARE.
 """
 
 import logging
+import inspect
 
 import cocotb
 from cocotb.queue import Queue, QueueFull
@@ -413,9 +414,14 @@ class AxiStreamPause:
     async def _run_pause(self):
         clock_edge_event = RisingEdge(self.clock)
 
-        for val in self._pause_generator:
-            self.pause = val
-            await clock_edge_event
+        if inspect.isasyncgenfunction(self._pause_generator):
+            async for val in self._pause_generator():
+                self.pause = val
+                await clock_edge_event
+        else:
+            for val in self._pause_generator:
+                self.pause = val
+                await clock_edge_event
 
 
 class AxiStreamSource(AxiStreamBase, AxiStreamPause):

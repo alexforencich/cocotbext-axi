@@ -285,13 +285,20 @@ def cycle_pause():
     return itertools.cycle([1, 1, 1, 0])
 
 
+def cycle_random():
+    async def ret():
+        while True:
+            yield bool(random.getrandbits(1))
+    return ret
+
+
 if cocotb.SIM_NAME:
 
     for test in [run_test_write, run_test_read]:
 
         factory = TestFactory(test)
-        factory.add_option("idle_inserter", [None, cycle_pause])
-        factory.add_option("backpressure_inserter", [None, cycle_pause])
+        factory.add_option("idle_inserter", [None, cycle_pause, cycle_random])
+        factory.add_option("backpressure_inserter", [None, cycle_pause, cycle_random])
         factory.generate_tests()
 
     for test in [run_test_write_words, run_test_read_words]:
