@@ -10,5 +10,5 @@ __pycache__/
 
 
 .tox
-sim_build_*
-.coverage
+**/sim_build*
+.coverage*
