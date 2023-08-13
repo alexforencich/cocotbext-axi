@@ -784,7 +784,7 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
         wake_event = self.wake_event.wait()
 
         while True:
-            pause_sample = self.pause
+            pause_sample = bool(self.pause)
 
             await clock_edge_event
 
@@ -827,8 +827,14 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
                 self.active = bool(frame)
 
             if has_tready:
-                self.bus.tready.value = (not self.full() and not pause_sample)
+                paused = self.full() or pause_sample
 
-            if not tvalid_sample or (self.pause and pause_sample) or self.full():
-                self.wake_event.clear()
-                await wake_event
+                self.bus.tready.value = not paused
+
+                if (not tvalid_sample or paused) and (pause_sample == bool(self.pause)):
+                    self.wake_event.clear()
+                    await wake_event
+            else:
+                if not tvalid_sample:
+                    self.wake_event.clear()
+                    await wake_event

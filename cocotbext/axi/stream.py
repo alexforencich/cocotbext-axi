@@ -398,7 +398,7 @@ class StreamSink(StreamMonitor, StreamPause):
         wake_event = self.wake_event.wait()
 
         while True:
-            pause_sample = self.pause
+            pause_sample = bool(self.pause)
 
             await clock_edge_event
 
@@ -413,11 +413,17 @@ class StreamSink(StreamMonitor, StreamPause):
                 self.active_event.set()
 
             if has_ready:
-                self.ready.value = (not self.full() and not pause_sample)
+                paused = self.full() or pause_sample
 
-            if not valid_sample or (self.pause and pause_sample) or self.full():
-                self.wake_event.clear()
-                await wake_event
+                self.ready.value = not paused
+
+                if (not valid_sample or paused) and (pause_sample == bool(self.pause)):
+                    self.wake_event.clear()
+                    await wake_event
+            else:
+                if not valid_sample:
+                    self.wake_event.clear()
+                    await wake_event
 
 
 def define_stream(name, signals, optional_signals=None, valid_signal=None, ready_signal=None, signal_widths=None):
