@@ -249,24 +249,27 @@ class StreamSource(StreamBase, StreamPause):
                 self.valid.value = 0
 
     async def _run(self):
+        has_valid = self.valid is not None
+        has_ready = self.ready is not None
+
         clock_edge_event = RisingEdge(self.clock)
 
         while True:
             await clock_edge_event
 
             # read handshake signals
-            ready_sample = self.ready is None or self.ready.value
-            valid_sample = self.valid is None or self.valid.value
+            ready_sample = not has_ready or self.ready.value
+            valid_sample = not has_valid or self.valid.value
 
             if (ready_sample and valid_sample) or (not valid_sample):
                 if not self.queue.empty() and not self.pause:
                     self.bus.drive(self.queue.get_nowait())
                     self.dequeue_event.set()
-                    if self.valid is not None:
+                    if has_valid:
                         self.valid.value = 1
                     self.active = True
                 else:
-                    if self.valid is not None:
+                    if has_valid:
                         self.valid.value = 0
                     self.active = not self.queue.empty()
                     if self.queue.empty():
@@ -331,6 +334,9 @@ class StreamMonitor(StreamBase):
             self.wake_event.set()
 
     async def _run(self):
+        has_valid = self.valid is not None
+        has_ready = self.ready is not None
+
         clock_edge_event = RisingEdge(self.clock)
 
         wake_event = self.wake_event.wait()
@@ -339,8 +345,8 @@ class StreamMonitor(StreamBase):
             await clock_edge_event
 
             # read handshake signals
-            ready_sample = self.ready is None or self.ready.value
-            valid_sample = self.valid is None or self.valid.value
+            ready_sample = not has_ready or self.ready.value
+            valid_sample = not has_valid or self.valid.value
 
             if ready_sample and valid_sample:
                 obj = self._transaction_obj()
@@ -384,6 +390,9 @@ class StreamSink(StreamMonitor, StreamPause):
         self.wake_event.set()
 
     async def _run(self):
+        has_valid = self.valid is not None
+        has_ready = self.ready is not None
+
         clock_edge_event = RisingEdge(self.clock)
 
         wake_event = self.wake_event.wait()
@@ -394,8 +403,8 @@ class StreamSink(StreamMonitor, StreamPause):
             await clock_edge_event
 
             # read handshake signals
-            ready_sample = self.ready is None or self.ready.value
-            valid_sample = self.valid is None or self.valid.value
+            ready_sample = not has_ready or self.ready.value
+            valid_sample = not has_valid or self.valid.value
 
             if ready_sample and valid_sample:
                 obj = self._transaction_obj()
@@ -403,7 +412,7 @@ class StreamSink(StreamMonitor, StreamPause):
                 self.queue.put_nowait(obj)
                 self.active_event.set()
 
-            if self.ready is not None:
+            if has_ready:
                 self.ready.value = (not self.full() and not pause_sample)
 
             if not valid_sample or (self.pause and pause_sample) or self.full():
