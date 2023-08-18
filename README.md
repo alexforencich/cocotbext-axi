@@ -253,6 +253,7 @@ To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()`/`re
 * `tready`: indicates sink is ready for data; optional, assumed `1` when absent
 * `tlast`: marks the last cycle of a frame; optional, assumed `1` when absent
 * `tkeep`: qualifies data byte, data bus width must be evenly divisible by `tkeep` signal width; optional, assumed `1` when absent
+* `tstrb`: qualifies data byte, data bus width must be evenly divisible by `tstrb` signal width; optional, assumed equal to `tkeep` when absent
 * `tid`: ID signal, can be used for routing; optional, assumed `0` when absent
 * `tdest`: destination signal, can be used for routing; optional, assumed `0` when absent
 * `tuser`: additional user data; optional, assumed `0` when absent
@@ -266,7 +267,7 @@ To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()`/`re
 * _byte_size_: byte size (optional)
 * _byte_lanes_: byte lane count (optional)
 
-Note: _byte_size_, _byte_lanes_, `len(tdata)`, and `len(tkeep)` are all related, in that _byte_lanes_ is set from `tkeep` if it is connected, and `byte_size*byte_lanes == len(tdata)`.  So, if `tkeep` is connected, both _byte_size_ and _byte_lanes_ will be computed internally and cannot be overridden.  If `tkeep` is not connected, then either _byte_size_ or _byte_lanes_ can be specified, and the other will be computed such that `byte_size*byte_lanes == len(tdata)`.
+Note: _byte_size_, _byte_lanes_, `len(tdata)`, `len(tkeep)`, and `len(tstrb)` are all related, in that _byte_lanes_ is set from `tkeep` or `tstrb` if either is connected, and `byte_size*byte_lanes == len(tdata)`.  So, if either `tkeep` or `tstrb` is connected, both _byte_size_ and _byte_lanes_ will be computed internally and cannot be overridden.  If `tkeep` and `tstrb` is not connected, then either _byte_size_ or _byte_lanes_ can be specified, and the other will be computed such that `byte_size*byte_lanes == len(tdata)`.
 
 #### Attributes:
 
@@ -302,12 +303,13 @@ The `AxiStreamBus` object is a container for the interface signals.  Currently, 
 
 #### `AxiStreamFrame` object
 
-The `AxiStreamFrame` object is a container for a frame to be transferred via AXI stream.  The `tdata` field contains the packet data in the form of a list of bytes, which is either a `bytearray` if the byte size is 8 bits or a `list` of `int`s otherwise.  `tkeep`, `tid`, `tdest`, and `tuser` can either be `None`, an `int`, or a `list` of `int`s.
+The `AxiStreamFrame` object is a container for a frame to be transferred via AXI stream.  The `tdata` field contains the packet data in the form of a list of bytes, which is either a `bytearray` if the byte size is 8 bits or a `list` of `int`s otherwise.  `tkeep`, `tstrb`, `tid`, `tdest`, and `tuser` can either be `None`, an `int`, or a `list` of `int`s.
 
 Attributes:
 
 * `tdata`: bytes, bytearray, or list
 * `tkeep`: tkeep field, optional; list, each entry qualifies the corresponding entry in `tdata`.  Can be used to insert gaps on the source side.
+* `tstrb`: tstrb field, optional; list, each entry qualifies the corresponding entry in `tdata`.  Used to signal padding bytes.
 * `tid`: tid field, optional; int or list with one entry per `tdata`, last value used per cycle when sending.
 * `tdest`: tdest field, optional; int or list with one entry per `tdata`, last value used per cycle when sending.
 * `tuser`: tuser field, optional; int or list with one entry per `tdata`, last value used per cycle when sending.
@@ -317,8 +319,8 @@ Attributes:
 
 Methods:
 
-* `normalize()`: pack `tkeep`, `tid`, `tdest`, and `tuser` to the same length as `tdata`, replicating last element if necessary, initialize `tkeep` to list of `1` and `tid`, `tdest`, and `tuser` to list of `0` if not specified.
-* `compact()`: remove `tdata`, `tid`, `tdest`, and `tuser` values based on `tkeep`, remove `tkeep`, compact `tid`, `tdest`, and `tuser` to an int if all values are identical.
+* `normalize()`: pack `tkeep`, `tstrb`, `tid`, `tdest`, and `tuser` to the same length as `tdata`, replicating last element if necessary, initialize `tkeep` to list of `1`, `tstrb` == `tkeep`, and `tid`, `tdest`, and `tuser` to list of `0` if not specified.
+* `compact()`: remove `tdata`, `tstrb`, `tid`, `tdest`, and `tuser` values based on `tkeep`, remove `tkeep`, compact `tid`, `tdest`, and `tuser` to an int if all values are identical.
 
 ### Address space abstraction
 

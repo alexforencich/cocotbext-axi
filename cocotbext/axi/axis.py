@@ -35,9 +35,10 @@ from .reset import Reset
 
 
 class AxiStreamFrame:
-    def __init__(self, tdata=b'', tkeep=None, tid=None, tdest=None, tuser=None, tx_complete=None):
+    def __init__(self, tdata=b'', tkeep=None, tstrb=None, tid=None, tdest=None, tuser=None, tx_complete=None):
         self.tdata = bytearray()
         self.tkeep = None
+        self.tstrb = None
         self.tid = None
         self.tdest = None
         self.tuser = None
@@ -52,6 +53,8 @@ class AxiStreamFrame:
                 self.tdata = list(tdata.tdata)
             if tdata.tkeep is not None:
                 self.tkeep = list(tdata.tkeep)
+            if tdata.tstrb is not None:
+                self.tstrb = list(tdata.tstrb)
             if tdata.tid is not None:
                 if type(tdata.tid) in (int, bool):
                     self.tid = tdata.tid
@@ -73,12 +76,14 @@ class AxiStreamFrame:
         elif type(tdata) in (bytes, bytearray):
             self.tdata = bytearray(tdata)
             self.tkeep = tkeep
+            self.tstrb = tstrb
             self.tid = tid
             self.tdest = tdest
             self.tuser = tuser
         else:
             self.tdata = list(tdata)
             self.tkeep = tkeep
+            self.tstrb = tstrb
             self.tid = tid
             self.tdest = tdest
             self.tuser = tuser
@@ -94,6 +99,11 @@ class AxiStreamFrame:
             self.tkeep = self.tkeep[:n] + [self.tkeep[-1]]*(n-len(self.tkeep))
         else:
             self.tkeep = [1]*n
+
+        if self.tstrb is not None:
+            self.tstrb = self.tstrb[:n] + [self.tstrb[-1]]*(n-len(self.tstrb))
+        else:
+            self.tstrb = self.tkeep
 
         if self.tid is not None:
             if type(self.tid) in (int, bool):
@@ -128,6 +138,8 @@ class AxiStreamFrame:
                         del self.tdata[k]
                     if k < len(self.tkeep):
                         del self.tkeep[k]
+                    if k < len(self.tstrb):
+                        del self.tstrb[k]
                     if k < len(self.tid):
                         del self.tid[k]
                     if k < len(self.tdest):
@@ -172,6 +184,10 @@ class AxiStreamFrame:
             if self.tkeep != other.tkeep:
                 return False
 
+        if self.tstrb is not None and other.tstrb is not None:
+            if self.tstrb != other.tstrb:
+                return False
+
         if self.tid is not None and other.tid is not None:
             if type(self.tid) in (int, bool) and type(other.tid) is list:
                 for k in other.tid:
@@ -214,6 +230,7 @@ class AxiStreamFrame:
         return (
             f"{type(self).__name__}(tdata={self.tdata!r}, "
             f"tkeep={self.tkeep!r}, "
+            f"tstrb={self.tstrb!r}, "
             f"tid={self.tid!r}, "
             f"tdest={self.tdest!r}, "
             f"tuser={self.tuser!r}, "
@@ -234,7 +251,7 @@ class AxiStreamFrame:
 class AxiStreamBus(Bus):
 
     _signals = ["tdata"]
-    _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tid", "tdest", "tuser"]
+    _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tstrb", "tid", "tdest", "tuser"]
 
     def __init__(self, entity=None, prefix=None, **kwargs):
         super().__init__(entity, prefix, self._signals, optional_signals=self._optional_signals, **kwargs)
@@ -251,7 +268,7 @@ class AxiStreamBus(Bus):
 class AxiStreamBase(Reset):
 
     _signals = ["tdata"]
-    _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tid", "tdest", "tuser"]
+    _optional_signals = ["tvalid", "tready", "tlast", "tkeep", "tstrb", "tid", "tdest", "tuser"]
 
     _type = "base"
 
@@ -309,6 +326,14 @@ class AxiStreamBase(Reset):
             self.byte_lanes = len(self.bus.tkeep)
             if byte_size is not None or byte_lanes is not None:
                 raise ValueError("Cannot specify byte_size or byte_lanes if tkeep is connected")
+            if hasattr(self.bus, "tstrb") and (len(self.bus.tstrb) != self.byte_lanes):
+                raise ValueError("tstrb must be the same width as tkeep")
+            
+        elif hasattr(self.bus, "tstrb"):
+            self.byte_lanes = len(self.bus.tstrb)
+            if byte_size is not None or byte_lanes is not None:
+                raise ValueError("Cannot specify byte_size or byte_lanes if tstrb is connected")
+            
         else:
             if byte_lanes is not None:
                 self.byte_lanes = byte_lanes
@@ -487,6 +512,8 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                 self.bus.tlast.value = 0
             if hasattr(self.bus, "tkeep"):
                 self.bus.tkeep.value = 0
+            if hasattr(self.bus, "tstrb"):
+                self.bus.tstrb.value = 0
             if hasattr(self.bus, "tid"):
                 self.bus.tid.value = 0
             if hasattr(self.bus, "tdest"):
@@ -508,6 +535,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
         has_tvalid = hasattr(self.bus, "tvalid")
         has_tlast = hasattr(self.bus, "tlast")
         has_tkeep = hasattr(self.bus, "tkeep")
+        has_tstrb = hasattr(self.bus, "tstrb")
         has_tid = hasattr(self.bus, "tid")
         has_tdest = hasattr(self.bus, "tdest")
         has_tuser = hasattr(self.bus, "tuser")
@@ -539,6 +567,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                     tdata_val = 0
                     tlast_val = 0
                     tkeep_val = 0
+                    tstrb_val = 0
                     tid_val = 0
                     tdest_val = 0
                     tuser_val = 0
@@ -546,6 +575,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                     for offset in range(self.byte_lanes):
                         tdata_val |= (frame.tdata[frame_offset] & self.byte_mask) << (offset * self.byte_size)
                         tkeep_val |= (frame.tkeep[frame_offset] & 1) << offset
+                        tstrb_val |= (frame.tstrb[frame_offset] & 1) << offset
                         tid_val = frame.tid[frame_offset]
                         tdest_val = frame.tdest[frame_offset]
                         tuser_val = frame.tuser[frame_offset]
@@ -566,6 +596,8 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                         self.bus.tlast.value = tlast_val
                     if has_tkeep:
                         self.bus.tkeep.value = tkeep_val
+                    if has_tstrb:
+                        self.bus.tstrb.value = tstrb_val
                     if has_tid:
                         self.bus.tid.value = tid_val
                     if has_tdest:
@@ -676,6 +708,7 @@ class AxiStreamMonitor(AxiStreamBase):
         has_tvalid = hasattr(self.bus, "tvalid")
         has_tlast = hasattr(self.bus, "tlast")
         has_tkeep = hasattr(self.bus, "tkeep")
+        has_tstrb = hasattr(self.bus, "tstrb")
         has_tid = hasattr(self.bus, "tid")
         has_tdest = hasattr(self.bus, "tdest")
         has_tuser = hasattr(self.bus, "tuser")
@@ -694,9 +727,9 @@ class AxiStreamMonitor(AxiStreamBase):
             if tready_sample and tvalid_sample:
                 if not frame:
                     if self.byte_size == 8:
-                        frame = AxiStreamFrame(bytearray(), [], [], [], [])
+                        frame = AxiStreamFrame(bytearray(), [], [], [], [], [])
                     else:
-                        frame = AxiStreamFrame([], [], [], [], [])
+                        frame = AxiStreamFrame([], [], [], [], [], [])
                     frame.sim_time_start = get_sim_time()
                     self.active = True
 
@@ -704,6 +737,8 @@ class AxiStreamMonitor(AxiStreamBase):
                     frame.tdata.append((self.bus.tdata.value.integer >> (offset * self.byte_size)) & self.byte_mask)
                     if has_tkeep:
                         frame.tkeep.append((self.bus.tkeep.value.integer >> offset) & 1)
+                    if has_tstrb:
+                        frame.tstrb.append((self.bus.tstrb.value.integer >> offset) & 1)
                     if has_tid:
                         frame.tid.append(self.bus.tid.value.integer)
                     if has_tdest:
@@ -775,6 +810,7 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
         has_tvalid = hasattr(self.bus, "tvalid")
         has_tlast = hasattr(self.bus, "tlast")
         has_tkeep = hasattr(self.bus, "tkeep")
+        has_tstrb = hasattr(self.bus, "tstrb")
         has_tid = hasattr(self.bus, "tid")
         has_tdest = hasattr(self.bus, "tdest")
         has_tuser = hasattr(self.bus, "tuser")
@@ -795,9 +831,9 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
             if tready_sample and tvalid_sample:
                 if not frame:
                     if self.byte_size == 8:
-                        frame = AxiStreamFrame(bytearray(), [], [], [], [])
+                        frame = AxiStreamFrame(bytearray(), [], [], [], [], [])
                     else:
-                        frame = AxiStreamFrame([], [], [], [], [])
+                        frame = AxiStreamFrame([], [], [], [], [], [])
                     frame.sim_time_start = get_sim_time()
                     self.active = True
 
@@ -805,6 +841,8 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
                     frame.tdata.append((self.bus.tdata.value.integer >> (offset * self.byte_size)) & self.byte_mask)
                     if has_tkeep:
                         frame.tkeep.append((self.bus.tkeep.value.integer >> offset) & 1)
+                    if has_tstrb:
+                        frame.tstrb.append((self.bus.tstrb.value.integer >> offset) & 1)
                     if has_tid:
                         frame.tid.append(self.bus.tid.value.integer)
                     if has_tdest:
