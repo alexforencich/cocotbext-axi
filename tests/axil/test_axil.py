@@ -289,6 +289,7 @@ def cycle_random():
     async def ret():
         while True:
             yield bool(random.getrandbits(1))
+            await Timer(random.randint(1, 100), 'ns')
     return ret
 
 

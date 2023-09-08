@@ -33,7 +33,7 @@ import pytest
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge
+from cocotb.triggers import RisingEdge, Timer
 from cocotb.regression import TestFactory
 
 from cocotbext.axi import AxiStreamFrame, AxiStreamBus, AxiStreamSource, AxiStreamSink, AxiStreamMonitor
@@ -130,6 +130,7 @@ def cycle_random():
     async def ret():
         while True:
             yield bool(random.getrandbits(1))
+            await Timer(random.randint(1, 100), 'ns')
     return ret
 
 

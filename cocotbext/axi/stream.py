@@ -201,7 +201,6 @@ class StreamPause:
         if inspect.isasyncgenfunction(self._pause_generator):
             async for val in self._pause_generator():
                 self.pause = val
-                await clock_edge_event
         else:
             for val in self._pause_generator:
                 self.pause = val
