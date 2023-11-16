@@ -39,7 +39,7 @@ from cocotbext.axi import AxiStreamFrame, AxiStreamBus, AxiStreamSource, AxiStre
 
 
 class TB:
-    def __init__(self, dut):
+    def __init__(self, dut, interleave):
         self.dut = dut
 
         self.log = logging.getLogger("cocotb.tb")
@@ -47,9 +47,9 @@ class TB:
 
         cocotb.start_soon(Clock(dut.clk, 2, units="ns").start())
 
-        self.source = AxiStreamSource(AxiStreamBus.from_prefix(dut, "axis"), dut.clk, dut.rst)
-        self.sink = AxiStreamSink(AxiStreamBus.from_prefix(dut, "axis"), dut.clk, dut.rst)
-        self.monitor = AxiStreamMonitor(AxiStreamBus.from_prefix(dut, "axis"), dut.clk, dut.rst)
+        self.source = AxiStreamSource(AxiStreamBus.from_prefix(dut, "axis"), dut.clk, dut.rst, interleave=interleave)
+        self.sink = AxiStreamSink(AxiStreamBus.from_prefix(dut, "axis"), dut.clk, dut.rst, interleave=interleave)
+        self.monitor = AxiStreamMonitor(AxiStreamBus.from_prefix(dut, "axis"), dut.clk, dut.rst, interleave=interleave)
 
     def set_idle_generator(self, generator=None):
         if generator:
@@ -71,9 +71,9 @@ class TB:
         await RisingEdge(self.dut.clk)
 
 
-async def run_test(dut, payload_lengths=None, payload_data=None, idle_inserter=None, backpressure_inserter=None):
+async def run_test(dut, payload_lengths=None, payload_data=None, idle_inserter=None, backpressure_inserter=None, interleave=None):
 
-    tb = TB(dut)
+    tb = TB(dut,interleave)
 
     id_count = 2**len(tb.source.bus.tid)
 
@@ -141,6 +141,7 @@ if cocotb.SIM_NAME:
     factory.add_option("payload_lengths", [size_list])
     factory.add_option("payload_data", [incrementing_payload])
     factory.add_option("idle_inserter", [None, cycle_pause])
+    factory.add_option("interleave", [None, "tid", "tdest", {"tid", "tdest"} ])
     factory.add_option("backpressure_inserter", [None, cycle_pause])
     factory.generate_tests()
 
