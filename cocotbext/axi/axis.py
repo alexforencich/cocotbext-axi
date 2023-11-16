@@ -790,7 +790,7 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
         self.queue_occupancy_limit_bytes = -1
         self.queue_occupancy_limit_frames = -1
 
-        super().__init__(bus, clock, reset, reset_active_level, byte_size, byte_lanes, interleave *args, **kwargs)
+        super().__init__(bus, clock, reset, reset_active_level, byte_size, byte_lanes, interleave, *args, **kwargs)
 
     def full(self):
         if self.queue_occupancy_limit_bytes > 0 and self.queue_occupancy_bytes > self.queue_occupancy_limit_bytes:
