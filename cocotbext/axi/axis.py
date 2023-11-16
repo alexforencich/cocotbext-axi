@@ -267,7 +267,9 @@ class AxiStreamBase(Reset):
             byte_size=None, byte_lanes=None, interleave=None, *args, **kwargs):
 
         self.bus = bus
-        self.interleave = interleave
+        self.interleave =interleave 
+        if not self.interleave:
+            self.interleave = {}
         self.clock = clock
         self.reset = reset
         self.log = logging.getLogger(f"cocotb.{bus._entity._name}.{bus._name}")
