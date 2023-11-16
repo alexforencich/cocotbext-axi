@@ -20,7 +20,7 @@
 
 TOPLEVEL_LANG = verilog
 
-SIM ?= verilator
+SIM ?= icarus
 WAVES ?= 0
 
 COCOTB_HDL_TIMEUNIT = 1ns
