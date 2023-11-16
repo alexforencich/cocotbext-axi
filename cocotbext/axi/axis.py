@@ -573,7 +573,8 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                 k = None
                 frame_offset = 0
                 if frames:
-                    k, frame = choice(frames) 
+                    k = choice([frames.keys()]) 
+                    frame = frames[k]
                     frame_offset = frame_offsets[k]
 
                 if frame and not self.pause:
