@@ -229,6 +229,8 @@ To use these modules, import the one you need and connect it to the DUT:
 
 The first argument to the constructor accepts an `AxiStreamBus` object.  This object is a container for the interface signals and includes class methods to automate connections.
 
+To allow `AxiStreamSource` to interleave data set the interleave parameter a dictionary containing `tid` and / or `tdest`. THe maximum interleave depth can also be set with `max_interleave_depth`. By default is is unbound.
+
 To send data into a design with an `AxiStreamSource`, call `send()`/`send_nowait()` or `write()`/`write_nowait()`.  Accepted data types are iterables or `AxiStreamFrame` objects.  Optionally, call `wait()` to wait for the transmit operation to complete.  Example:
 
     await axis_source.send(b'test data')
@@ -246,9 +248,9 @@ To receive data with an `AxiStreamSink` or `AxiStreamMonitor`, call `recv()`/`re
 
     data = await axis_sink.recv()
 
-To deinterleave receive data the `deinterleave` parameter can be set on the `AxiStreamSink` constructor. This causes calls to `read()` and `recv()` to return data sorted by `tid` ot `tdest`, returned in order of transaction completion time.
+To deinterleave receive data the `interleave` parameter can be set on the `AxiStreamSink` constructor. This causes calls to `read()` and `recv()` to return data sorted by `tid` ot `tdest`, returned in order of transaction completion time.
 
-    axis_sink = AxiStreamSink(AxiStreamBus.from_prefix(dut, "m_axis"), dut.clk, dut.rst, deinterleave="tid")
+    axis_sink = AxiStreamSink(AxiStreamBus.from_prefix(dut, "m_axis"), dut.clk, dut.rst, interleave="tid")
     data = await axis_sink.recv()
 
 #### Signals

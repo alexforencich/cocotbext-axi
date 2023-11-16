@@ -34,6 +34,7 @@ from .version import __version__
 from .reset import Reset
 
 from functools import reduce
+from random import choice
 
 
 class AxiStreamFrame:
@@ -263,9 +264,10 @@ class AxiStreamBase(Reset):
     _ready_init = None
 
     def __init__(self, bus, clock, reset=None, reset_active_level=True,
-            byte_size=None, byte_lanes=None, *args, **kwargs):
+            byte_size=None, byte_lanes=None, interleave=None, *args, **kwargs):
 
         self.bus = bus
+        self.interleave = interleave
         self.clock = clock
         self.reset = reset
         self.log = logging.getLogger(f"cocotb.{bus._entity._name}.{bus._name}")
@@ -277,10 +279,15 @@ class AxiStreamBase(Reset):
 
         super().__init__(*args, **kwargs)
 
+        if "tid" in self.interleave and not hasattr(self.bus, "tid"):
+            raise ValueError("Cannot interleave with tid on a bus without tid")
+        if "tdest" in self.interleave and not hasattr(self.bus, "tdest"):
+            raise ValueError("Cannot interleave with tdest on a bus without tdest")      
+
         self.active = False
         self.queue = Queue()
         self.dequeue_event = Event()
-        self.current_frame = None
+        self.current_frames = {}
         self.idle_event = Event()
         self.idle_event.set()
         self.active_event = Event()
@@ -427,14 +434,20 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
     _ready_init = None
 
     def __init__(self, bus, clock, reset=None, reset_active_level=True,
-            byte_size=None, byte_lanes=None, *args, **kwargs):
+            byte_size=None, byte_lanes=None, interleave=None, max_interleave_depth=None, *args, **kwargs):
 
-        super().__init__(bus, clock, reset, reset_active_level, byte_size, byte_lanes, *args, **kwargs)
+        super().__init__(bus, clock, reset, reset_active_level, byte_size, byte_lanes, interleave, *args, **kwargs)
 
+        self.max_interleave_depth = max_interleave_depth
         self.queue_occupancy_limit_bytes = -1
         self.queue_occupancy_limit_frames = -1
 
     async def send(self, frame):
+        # If interleaving enabled, check provided frame has the required parameter(s)
+        if "tid" in self.interleave and (frame.tid is None or type(frame.tid) is list):
+            raise ValueError("Sending a frame with interleaving on tid requires single tid be associated with the frame")
+        if "dest" in self.interleave and (frame.tdest is None or type(frame.tdest) is list):
+            raise ValueError("Sending a frame with interleaving on tdest requires single tdest be associated with the frame")
         while self.full():
             self.dequeue_event.clear()
             await self.dequeue_event.wait()
@@ -446,6 +459,11 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
         self.queue_occupancy_frames += 1
 
     def send_nowait(self, frame):
+        # If interleaving enabled, check provided frame has the required parameter(s)
+        if "tid" in self.interleave and (frame.tid is None or type(frame.tid) is list):
+            raise ValueError("Sending a frame with interleaving on tid requires single tid be associated with the frame")
+        if "dest" in self.interleave and (frame.tdest is None or type(frame.tdest) is list):
+            raise ValueError("Sending a frame with interleaving on tdest requires single tdest be associated with the frame")
         if self.full():
             raise QueueFull()
         frame = AxiStreamFrame(frame)
@@ -493,14 +511,19 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
             if hasattr(self.bus, "tuser"):
                 self.bus.tuser.value = 0
 
-            if self.current_frame:
-                self.log.warning("Flushed transmit frame during reset: %s", self.current_frame)
-                self.current_frame.handle_tx_complete()
-                self.current_frame = None
+            for current_frame in self.current_frames.values():
+                self.log.warning("Flushed transmit frame during reset: %s", current_frame)
+                current_frame.handle_tx_complete()
+            self.current_frames = {}
 
     async def _run(self):
-        frame = None
-        frame_offset = 0
+        # next frame hold the most recently popped frame from the Queue
+        # It may be held if the number of entries in frames is >= max_interleave_depth
+        next_frame = None
+        # Frames holds the in-flight frame for each of the interleaved stream
+        frames = {}
+        frame_offsets = {}
+
         self.active = False
 
         has_tready = hasattr(self.bus, "tready")
@@ -521,18 +544,35 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
             tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
 
             if (tready_sample and tvalid_sample) or not tvalid_sample:
-                if not frame and not self.queue.empty():
-                    frame = self.queue.get_nowait()
-                    self.dequeue_event.set()
-                    self.queue_occupancy_bytes -= len(frame)
-                    self.queue_occupancy_frames -= 1
-                    self.current_frame = frame
-                    frame.sim_time_start = get_sim_time()
-                    frame.sim_time_end = None
-                    self.log.info("TX frame: %s", frame)
-                    frame.normalize()
-                    self.active = True
-                    frame_offset = 0
+
+                # Pop a frame from the queue if we have space
+                if not next_frame and not self.queue.empty():
+                    next_frame = self.queue.get_nowait()
+
+                # Schedule the previously popped frame if that doesn't exceed our limits
+                if next_frame and (self.max_interleave_depth is None or len(frames) < self.max_interleave_depth):
+                    k = (next_frame.tid if "tid" in self.interleave else None, next_frame.tdest if "tdest" in self.interleave else None)
+                    if frames.get(k) == None:
+                        frame = next_frame
+                        next_frame = None
+                        self.dequeue_event.set()
+                        self.queue_occupancy_bytes -= len(frame)
+                        self.queue_occupancy_frames -= 1
+                        self.current_frames[k] = frame
+                        frame.sim_time_start = get_sim_time()
+                        frame.sim_time_end = None
+                        self.log.info("TX frame: %s", frame)
+                        frame.normalize()
+                        self.active = True
+                        frames[k] = frame   
+                        frame_offsets[k] = 0
+                
+                frame = None
+                k = None
+                frame_offset = 0
+                if frames:
+                    k, frame = choice(frames) 
+                    frame_offset = frame_offsets[k]
 
                 if frame and not self.pause:
                     tdata_val = 0
@@ -549,15 +589,17 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                         tdest_val = frame.tdest[frame_offset]
                         tuser_val = frame.tuser[frame_offset]
                         frame_offset += 1
+                        frame_offsets[k] = frame_offset
 
                         if frame_offset >= len(frame.tdata):
                             tlast_val = 1
                             frame.sim_time_end = get_sim_time()
                             frame.handle_tx_complete()
-                            frame = None
-                            self.current_frame = None
+                            del frames[k]
+                            del self.current_frames[k]
+                            del frame_offsets[k]
                             break
-
+                        
                     self.bus.tdata.value = tdata_val
                     if has_tvalid:
                         self.bus.tvalid.value = 1
@@ -576,8 +618,8 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                         self.bus.tvalid.value = 0
                     if has_tlast:
                         self.bus.tlast.value = 0
-                    self.active = bool(frame)
-                    if not frame and self.queue.empty():
+                    self.active = bool(frames)
+                    if not frames and self.empty():
                         self.idle_event.set()
                         self.active_event.clear()
 
@@ -594,9 +636,9 @@ class AxiStreamMonitor(AxiStreamBase):
     _ready_init = None
 
     def __init__(self, bus, clock, reset=None, reset_active_level=True,
-            byte_size=None, byte_lanes=None, *args, **kwargs):
+            byte_size=None, byte_lanes=None, interleave=None, *args, **kwargs):
 
-        super().__init__(bus, clock, reset, reset_active_level, byte_size, byte_lanes, *args, **kwargs)
+        super().__init__(bus, clock, reset, reset_active_level, byte_size, byte_lanes, interleave, *args, **kwargs)
 
         self.read_queue = []
 
@@ -668,7 +710,7 @@ class AxiStreamMonitor(AxiStreamBase):
             self.wake_event.set()
 
     async def _run(self):
-        frame = None
+        frames = {}
         self.active = False
 
         has_tready = hasattr(self.bus, "tready")
@@ -691,6 +733,9 @@ class AxiStreamMonitor(AxiStreamBase):
             tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
 
             if tready_sample and tvalid_sample:
+                k = (self.bus.tid.value if "tid" in self.interleave else None, self.bus.tdest.value if "tdest" in self.interleave else None)
+                frame = frames.pop(k)
+
                 if not frame:
                     if self.byte_size == 8:
                         frame = AxiStreamFrame(bytearray(), [], [], [], [])
@@ -719,8 +764,8 @@ class AxiStreamMonitor(AxiStreamBase):
 
                     self.queue.put_nowait(frame)
                     self.active_event.set()
-
-                    frame = None
+                else:
+                    frames[k] = frame
             else:
                 self.active = bool(frame)
 
@@ -738,13 +783,12 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
     _ready_init = 0
 
     def __init__(self, bus, clock, reset=None, reset_active_level=True,
-            byte_size=None, byte_lanes=None, deinterleave=None, *args, **kwargs):
+            byte_size=None, byte_lanes=None, interleave=None, *args, **kwargs):
 
-        self.deinterleave = deinterleave
         self.queue_occupancy_limit_bytes = -1
         self.queue_occupancy_limit_frames = -1
 
-        super().__init__(bus, clock, reset, reset_active_level, byte_size, byte_lanes, *args, **kwargs)
+        super().__init__(bus, clock, reset, reset_active_level, byte_size, byte_lanes, interleave *args, **kwargs)
 
     def full(self):
         if self.queue_occupancy_limit_bytes > 0 and self.queue_occupancy_bytes > self.queue_occupancy_limit_bytes:
@@ -768,14 +812,7 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
         self.wake_event.set()
 
     async def _run(self):
-        if self.deinterleave is None:
-            num_frames = 1
-        if self.deinterleave is "tid":
-            num_frames = pow(2, len(self.bus.tid))
-        if self.deinterleave is "tdest":
-            num_frames = pow(2, len(self.bus.tdest))
-
-        frames = [None for _ in range(num_frames)]
+        frames = {}
         self.active = False
 
         has_tready = hasattr(self.bus, "tready")
@@ -800,15 +837,9 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
             tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
 
             if tready_sample and tvalid_sample:
-                if self.deinterleave is None:
-                    qid = 0
-                if self.deinterleave is "tid":
-                    qid = self.bus.tid.value
-                if self.deinterleave is "tdest":
-                    qid = self.bus.tdest.value
-
-                frame = frames[qid]
-
+                k = (self.bus.tid.value if "tid" in self.interleave else None, self.bus.tdest.value if "tdest" in self.interleave else None)
+                frame = frames.pop(k)
+                
                 if not frame:
                     if self.byte_size == 8:
                         frame = AxiStreamFrame(bytearray(), [], [], [], [])
@@ -837,10 +868,8 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
 
                     self.queue.put_nowait(frame)
                     self.active_event.set()
-
-                    frame = None
-
-                frames[qid] = frame
+                else:
+                    frames[k] = frame
             else:
                 self.active = reduce(lambda r, f: r or bool(f), frames, False)
 
