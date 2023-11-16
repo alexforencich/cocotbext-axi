@@ -553,7 +553,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
 
                 # Schedule the previously popped frame if that doesn't exceed our limits
                 if next_frame and (self.max_interleave_depth is None or len(frames) < self.max_interleave_depth):
-                    k = (next_frame.tid if "tid" in self.interleave else None, next_frame.tdest if "tdest" in self.interleave else None)
+                    k = (int(next_frame.tid) if "tid" in self.interleave else None, int(next_frame.tdest) if "tdest" in self.interleave else None)
                     if frames.get(k) == None:
                         frame = next_frame
                         next_frame = None
@@ -573,7 +573,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                 k = None
                 frame_offset = 0
                 if frames:
-                    k = choice([frames.keys()]) 
+                    k = choice(list(frames.keys())) 
                     frame = frames[k]
                     frame_offset = frame_offsets[k]
 
@@ -736,8 +736,8 @@ class AxiStreamMonitor(AxiStreamBase):
             tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
 
             if tready_sample and tvalid_sample:
-                k = (self.bus.tid.value if "tid" in self.interleave else None, self.bus.tdest.value if "tdest" in self.interleave else None)
-                frame = frames.pop(k)
+                k = (int(self.bus.tid.value) if "tid" in self.interleave else None, int(self.bus.tdest.value) if "tdest" in self.interleave else None)
+                frame = frames.pop(k, None)
 
                 if not frame:
                     if self.byte_size == 8:
@@ -840,8 +840,8 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
             tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
 
             if tready_sample and tvalid_sample:
-                k = (self.bus.tid.value if "tid" in self.interleave else None, self.bus.tdest.value if "tdest" in self.interleave else None)
-                frame = frames.pop(k)
+                k = (int(self.bus.tid.value) if "tid" in self.interleave else None, int(self.bus.tdest.value) if "tdest" in self.interleave else None)
+                frame = frames.pop(k, None)
                 
                 if not frame:
                     if self.byte_size == 8:
