@@ -285,7 +285,7 @@ def cycle_pause():
     return itertools.cycle([1, 1, 1, 0])
 
 
-if cocotb.SIM_NAME:
+if hasattr(cocotb, 'SIM_NAME') and cocotb.SIM_NAME:
 
     for test in [run_test_write, run_test_read]:
 
