@@ -29,6 +29,7 @@ from cocotb.queue import Queue, QueueFull
 from cocotb.triggers import RisingEdge, Event, First, Timer
 from cocotb_bus.bus import Bus
 
+from .compat import apply_binstr
 from .reset import Reset
 
 
@@ -120,7 +121,7 @@ class StreamBase(Reset):
                     assert len(getattr(self.bus, sig)) == self._signal_widths[sig]
                 if self._init_x and sig not in (self._valid_signal, self._ready_signal):
                     v = getattr(self.bus, sig).value
-                    v.binstr = 'x'*len(v)
+                    v = apply_binstr(v, 'x'*len(v))
                     getattr(self.bus, sig).setimmediatevalue(v)
 
         self._run_cr = None
