@@ -29,7 +29,7 @@ from cocotb.queue import Queue, QueueFull
 from cocotb.triggers import RisingEdge, Event, First, Timer
 from cocotb_bus.bus import Bus
 
-from .compat import apply_binstr
+from .compat import apply_binstr, set_event
 from .reset import Reset
 
 
@@ -98,7 +98,7 @@ class StreamBase(Reset):
         self.queue = Queue()
         self.dequeue_event = Event()
         self.idle_event = Event()
-        self.idle_event.set()
+        set_event(self.idle_event)
         self.active_event = Event()
         self.wake_event = Event()
 
@@ -137,8 +137,8 @@ class StreamBase(Reset):
     def clear(self):
         while not self.queue.empty():
             self.queue.get_nowait()
-        self.dequeue_event.set()
-        self.idle_event.set()
+        set_event(self.dequeue_event)
+        set_event(self.idle_event)
         self.active_event.clear()
 
     def _handle_reset(self, state):
@@ -151,7 +151,7 @@ class StreamBase(Reset):
             self.active = False
 
             if self.queue.empty():
-                self.idle_event.set()
+                set_event(self.idle_event)
         else:
             self.log.info("Reset de-asserted")
             if self._run_cr is None:
@@ -221,14 +221,14 @@ class StreamSource(StreamBase, StreamPause):
             await self.dequeue_event.wait()
         await self.queue.put(obj)
         self.idle_event.clear()
-        self.active_event.set()
+        set_event(self.active_event)
 
     def send_nowait(self, obj):
         if self.full():
             raise QueueFull()
         self.queue.put_nowait(obj)
         self.idle_event.clear()
-        self.active_event.set()
+        set_event(self.active_event)
 
     def full(self):
         if self.queue_occupancy_limit > 0 and self.count() >= self.queue_occupancy_limit:
@@ -265,7 +265,7 @@ class StreamSource(StreamBase, StreamPause):
             if (ready_sample and valid_sample) or (not valid_sample):
                 if not self.queue.empty() and not self.pause:
                     self.bus.drive(self.queue.get_nowait())
-                    self.dequeue_event.set()
+                    set_event(self.dequeue_event)
                     if has_valid:
                         self.valid.value = 1
                     self.active = True
@@ -274,7 +274,7 @@ class StreamSource(StreamBase, StreamPause):
                         self.valid.value = 0
                     self.active = not self.queue.empty()
                     if self.queue.empty():
-                        self.idle_event.set()
+                        set_event(self.idle_event)
                         self.active_event.clear()
 
                         await self.active_event.wait()
@@ -325,14 +325,14 @@ class StreamMonitor(StreamBase):
 
         while True:
             await event
-            self.wake_event.set()
+            set_event(self.wake_event)
 
     async def _run_ready_monitor(self):
         event = RisingEdge(self.ready)
 
         while True:
             await event
-            self.wake_event.set()
+            set_event(self.wake_event)
 
     async def _run(self):
         has_valid = self.valid is not None
@@ -353,7 +353,7 @@ class StreamMonitor(StreamBase):
                 obj = self._transaction_obj()
                 self.bus.sample(obj)
                 self.queue.put_nowait(obj)
-                self.active_event.set()
+                set_event(self.active_event)
             else:
                 self.wake_event.clear()
                 await wake_event
@@ -385,10 +385,10 @@ class StreamSink(StreamMonitor, StreamPause):
                 self.ready.value = 0
 
     def _pause_update(self, val):
-        self.wake_event.set()
+        set_event(self.wake_event)
 
     def _dequeue(self, item):
-        self.wake_event.set()
+        set_event(self.wake_event)
 
     async def _run(self):
         has_valid = self.valid is not None
@@ -411,7 +411,7 @@ class StreamSink(StreamMonitor, StreamPause):
                 obj = self._transaction_obj()
                 self.bus.sample(obj)
                 self.queue.put_nowait(obj)
-                self.active_event.set()
+                set_event(self.active_event)
 
             if has_ready:
                 paused = self.full() or pause_sample

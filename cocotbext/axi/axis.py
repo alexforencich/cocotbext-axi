@@ -30,7 +30,7 @@ from cocotb.triggers import RisingEdge, Timer, First, Event
 from cocotb.utils import get_sim_time
 from cocotb_bus.bus import Bus
 
-from .compat import apply_binstr
+from .compat import apply_binstr, set_event
 from .version import __version__
 from .reset import Reset
 
@@ -158,7 +158,7 @@ class AxiStreamFrame:
 
     def handle_tx_complete(self):
         if isinstance(self.tx_complete, Event):
-            self.tx_complete.set(self)
+            set_event(self.tx_completeself)
         elif callable(self.tx_complete):
             self.tx_complete(self)
 
@@ -284,7 +284,7 @@ class AxiStreamBase(Reset):
         self.dequeue_event = Event()
         self.current_frame = None
         self.idle_event = Event()
-        self.idle_event.set()
+        set_event(self.idle_event)
         self.active_event = Event()
         self.wake_event = Event()
 
@@ -351,8 +351,8 @@ class AxiStreamBase(Reset):
             frame = self.queue.get_nowait()
             frame.sim_time_end = None
             frame.handle_tx_complete()
-        self.dequeue_event.set()
-        self.idle_event.set()
+        set_event(self.dequeue_event)
+        set_event(self.idle_event)
         self.active_event.clear()
         self.queue_occupancy_bytes = 0
         self.queue_occupancy_frames = 0
@@ -367,7 +367,7 @@ class AxiStreamBase(Reset):
             self.active = False
 
             if self.queue.empty():
-                self.idle_event.set()
+                set_event(self.idle_event)
         else:
             self.log.info("Reset de-asserted")
             if self._run_cr is None:
@@ -443,7 +443,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
         frame = AxiStreamFrame(frame)
         await self.queue.put(frame)
         self.idle_event.clear()
-        self.active_event.set()
+        set_event(self.active_event)
         self.queue_occupancy_bytes += len(frame)
         self.queue_occupancy_frames += 1
 
@@ -453,7 +453,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
         frame = AxiStreamFrame(frame)
         self.queue.put_nowait(frame)
         self.idle_event.clear()
-        self.active_event.set()
+        set_event(self.active_event)
         self.queue_occupancy_bytes += len(frame)
         self.queue_occupancy_frames += 1
 
@@ -525,7 +525,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
             if (tready_sample and tvalid_sample) or not tvalid_sample:
                 if not frame and not self.queue.empty():
                     frame = self.queue.get_nowait()
-                    self.dequeue_event.set()
+                    set_event(self.dequeue_event)
                     self.queue_occupancy_bytes -= len(frame)
                     self.queue_occupancy_frames -= 1
                     self.current_frame = frame
@@ -580,7 +580,7 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
                         self.bus.tlast.value = 0
                     self.active = bool(frame)
                     if not frame and self.queue.empty():
-                        self.idle_event.set()
+                        set_event(self.idle_event)
                         self.active_event.clear()
 
                         await self.active_event.wait()
@@ -660,14 +660,14 @@ class AxiStreamMonitor(AxiStreamBase):
 
         while True:
             await event
-            self.wake_event.set()
+            set_event(self.wake_event)
 
     async def _run_tready_monitor(self):
         event = RisingEdge(self.bus.tready)
 
         while True:
             await event
-            self.wake_event.set()
+            set_event(self.wake_event)
 
     async def _run(self):
         frame = None
@@ -720,7 +720,7 @@ class AxiStreamMonitor(AxiStreamBase):
                     self.queue_occupancy_frames += 1
 
                     self.queue.put_nowait(frame)
-                    self.active_event.set()
+                    set_event(self.active_event)
 
                     frame = None
             else:
@@ -763,10 +763,10 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
                 self.bus.tready.value = 0
 
     def _pause_update(self, val):
-        self.wake_event.set()
+        set_event(self.wake_event)
 
     def _dequeue(self, frame):
-        self.wake_event.set()
+        set_event(self.wake_event)
 
     async def _run(self):
         frame = None
@@ -821,7 +821,7 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
                     self.queue_occupancy_frames += 1
 
                     self.queue.put_nowait(frame)
-                    self.active_event.set()
+                    set_event(self.active_event)
 
                     frame = None
             else:

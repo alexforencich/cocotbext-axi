@@ -32,7 +32,15 @@ if cocotb_2x_or_newer:
     def apply_binstr(value, binstr):
         return LogicArray(binstr, range=value.range)
 
+    def set_event(event, data=None):
+        # Data needs to be set before
+        event.data = data
+        event.set()
+
 else:
     def apply_binstr(value, binstr):
         value.binstr = binstr
         return value
+
+    def set_event(event, data=None):
+        event.set(data)
