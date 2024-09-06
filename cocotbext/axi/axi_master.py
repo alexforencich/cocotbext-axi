@@ -31,6 +31,7 @@ from cocotb.queue import Queue
 from cocotb.triggers import Event
 
 from .version import __version__
+from .compat import set_event
 from .constants import AxiBurstType, AxiLockType, AxiProt, AxiResp
 from .axi_channels import AxiAWSource, AxiWSource, AxiBSink, AxiARSource, AxiRSink
 from .address_space import Region
@@ -227,7 +228,7 @@ class AxiMasterWrite(Region, Reset):
 
         self.in_flight_operations = 0
         self._idle = Event()
-        self._idle.set()
+        set_event(self._idle)
 
         self.address_width = len(self.aw_channel.bus.awaddr)
         self.id_width = len(self.aw_channel.bus.awid)
@@ -424,7 +425,7 @@ class AxiMasterWrite(Region, Reset):
 
     async def _write_wrapper(self, address, data, awid, burst, size,
             lock, cache, prot, qos, region, user, wuser, event):
-        event.set(await self.write(address, data, awid, burst, size,
+        set_event(event, await self.write(address, data, awid, burst, size,
                 lock, cache, prot, qos, region, user, wuser))
 
     def _handle_reset(self, state):
@@ -444,7 +445,7 @@ class AxiMasterWrite(Region, Reset):
             def flush_cmd(cmd):
                 self.log.warning("Flushed write operation during reset: %s", cmd)
                 if cmd.event:
-                    cmd.event.set(None)
+                    set_event(cmd.event)
 
             while not self.write_command_queue.empty():
                 cmd = self.write_command_queue.get_nowait()
@@ -462,7 +463,7 @@ class AxiMasterWrite(Region, Reset):
             self.active_id = Counter()
 
             self.in_flight_operations = 0
-            self._idle.set()
+            set_event(self._idle)
         else:
             self.log.info("Reset de-asserted")
             if self._process_write_cr is None:
@@ -627,12 +628,12 @@ class AxiMasterWrite(Region, Reset):
 
         write_resp = AxiWriteResp(cmd.address, cmd.length, resp, user)
 
-        cmd.event.set(write_resp)
+        set_event(cmd.event, write_resp)
 
         self.in_flight_operations -= 1
 
         if self.in_flight_operations == 0:
-            self._idle.set()
+            set_event(self._idle)
 
 
 class AxiMasterRead(Region, Reset):
@@ -667,7 +668,7 @@ class AxiMasterRead(Region, Reset):
 
         self.in_flight_operations = 0
         self._idle = Event()
-        self._idle.set()
+        set_event(self._idle)
 
         self.address_width = len(self.ar_channel.bus.araddr)
         self.id_width = len(self.ar_channel.bus.arid)
@@ -835,7 +836,7 @@ class AxiMasterRead(Region, Reset):
 
     async def _read_wrapper(self, address, length, arid, burst, size,
             lock, cache, prot, qos, region, user, event):
-        event.set(await self.read(address, length, arid, burst, size,
+        set_event(event, await self.read(address, length, arid, burst, size,
                 lock, cache, prot, qos, region, user))
 
     def _handle_reset(self, state):
@@ -854,7 +855,7 @@ class AxiMasterRead(Region, Reset):
             def flush_cmd(cmd):
                 self.log.warning("Flushed read operation during reset: %s", cmd)
                 if cmd.event:
-                    cmd.event.set(None)
+                    set_event(cmd.event)
 
             while not self.read_command_queue.empty():
                 cmd = self.read_command_queue.get_nowait()
@@ -872,7 +873,7 @@ class AxiMasterRead(Region, Reset):
             self.active_id = Counter()
 
             self.in_flight_operations = 0
-            self._idle.set()
+            set_event(self._idle)
         else:
             self.log.info("Reset de-asserted")
             if self._process_read_cr is None:
@@ -1027,12 +1028,12 @@ class AxiMasterRead(Region, Reset):
 
         read_resp = AxiReadResp(cmd.address, bytes(data), resp, user)
 
-        cmd.event.set(read_resp)
+        set_event(cmd.event, read_resp)
 
         self.in_flight_operations -= 1
 
         if self.in_flight_operations == 0:
-            self._idle.set()
+            set_event(self._idle)
 
 
 class AxiMaster(Region):

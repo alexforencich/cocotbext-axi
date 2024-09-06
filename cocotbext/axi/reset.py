@@ -56,7 +56,7 @@ class Reset:
 
     async def _run_reset(self, reset_signal, active_level):
         while True:
-            if bool(reset_signal.value):
+            if str(reset_signal.value) == '1':
                 await FallingEdge(reset_signal)
                 self._ext_reset = not active_level
                 self._update_reset()

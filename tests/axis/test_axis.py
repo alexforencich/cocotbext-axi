@@ -135,7 +135,7 @@ def incrementing_payload(length):
     return bytearray(itertools.islice(itertools.cycle(range(256)), length))
 
 
-if cocotb.SIM_NAME:
+if hasattr(cocotb, 'SIM_NAME') and cocotb.SIM_NAME:
 
     factory = TestFactory(run_test)
     factory.add_option("payload_lengths", [size_list])
