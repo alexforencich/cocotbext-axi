@@ -519,8 +519,8 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
             await clock_edge_event
 
             # read handshake signals
-            tready_sample = (not has_tready) or self.bus.tready.value
-            tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
+            tready_sample = (not has_tready) or str(self.bus.tready.value) == '1'
+            tvalid_sample = (not has_tvalid) or str(self.bus.tvalid.value) == '1'
 
             if (tready_sample and tvalid_sample) or not tvalid_sample:
                 if not frame and not self.queue.empty():
@@ -689,8 +689,8 @@ class AxiStreamMonitor(AxiStreamBase):
             await clock_edge_event
 
             # read handshake signals
-            tready_sample = (not has_tready) or self.bus.tready.value
-            tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
+            tready_sample = (not has_tready) or str(self.bus.tready.value) == '1'
+            tvalid_sample = (not has_tvalid) or str(self.bus.tvalid.value) == '1'
 
             if tready_sample and tvalid_sample:
                 if not frame:
@@ -712,7 +712,7 @@ class AxiStreamMonitor(AxiStreamBase):
                     if has_tuser:
                         frame.tuser.append(self.bus.tuser.value.integer)
 
-                if not has_tlast or self.bus.tlast.value:
+                if not has_tlast or str(self.bus.tlast.value) == '1':
                     frame.sim_time_end = get_sim_time()
                     self.log.info("RX frame: %s", frame)
 
@@ -790,8 +790,8 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
             await clock_edge_event
 
             # read handshake signals
-            tready_sample = (not has_tready) or self.bus.tready.value
-            tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
+            tready_sample = (not has_tready) or str(self.bus.tready.value) == '1'
+            tvalid_sample = (not has_tvalid) or str(self.bus.tvalid.value) == '1'
 
             if tready_sample and tvalid_sample:
                 if not frame:
@@ -813,7 +813,7 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
                     if has_tuser:
                         frame.tuser.append(self.bus.tuser.value.integer)
 
-                if not has_tlast or self.bus.tlast.value:
+                if not has_tlast or str(self.bus.tlast.value) == '1':
                     frame.sim_time_end = get_sim_time()
                     self.log.info("RX frame: %s", frame)
 

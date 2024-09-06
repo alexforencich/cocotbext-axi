@@ -259,8 +259,8 @@ class StreamSource(StreamBase, StreamPause):
             await clock_edge_event
 
             # read handshake signals
-            ready_sample = not has_ready or self.ready.value
-            valid_sample = not has_valid or self.valid.value
+            ready_sample = not has_ready or str(self.ready.value) == '1'
+            valid_sample = not has_valid or str(self.valid.value) == '1'
 
             if (ready_sample and valid_sample) or (not valid_sample):
                 if not self.queue.empty() and not self.pause:
@@ -346,8 +346,8 @@ class StreamMonitor(StreamBase):
             await clock_edge_event
 
             # read handshake signals
-            ready_sample = not has_ready or self.ready.value
-            valid_sample = not has_valid or self.valid.value
+            ready_sample = not has_ready or str(self.ready.value) == '1'
+            valid_sample = not has_valid or str(self.valid.value) == '1'
 
             if ready_sample and valid_sample:
                 obj = self._transaction_obj()
@@ -404,8 +404,8 @@ class StreamSink(StreamMonitor, StreamPause):
             await clock_edge_event
 
             # read handshake signals
-            ready_sample = not has_ready or self.ready.value
-            valid_sample = not has_valid or self.valid.value
+            ready_sample = not has_ready or str(self.ready.value) == '1'
+            valid_sample = not has_valid or str(self.valid.value) == '1'
 
             if ready_sample and valid_sample:
                 obj = self._transaction_obj()
