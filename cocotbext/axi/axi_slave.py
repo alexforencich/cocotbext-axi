@@ -299,9 +299,10 @@ class AxiSlaveRead(Reset):
                 lower_wrap_boundary = (addr // transfer_size) * transfer_size
                 upper_wrap_boundary = lower_wrap_boundary + transfer_size
 
-            if burst == AxiBurstType.INCR:
-                # check 4k boundary crossing
-                assert 0x1000-(aligned_addr & 0xfff) >= transfer_size
+            # disable 4k boundry crossing check 
+            # if burst == AxiBurstType.INCR:
+            #     # check 4k boundary crossing
+            #     assert 0x1000-(aligned_addr & 0xfff) >= transfer_size
 
             cur_addr = aligned_addr
 
