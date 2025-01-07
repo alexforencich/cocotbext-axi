@@ -284,8 +284,8 @@ class AxiSlaveRead(Reset):
             burst = AxiBurstType(int(getattr(ar, 'arburst', AxiBurstType.INCR)))
             prot = AxiProt(int(getattr(ar, 'arprot', AxiProt.NONSECURE)))
 
-            self.log.info("Read burst arid: 0x%x araddr: 0x%08x arlen: %d arsize: %d arprot: %s",
-                    arid, addr, length, size, prot)
+            #self.log.info("Read burst arid: 0x%x araddr: 0x%08x arlen: %d arsize: %d arprot: %s",
+            #        arid, addr, length, size, prot)
 
             num_bytes = 2**size
             assert 0 < num_bytes <= self.byte_lanes
