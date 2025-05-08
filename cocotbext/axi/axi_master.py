@@ -830,7 +830,7 @@ class AxiMasterRead(Region, Reset):
         cmd = AxiReadCmd(address, length, arid, burst, size, lock, cache, prot, qos, region, user, event)
         await self.read_command_queue.put(cmd)
 
-        await event.wait()
+        #await event.wait()
         return event.data
 
     async def _read_wrapper(self, address, length, arid, burst, size,

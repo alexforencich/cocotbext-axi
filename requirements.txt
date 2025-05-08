@@ -1,0 +1,4 @@
+cocotb==1.9.2
+cocotb-bus==0.2.1
+cocotb-test==0.2.6
+cocotbext-apb==0.1.2
