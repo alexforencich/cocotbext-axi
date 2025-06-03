@@ -7,6 +7,7 @@ import itertools
 import logging
 import os
 import pytest
+import asyncio
 from cocotb.triggers import RisingEdge, Timer
 from cocotb.binary import BinaryValue
 from cocotb.regression import TestFactory
@@ -279,7 +280,7 @@ async def axi_random_access(dut, idle_inserter=None, backpressure_inserter=None,
         random_awcache = random.choice(AWCACHE_VALUES)
         #await tb_axi.axi_master.write(addr, test_data, size=size, cache=random_awcache)
         await tb_axi.axi_master.write(addr, test_data, size=size, cache=AWCACHE_DEVICE_NON_BUFFERABLE)
-        #await Timer(30, 'ns')
+        # await Timer(1, 'ns')
     
     await Timer(100, 'ns')
     for iter in range(16):
@@ -298,6 +299,97 @@ async def axi_random_access(dut, idle_inserter=None, backpressure_inserter=None,
         random_arcache = random.choice(ARCACHE_VALUES)
         #await tb_axi.axi_master.read(addr, length, size=size, cache=random_arcache)
         await tb_axi.axi_master.read(addr, length, size=size, cache=ARCACHE_DEVICE_NON_BUFFERABLE)
+        #await tb_axi.axi_master.read(addr, length, size=size, cache=ARCACHE_WRITE_BACK_READ_AND_WRITE_ALLOC)
+        # await Timer(1, 'ns')
+
+        #await Timer(12, 'ns')
+
+    await RisingEdge(dut.aclk)
+    await Timer(random.randint(1, 2), 'us')
+
+    await Timer(100, 'ns')
+    return golden_value
+
+async def axi_random_access_stress (dut, idle_inserter=None, backpressure_inserter=None, size=None):
+    #yhyang:tb = TB_APB(dut, reset_sense=1)
+    tb = TB_CMSS(dut)
+    tb_apb = tb.tb_apb
+    tb_axi = tb.tb_axi
+
+    tb.tb_axi.init()
+    tb.tb_apb.init()
+
+    cocotb.start_soon(tb.timeout_watchdog(dut, 50, 'us'))
+
+    cache_apb_reg_blk = tb_apb.cache_apb_reg_blk
+
+    byte_lanes = tb_axi.axi_master.write_if.byte_lanes
+    max_burst_size = tb_axi.axi_master.write_if.max_burst_size
+
+
+    if size is None:
+        size = max_burst_size
+
+    await tb.cycle_reset()
+    await RisingEdge(dut.pclk)
+    #check Version register
+    read_op = await tb_apb.cache_apb_intf.read(0x0000)
+    ret = returned_val(read_op)
+
+    # Write START command
+    await tb_apb.cache_apb_intf.write(0x0200, 0x1)
+    await RisingEdge(dut.pclk)
+
+    # Read STATUS command until 0
+    ret = 1
+    while(ret == 1):
+        read_op = await tb_apb.cache_apb_intf.read(0x0204)
+        ret = returned_val(read_op)
+        await Timer(100, 'ns')
+
+    await Timer(10, 'us')
+
+    # sequential write to random addr/data. save data in dict
+    await RisingEdge(dut.aclk)
+    golden_value = {}
+    addr_list = [0x1000 * i for i in range(1, 5001)]  # 0x1000, 0x2000, ..., 0x10000
+
+    for iter in range(100):
+        print(f"Write : {iter}")
+        length = 64 # fixed
+        #addr = random.randint(0, 0x1000000000)
+        addr = addr_list[iter]
+        #TEST:addr = random.randint(0, 0)
+        addr = addr >> 6
+        addr = addr << 6
+        test_data = bytearray([random.randint(0,255) for x in range(length)])
+        tb_axi.log.info("addr = 0x%x", addr)
+
+        golden_value[addr] = test_data
+        random_awcache = random.choice(AWCACHE_VALUES)
+        await tb_axi.axi_master.write(addr, test_data, size=size, cache=random_awcache)
+        # await tb_axi.axi_master.write(addr, test_data, size=size, cache=AWCACHE_DEVICE_NON_BUFFERABLE)
+        await Timer(1, 'ns')
+    
+    await Timer(100, 'ns')
+    for iter in range(100):
+        print(f"Read : {iter}")
+        await RisingEdge(dut.aclk)
+        length = 64 # fixed
+        # addr = random.randint(0, 0x1000000000)
+        addr = addr_list[iter]
+        #TEST:addr = random.randint(0, 0)
+        addr = addr >> 6
+        addr = addr << 6
+        #test_data = bytearray([random.randint(0,255) for x in range(length)])
+        tb_axi.log.info("addr = 0x%x", addr)
+        await Timer(1, 'ns')
+
+
+        #golden_value[addr] = test_data
+        random_arcache = random.choice(ARCACHE_VALUES)
+        await tb_axi.axi_master.read(addr, length, size=size, cache=random_arcache)
+        # await tb_axi.axi_master.read(addr, length, size=size, cache=ARCACHE_DEVICE_NON_BUFFERABLE)
         #await tb_axi.axi_master.read(addr, length, size=size, cache=ARCACHE_WRITE_BACK_READ_AND_WRITE_ALLOC)
 
         #await Timer(12, 'ns')

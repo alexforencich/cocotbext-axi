@@ -71,7 +71,7 @@ async def test_wrapper(dut):
     await Timer(1, "ns")
 
     """RANDOM AXI"""
-    golden_value = await axi_random_access(dut)
+    await axi_random_access(dut)
 
     await Timer(300, "ns")
     # for addr, expected_data in golden_value.items():

@@ -34,9 +34,15 @@ class Unpack:
             else:
                 # All-data-flit
                 for i in range(4):
-                    shift = (3 - i) * 128  # big-endian 순서
-                    word = (flit_data >> shift) & ((1 << 128) - 1)
-                    await self.d2h_data_slot_queue.put(word)
+                    # shift = (3 - i) * 128  # big-endian 순서
+                    # print(f"flit data : {flit_data}")
+                    # word = (flit_data >> shift) & ((1 << 128) - 1)
+                    # await self.d2h_data_slot_queue.put(word)
+                    start = (3 - i) * 16  # big-endian: slot3 first, then slot2...
+                    end = start + 16
+                    word_bytes = flit_data[start:end]
+                    word_int = int.from_bytes(word_bytes, byteorder='big')
+                    await self.d2h_data_slot_queue.put(word_int)
 
     async def unpack_flit(self, flit_data:bytes):
         slots = await self.flit_parser.parse_flit(flit_data)
