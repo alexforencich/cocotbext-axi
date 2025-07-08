@@ -30,9 +30,10 @@ class Memory:
     def __init__(self, size=2**64, mem=None, **kwargs):
         if mem is not None:
             self.mem = mem
+            self.size = len(self.mem)
         else:
             self.mem = SparseMemory(size)
-        self.size = len(self.mem)
+            self.size = self.mem.size
         super().__init__(**kwargs)
 
     def read(self, address, length):
