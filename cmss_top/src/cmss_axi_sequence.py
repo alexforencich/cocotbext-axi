@@ -222,6 +222,36 @@ class TB_APB:
     def init(self):
         None
 
+ARCACHE_VALUES = [
+    ARCACHE_DEVICE_NON_BUFFERABLE,
+    ARCACHE_DEVICE_BUFFERABLE,
+    ARCACHE_NORMAL_NON_CACHEABLE_NON_BUFFERABLE,
+    ARCACHE_NORMAL_NON_CACHEABLE_BUFFERABLE,
+    ARCACHE_WRITE_THROUGH_NO_ALLOC,
+    ARCACHE_WRITE_THROUGH_READ_ALLOC,
+    ARCACHE_WRITE_THROUGH_WRITE_ALLOC,
+    ARCACHE_WRITE_THROUGH_READ_AND_WRITE_ALLOC,
+    ARCACHE_WRITE_BACK_NO_ALLOC,
+    ARCACHE_WRITE_BACK_READ_ALLOC,
+    ARCACHE_WRITE_BACK_WRITE_ALLOC,
+    ARCACHE_WRITE_BACK_READ_AND_WRITE_ALLOC,
+]
+
+AWCACHE_VALUES = [
+    AWCACHE_DEVICE_NON_BUFFERABLE,
+    AWCACHE_DEVICE_BUFFERABLE,
+    AWCACHE_NORMAL_NON_CACHEABLE_NON_BUFFERABLE,
+    AWCACHE_NORMAL_NON_CACHEABLE_BUFFERABLE,
+    AWCACHE_WRITE_THROUGH_NO_ALLOC,
+    AWCACHE_WRITE_THROUGH_READ_ALLOC,
+    AWCACHE_WRITE_THROUGH_WRITE_ALLOC,
+    AWCACHE_WRITE_THROUGH_READ_AND_WRITE_ALLOC,
+    AWCACHE_WRITE_BACK_NO_ALLOC,
+    AWCACHE_WRITE_BACK_READ_ALLOC,
+    AWCACHE_WRITE_BACK_WRITE_ALLOC,
+    AWCACHE_WRITE_BACK_READ_AND_WRITE_ALLOC,
+]
+
 async def axi_random_access(dut, idle_inserter=None, backpressure_inserter=None, size=None):
     #yhyang:tb = TB_APB(dut, reset_sense=1)
     tb = TB_CMSS(dut)
@@ -274,41 +304,29 @@ async def axi_random_access(dut, idle_inserter=None, backpressure_inserter=None,
         addr = addr >> 6
         addr = addr << 6
         test_data = bytearray([random.randint(0,255) for x in range(length)])
-        tb_axi.log.info("addr = 0x%x", addr)
+        #tb_axi.log.info("[AXI_WRITE] addr = 0x%x", addr)
 
         golden_value[addr] = test_data
         random_awcache = random.choice(AWCACHE_VALUES)
-        #await tb_axi.axi_master.write(addr, test_data, size=size, cache=random_awcache)
-        await tb_axi.axi_master.write(addr, test_data, size=size, cache=AWCACHE_DEVICE_NON_BUFFERABLE)
-        # await Timer(1, 'ns')
+        #cocotb.start_soon(tb_axi.axi_master.write(addr, test_data, size=size, cache=random_awcache))
+        cocotb.start_soon(tb_axi.axi_master.write(addr, test_data, size=size, cache=AWCACHE_DEVICE_NON_BUFFERABLE))
     
     await Timer(100, 'ns')
     for iter in range(16):
         await RisingEdge(dut.aclk)
         length = 64 # fixed
-        # addr = random.randint(0, 0x1000000000)
         addr = addr_list[iter]
-        #TEST:addr = random.randint(0, 0)
         addr = addr >> 6
         addr = addr << 6
-        #test_data = bytearray([random.randint(0,255) for x in range(length)])
-        tb_axi.log.info("addr = 0x%x", addr)
+        #tb_axi.log.info("[AXI_READ] addr = 0x%x", addr)
 
-
-        #golden_value[addr] = test_data
         random_arcache = random.choice(ARCACHE_VALUES)
-        #await tb_axi.axi_master.read(addr, length, size=size, cache=random_arcache)
-        await tb_axi.axi_master.read(addr, length, size=size, cache=ARCACHE_DEVICE_NON_BUFFERABLE)
-        #await tb_axi.axi_master.read(addr, length, size=size, cache=ARCACHE_WRITE_BACK_READ_AND_WRITE_ALLOC)
-        # await Timer(1, 'ns')
-
-        #await Timer(12, 'ns')
+        #cocotb.start_soon(tb_axi.axi_master.read(addr, length, size=size, cache=random_arcache))
+        cocotb.start_soon(tb_axi.axi_master.read(addr, length, size=size, cache=ARCACHE_DEVICE_NON_BUFFERABLE))
 
     await RisingEdge(dut.aclk)
     await Timer(random.randint(1, 2), 'us')
 
-    await Timer(100, 'ns')
-    return golden_value
 
 async def axi_random_access_stress (dut, idle_inserter=None, backpressure_inserter=None, size=None):
     #yhyang:tb = TB_APB(dut, reset_sense=1)
@@ -367,8 +385,8 @@ async def axi_random_access_stress (dut, idle_inserter=None, backpressure_insert
 
         golden_value[addr] = test_data
         random_awcache = random.choice(AWCACHE_VALUES)
-        await tb_axi.axi_master.write(addr, test_data, size=size, cache=random_awcache)
-        # await tb_axi.axi_master.write(addr, test_data, size=size, cache=AWCACHE_DEVICE_NON_BUFFERABLE)
+        #await tb_axi.axi_master.write(addr, test_data, size=size, cache=random_awcache)
+        await tb_axi.axi_master.write(addr, test_data, size=size, cache=AWCACHE_DEVICE_NON_BUFFERABLE)
         await Timer(1, 'ns')
     
     await Timer(100, 'ns')
@@ -388,8 +406,8 @@ async def axi_random_access_stress (dut, idle_inserter=None, backpressure_insert
 
         #golden_value[addr] = test_data
         random_arcache = random.choice(ARCACHE_VALUES)
-        await tb_axi.axi_master.read(addr, length, size=size, cache=random_arcache)
-        # await tb_axi.axi_master.read(addr, length, size=size, cache=ARCACHE_DEVICE_NON_BUFFERABLE)
+        # await tb_axi.axi_master.read(addr, length, size=size, cache=random_arcache)
+        await tb_axi.axi_master.read(addr, length, size=size, cache=ARCACHE_DEVICE_NON_BUFFERABLE)
         #await tb_axi.axi_master.read(addr, length, size=size, cache=ARCACHE_WRITE_BACK_READ_AND_WRITE_ALLOC)
 
         #await Timer(12, 'ns')

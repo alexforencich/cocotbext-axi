@@ -128,17 +128,6 @@ class CXL_FLIT_H2D_RSP_HDR:
         self.rsp_data=rsp_data  # [16:5]
         self.opcode=opcode  # [4:1]
         self.valid=valid  # [0]
-
-    # def pack(self):
-    #     value = (
-    #         (self.rsvd & 0x1) << 31 |
-    #         (self.cqid & 0xFFF) << 19 |
-    #         (self.rsp_pre & 0x3) << 17 |
-    #         (self.rsp_data & 0xFFF) << 5 |
-    #         (self.opcode & 0xF) << 1 |
-    #         (self.valid)
-    #     )
-    #     return struct.pack(">I", value)
     
     def pack(self):
         value = (
@@ -177,18 +166,6 @@ class CXL_FLIT_H2D_DATA_HDR:
         self.chunk_valid=chunk_valid  # [13]
         self.cqid=cqid  # [12:1]
         self.valid=valid  # [0]
-
-    # def pack(self):
-    #     value = (
-    #         (self.rsvd & 0xFF) << 16 |
-    #         (self.go_err & 0x1) << 19 |
-    #         (self.poison & 0x1) << 17 |
-    #         (self.chunk_valid & 0x1) << 5 |
-    #         (self.cqid & 0xFFF) << 1 |
-    #         (self.valid)
-    #     )
-    #     packed = struct.pack(">I", value)
-    #     return packed[1:]
 
     def pack(self):
         value = (
@@ -436,15 +413,6 @@ class CXL_DNFLIT_SLOT_H1:
         self.h2d_rsp0 = h2d_rsp0  # 32-bit
         self.h2d_data = h2d_data  # 24-bit
 
-    # def pack(self):
-    #     value = (
-    #         (self.rsvd & 0xFF) << 88 |   # 8-bit
-    #         (self.h2d_rsp1 & 0xFFFFFFFF) << 56 |  # 32-bit
-    #         (self.h2d_rsp0 & 0xFFFFFFFF) << 24 |  # 32-bit
-    #         (self.h2d_data & 0xFFFFFF)  # 24-bit
-    #     )
-    #     return struct.pack(">QI", (value >> 32) & 0xFFFFFFFFFFFFFFFF, value & 0xFFFFFFFF)
-    
     def pack(self):
         value = (
             (self.rsvd & 0xFF) << 88 |   # 8-bit
@@ -482,15 +450,6 @@ class CXL_DNFLIT_SLOT_H3:
         self.h2d_data1 = h2d_data1 # 24-bit
         self.h2d_data0 = h2d_data0 # 24-bit
 
-    # def pack(self):
-    #     packed_h2d_data3 = self.h2d_data3.pack_int()
-    #     packed_h2d_data2 = self.h2d_data2.pack_int()
-    #     packed_h2d_data1 = self.h2d_data1.pack_int()
-    #     packed_h2d_data0 = self.h2d_data0.pack_int()
-        
-    #     packed_data = packed_h2d_data3 + packed_h2d_data2 + packed_h2d_data1 + packed_h2d_data0
-    #     return packed_data
-    
     def pack(self):
         value = (
             (self.h2d_data3.pack() & 0xFFFFFF) << 72 |
@@ -598,10 +557,10 @@ class CXL_UPFLIT_SLOT_H0:
     def unpack(cls, data):
         value = data
         rsvd = (value >> 87) & 0x1FF
-        s2m_ndr   = (value >> 57) & 0x3FFFFFFF  # 30비트
-        d2h_rsp1  = (value >> 37) & 0xFFFFF     # 20비트
-        d2h_rsp0  = (value >> 17) & 0xFFFFF     # 20비트
-        d2h_data  = value & 0x1FFFF             # 17비트
+        s2m_ndr   = (value >> 57) & 0x3FFFFFFF  # 30-bit
+        d2h_rsp1  = (value >> 37) & 0xFFFFF     # 20-bit
+        d2h_rsp0  = (value >> 17) & 0xFFFFF     # 20-bit
+        d2h_data  = value & 0x1FFFF             # 17-bit
 
         return cls(
             rsvd=rsvd,
@@ -620,8 +579,8 @@ class CXL_UPFLIT_SLOT_H1:
     @classmethod
     def unpack(cls, data):
         value = data
-        d2h_data = (value >> 79) & 0x1FFFF  # 17비트
-        d2h_req  = value & 0x7FFFFFFFFFFFFFFF  # 79비트
+        d2h_data = (value >> 79) & 0x1FFFF  # 17-bit
+        d2h_req  = value & 0x7FFFFFFFFFFFFFFF  # 79-bit
         return cls(
             d2h_data=d2h_data,
             d2h_req=d2h_req
@@ -927,23 +886,6 @@ class CXL_PROTOCOL_FLIT_HDR:
         self.rsvd = rsvd          # [1]
         self.flit_type = flit_type  # [0]
 
-    # def pack(self):
-    #     value = (
-    #         (self.data_crd & 0xF) << 28 |
-    #         (self.req_crd & 0xF) << 24 |
-    #         (self.rsp_crd & 0xF) << 20 |
-    #         (self.rsvd2 & 0x7) << 17 |
-    #         (self.slot3 & 0x7) << 14 |
-    #         (self.slot2 & 0x7) << 11 |
-    #         (self.slot1 & 0x7) << 8 |
-    #         (self.slot0 & 0x7) << 5 |
-    #         (self.sz & 0x1) << 4 |
-    #         (self.be & 0x1) << 3 |
-    #         (self.ak & 0x1) << 2 |
-    #         (self.rsvd & 0x1) << 1 |
-    #         (self.flit_type & 0x1) << 0
-    #     )
-    #     return struct.pack(">I", value)
     
     def pack(self):
         value = (
@@ -999,16 +941,6 @@ class CXL_PROTOCOL_FLIT_PLD:
         self.slot1 = slot1  # 128-bit
         self.slot0 = slot0  # 96-bit
         self.flit_hdr = flit_hdr if flit_hdr else CXL_PROTOCOL_FLIT_HDR()  # 32-bit header
-
-    # def pack(self):
-    #     """Pack the structure into a binary format"""
-    #     return (
-    #         struct.pack(">QQ", (self.slot3 >> 64) & 0xFFFFFFFFFFFFFFFF, self.slot3 & 0xFFFFFFFFFFFFFFFF) +  # 128-bit
-    #         struct.pack(">QQ", (self.slot2 >> 64) & 0xFFFFFFFFFFFFFFFF, self.slot2 & 0xFFFFFFFFFFFFFFFF) +  # 128-bit
-    #         struct.pack(">QQ", (self.slot1 >> 64) & 0xFFFFFFFFFFFFFFFF, self.slot1 & 0xFFFFFFFFFFFFFFFF) +  # 128-bit
-    #         struct.pack(">I", (self.slot0 >> 64) & 0xFFFFFFFF) + struct.pack(">Q", self.slot0 & 0xFFFFFFFFFFFFFFFF) +  # 96-bit
-    #         self.flit_hdr.pack()  # 32-bit
-    #     )
     
     def pack(self):
         value = (
@@ -1022,22 +954,24 @@ class CXL_PROTOCOL_FLIT_PLD:
     
     def pack_bytes(self):
         return self.slot3 + self.slot2 + self.slot1 + self.slot0 + self.flit_hdr.pack()
-
+    
     @classmethod
-    def unpack(cls, data):
-        """Unpack a binary format into a CxlProtocolFlitPld object"""
-        slot3_high, slot3_low = struct.unpack_from(">QQ", data, 0)
-        slot2_high, slot2_low = struct.unpack_from(">QQ", data, 16)
-        slot1_high, slot1_low = struct.unpack_from(">QQ", data, 32)
-        slot0_low, slot0_high = struct.unpack_from(">QI", data, 48)
-        flit_hdr = CXL_PROTOCOL_FLIT_HDR.unpack(data[60:64])
+    def unpack(cls, data: bytes):
+
+        value = int.from_bytes(data, byteorder='big')
+
+        flit_hdr_val = value & 0xFFFFFFFF
+        slot0_val    = (value >> 32)  & ((1 << 96) - 1)
+        slot1_val    = (value >> 128) & ((1 << 128) - 1)
+        slot2_val    = (value >> 256) & ((1 << 128) - 1)
+        slot3_val    = (value >> 384) & ((1 << 128) - 1)
 
         return cls(
-            slot3=(slot3_low << 64) | slot3_high,
-            slot2=(slot2_low << 64) | slot2_high,
-            slot1=(slot1_low << 64) | slot1_high,
-            slot0=(slot0_low << 64) | slot0_high,
-            flit_hdr=flit_hdr
+            slot3=slot3_val,
+            slot2=slot2_val,
+            slot1=slot1_val,
+            slot0=slot0_val,
+            flit_hdr=CXL_PROTOCOL_FLIT_HDR.unpack(flit_hdr_val.to_bytes(4, 'big'))
         )
 
 @dataclass
@@ -1157,7 +1091,6 @@ class CXL_FLIT:
     def unpack(cls, data: bytes):
 
         crc = data[:2]
-
         payload = data[2:]
 
         return payload

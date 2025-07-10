@@ -188,7 +188,6 @@ class ConstructG1:
         return slot_g1
 
 def make_data_slot(data_bytes: bytes) -> list[int]:
-
     value = int.from_bytes(data_bytes, byteorder='little')
     words = []
     for i in range(4):
@@ -197,19 +196,13 @@ def make_data_slot(data_bytes: bytes) -> list[int]:
 
         word = (value >> shift) & ((1 << 128) - 1)
 
-        # swap 64-bit halves
-        low64 = word & ((1 << 64) - 1)
-        high64 = word >> 64
-        swapped = (low64 << 64) | high64
-
-        words.append(swapped)
-
+        words.append(word)
     return words
 
 class ConstructH3:
     def __init__(self, h2d_data_queue, rollover_data_queue):
         self.h2d_data_queue = h2d_data_queue
-        self.rollver_data_queue = rollover_data_queue
+        self.rollover_data_queue = rollover_data_queue
 
     async def construct_h3(self):
         slot_h3 = CXL_DNFLIT_SLOT_H3()
@@ -219,7 +212,7 @@ class ConstructH3:
             data_slot = make_data_slot(h2d_data)
             slot_h3.h2d_data0 = h2d_data_hdr
             for slot in data_slot:
-                await self.rollver_data_queue.put(slot)
+                await self.rollover_data_queue.put(slot)
         except QueueEmpty:
             pass
 
@@ -228,7 +221,7 @@ class ConstructH3:
             data_slot = make_data_slot(h2d_data)
             slot_h3.h2d_data1 = h2d_data_hdr
             for slot in data_slot:
-                await self.rollver_data_queue.put(slot)
+                await self.rollover_data_queue.put(slot)
         except QueueEmpty:
             pass
 
@@ -237,7 +230,7 @@ class ConstructH3:
             data_slot = make_data_slot(h2d_data)
             slot_h3.h2d_data2 = h2d_data_hdr
             for slot in data_slot:
-                await self.rollver_data_queue.put(slot)
+                await self.rollover_data_queue.put(slot)
         except QueueEmpty:
             pass
 
@@ -246,7 +239,7 @@ class ConstructH3:
             data_slot = make_data_slot(h2d_data)
             slot_h3.h2d_data3 = h2d_data_hdr
             for slot in data_slot:
-                await self.rollver_data_queue.put(slot)
+                await self.rollover_data_queue.put(slot)
         except QueueEmpty:
             pass
 

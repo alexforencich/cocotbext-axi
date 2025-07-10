@@ -19,7 +19,7 @@ class HostWriteData:
             d2h_data = [await self.d2h_data_slot_queue.get() for _ in range(4)]
             address = await self.d2h_data_addr_queue.get()
             write_data = 0
-            for slot in d2h_data:
+            for slot in reversed(d2h_data):
                 write_data = (write_data << 128) | (slot & ((1 << 128) - 1))
             write_data = write_data.to_bytes(64, byteorder='little')
             await self.host_interface.write(address, write_data)
@@ -50,9 +50,9 @@ class HostMemoryInterface:
     
     async def write(self, addr, data: bytes):
         self.memory.write(addr, data)
-        self.log.info(f"[RAM WRITE] Stored {len(data)} bytes at 0x{addr:08X}")
+        self.log.info(f"[MEMORY WRITE] Stored {len(data)} bytes at 0x{addr:08X} Data : {data.hex()}")
 
     async def read(self, addr: int, length: int) -> bytes:
         data = self.memory.read(addr, length)
-        self.log.info(f"[MEMORY READ] {length} bytes from 0x{addr:08X} = {data.hex()}")
+        self.log.info(f"[MEMORY READ] {length} bytes from 0x{addr:08X} Data : {data.hex()}")
         return data

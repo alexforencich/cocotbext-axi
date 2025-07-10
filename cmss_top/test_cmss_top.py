@@ -14,6 +14,7 @@ from unpack import Unpack
 from pack import *
 from cxl_pkg import *
 from cmss_axi_sequence import *
+from scoreboard import AxiScoreboard, AR_Signal_Monitor, R_Signal_Monitor, AW_Signal_Monitor, W_Signal_Monitor
 
 from host_master import HostMemoryInterface, HostWriteData, HostReadData
 from cocotbext.axi.memory import Memory
@@ -34,12 +35,18 @@ async def test_wrapper(dut):
     flit_input_queue = Queue()
     h2d_data_hdr_queue = Queue()
     flit_queue = Queue()
+    ar_signal_queue = Queue()
+    r_data_queue = Queue()
+    w_data_queue = Queue()
+    aw_signal_queue = Queue()
     unpacker = Unpack(flit_input_queue, d2h_req_queue, d2h_data_queue, d2h_data_slot_queue)
     rspgen = RspGen(d2h_req_queue, d2h_data_addr_queue, h2d_rsp_queue, h2d_data_hdr_queue, h2d_data_addr_queue)
     flitgen = FlitGen(h2d_rsp_queue, h2d_data_queue, flit_queue)
-    monitor = PIPE_TX_Monitor(dut, "", dut.aclk)
-    def monitor_callback(transaction):
-        flit_input_queue.put_nowait(transaction)
+    tx_monitor = PIPE_TX_Monitor(dut, "", dut.aclk)
+    ar_signal_monitor = AR_Signal_Monitor(dut, "core", dut.aclk, dut.areset)
+    r_signal_monitor = R_Signal_Monitor(dut, "core", dut.aclk, dut.areset)
+    aw_signal_monitor = AW_Signal_Monitor(dut, "core", dut.aclk, dut.areset)
+    w_signal_monitor = W_Signal_Monitor(dut, "core", dut.aclk, dut.areset)
 
     mem = Memory(size=2**20)
     for addr in range(0, 2**20, 64):
@@ -60,7 +67,12 @@ async def test_wrapper(dut):
         h2d_data_addr_queue = h2d_data_addr_queue,
         host_interface = host_interface
     )
-    monitor.add_callback(monitor_callback)
+    tx_monitor.add_callback(flit_input_queue.put_nowait)
+    ar_signal_monitor.add_callback(ar_signal_queue.put_nowait)
+    r_signal_monitor.add_callback(r_data_queue.put_nowait)
+    aw_signal_monitor.add_callback(aw_signal_queue.put_nowait)
+    w_signal_monitor.add_callback(w_data_queue.put_nowait)
+
     cocotb.start_soon(HostWriteAdapter.process())
     cocotb.start_soon(HostReadAdapter.process())
     cocotb.start_soon(unpacker.run_unpacker())
@@ -70,12 +82,13 @@ async def test_wrapper(dut):
 
     await Timer(1, "ns")
 
+    """SCOREBOARD"""
+    scoreboard = AxiScoreboard(ar_signal_queue, r_data_queue, aw_signal_queue, w_data_queue, mem)
+    scoreboard.start()
+
     """RANDOM AXI"""
     await axi_random_access(dut)
 
-    await Timer(300, "ns")
-    # for addr, expected_data in golden_value.items():
-    #     read_data = await host_interface.read(addr, len(expected_data))
-    #     assert read_data == expected_data, \
-    #         f"[ERROR] Mismatch at addr=0x{addr:08X}\nExpected: {expected_data.hex()}\nRead: {read_data.hex()}"
-    #     cocotb.log.info(f"[PASS] Addr 0x{addr:08X}\nExpected: {expected_data.hex()}\nRead: {read_data.hex()} ")
+    scoreboard.stop()
+
+    await Timer(1, "us")
