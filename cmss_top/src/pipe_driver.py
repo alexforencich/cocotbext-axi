@@ -62,6 +62,7 @@ class PIPE_TX_Monitor(BusMonitor):
 
 async def process_flit_queue(pipe_driver, flit_queue):
     """Background coroutine that fetches FLITs from flit_queue and sends them via pipe_driver"""
+    dummy_sent = False
     while True:
         await Timer(1, "ns") 
         
@@ -74,3 +75,8 @@ async def process_flit_queue(pipe_driver, flit_queue):
             else:
                 flit_data = apply_crc(flit.pack(), CXL_CRC_COEFF)
                 pipe_driver.append((flit_data, 1))
+            dummy_sent = False
+        elif not dummy_sent:
+            dummy_flit = BinaryValue("X" * 528, n_bits=528)
+            pipe_driver.append((dummy_flit, 0))
+            dummy_sent = True

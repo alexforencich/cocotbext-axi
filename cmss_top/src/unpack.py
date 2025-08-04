@@ -2,7 +2,8 @@ from cocotb.queue import Queue
 from cxl_pkg import *
 
 class Unpack:
-    def __init__(self, flit_input_queue, d2h_req_queue, d2h_data_queue, d2h_data_slot_queue):
+    def __init__(self, flit_input_queue, d2h_req_queue, d2h_data_queue, 
+                d2h_data_slot_queue, control_flit_queue):
         self.d2h_req_queue          = d2h_req_queue
         self.d2h_rsp_queue          = Queue()
         self.d2h_data_queue         = d2h_data_queue
@@ -10,6 +11,7 @@ class Unpack:
         self.s2m_ndr_queue          = Queue()
         self.d2h_data_slot_queue    = d2h_data_slot_queue
         self.flit_input_queue       = flit_input_queue
+        self.control_flit_queue     = control_flit_queue
         self.rollover_cnt           = {"value": 0}
         
 
@@ -30,7 +32,10 @@ class Unpack:
         while True:
             flit_data = await self.flit_input_queue.get()
             if self.rollover_cnt["value"] < 4:
-                await self.unpack_flit(flit_data)
+                if is_control_flit(flit_data):
+                    await self.control_flit_queue.put(flit_data)
+                else:
+                    await self.unpack_flit(flit_data)
             else:
                 # All-data-flit
                 self.rollover_cnt["value"] -= 4

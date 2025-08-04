@@ -100,6 +100,11 @@ CXL_CACHE_STATE_EXCLUSIVE = 0b0010
 CXL_CACHE_STATE_MODIFIED = 0b0110
 CXL_CACHE_STATE_ERROR = 0b0100
 
+MEM_CACHE_STATE_INVALID = 0b00
+MEM_CACHE_STATE_MODIFIED = 0b01
+MEM_CACHE_STATE_EXCLUSIVE = 0b10
+MEM_CACHE_STATE_SHARED = 0b11
+
 @dataclass
 class CXL_FLIT_H2D_REQ_HDR:
     rsvd: int  # [63:62]
@@ -993,49 +998,168 @@ class CXL_CONTROL_FLIT_PLD:
     rsvd: int  # 4-bit
     flit_type: bool  # 1-bit
 
+    @classmethod
+    def unpack(cls, data: bytes):
+        value = int.from_bytes(data, byteorder='big')
+        return cls(
+            rsvd_slots = (value >> 128) & ((1 << 384) - 1),
+            rsvd3 = (value >> 64) & ((1 << 64) - 1),
+            static0 = (value >> 40) & ((1 << 24) - 1),
+            sub_type = (value >> 36) & ((1 << 4) - 1),
+            llctrl = (value >> 32) & ((1 << 4) - 1),
+            rsvd2 = (value >> 8) & ((1 << 24) - 1),
+            ctl_fmt = (value >> 5) & ((1 << 3) - 1),
+            rsvd = (value >> 1) & ((1 << 4) - 1),
+            flit_type = value & 0x1
+        )
+    
+    @classmethod
+    def pack(self):
+        value = (
+            (self.rsvd_slots & ((1 << 384) - 1)) << 128 |
+            (self.rsvd3 & ((1 << 64) - 1)) << 64 |
+            (self.static0 & ((1 << 24) - 1)) << 40 |
+            (self.sub_type & ((1 << 4) - 1)) << 36 |
+            (self.llctrl & ((1 << 4) - 1)) << 32 |
+            (self.rsvd2 & ((1 << 24) - 1)) << 8 |
+            (self.ctl_fmt & ((1 << 3) - 1)) << 5 |
+            (self.rsvd & ((1 << 4) - 1)) << 1 |
+            (self.flit_type & 0x1) << 0
+        )
+        return value
+
 @dataclass
 class CXL_LLCRD_FLIT_PLD:
-    rsvd_slots: int  # 384-bit
-    payload: int  # 56-bit
-    ak3: int  # 4-bit
-    rsvd4: bool  # 1-bit
-    ak2: int  # 2-bit
-    static0: int  # 24-bit
-    sub_type: int  # 4-bit
-    llctrl: int  # 4-bit
-    data_crd: int  # 4-bit
-    req_crd: int  # 4-bit
-    rsp_crd: int  # 4-bit
-    rsvd3: int  # 12-bit
-    ctl_fmt: int  # 3-bit
-    rsvd2: int  # 2-bit
-    ak: bool  # 1-bit
-    rsvd: bool  # 1-bit
-    flit_type: bool  # 1-bit
+    def __init__(self, rsvd_slots=0, payload=0, ak3=0, rsvd4=0, ak2=0,
+                static0=0, sub_type=0, llctrl=0, data_crd=0, req_crd=0,
+                rsp_crd=0, rsvd3=0, ctl_fmt=0, rsvd2=0, ak=0, rsvd=0,
+                flit_type=0):
+        self.rsvd_slots = rsvd_slots  # 384-bit
+        self.payload = payload        # 56-bit
+        self.ak3 = ak3                # 4-bit
+        self.rsvd4 = rsvd4            # 1-bit
+        self.ak2 = ak2                # 3-bit
+        self.static0 = static0        # 24-bit
+        self.sub_type = sub_type      # 4-bit
+        self.llctrl = llctrl          # 4-bit
+        self.data_crd = data_crd      # 4-bit
+        self.req_crd = req_crd        # 4-bit
+        self.rsp_crd = rsp_crd        # 4-bit
+        self.rsvd3 = rsvd3            # 12-bit
+        self.ctl_fmt = ctl_fmt        # 3-bit
+        self.rsvd2 = rsvd2            # 2-bit
+        self.ak = ak                  # 1-bit
+        self.rsvd = rsvd              # 1-bit
+        self.flit_type = flit_type    # 1-bit
+
+    def pack(self):
+        value = (
+            (self.rsvd_slots & ((1 << 384) - 1)) << 128 |
+            (self.payload & ((1 << 56) - 1)) << 72 |
+            (self.ak3 & ((1 << 4) - 1)) << 68 |
+            (self.rsvd4 & ((1 << 1) - 1)) << 67 |
+            (self.ak2 & ((1 << 3) - 1)) << 64 |
+            (self.static0 & ((1 << 24) - 1)) << 40 |
+            (self.sub_type & ((1 << 4) - 1)) << 36 |
+            (self.llctrl & ((1 << 4) - 1)) << 32 |
+            (self.data_crd & ((1 << 4) - 1)) << 28 |
+            (self.req_crd & ((1 << 4) - 1)) << 24 |
+            (self.rsp_crd & ((1 << 4) - 1)) << 20 |
+            (self.rsvd3 & ((1 << 12) - 1)) << 8 |
+            (self.ctl_fmt & ((1 << 3) - 1)) << 5 |
+            (self.rsvd2 & ((1 << 2) - 1)) << 3 |
+            (self.ak & ((1 << 1) - 1)) << 2 |
+            (self.rsvd & ((1 << 1) - 1)) << 1 |
+            (self.flit_type & 0x1)  << 0
+        )
+        return value
+
 
 @dataclass
 class CXL_RETRY_FLIT_PLD:
-    rsvd_slots: int  # 384-bit
-    payload: int  # 64-bit
-    static0: int  # 24-bit
-    sub_type: int  # 4-bit
-    llctrl: int  # 4-bit
-    rsvd2: int  # 24-bit
-    ctl_fmt: int  # 3-bit
-    rsvd: int  # 4-bit
-    flit_type: bool  # 1-bit
+    def __init__(self, rsvd_slots=0, payload=0, static0=0, sub_type=0, 
+                llctrl=0, rsvd2=0, ctl_fmt=0, rsvd=0, flit_type=0):
+        self.rsvd_slots = rsvd_slots # 384-bit
+        self.payload = payload # 64-bit
+        self.static0 = static0 # 24-bit
+        self.sub_type = sub_type # 4-bit
+        self.llctrl = llctrl # 4-bit
+        self.rsvd2 = rsvd2 # 24-bit
+        self.ctl_fmt = ctl_fmt # 3-bit
+        self.rsvd = rsvd # 4-bit
+        self.flit_type = flit_type # 1-bit
+
+    @classmethod
+    def unpack(cls, data: bytes):
+        value = int.from_bytes(data, byteorder='big')
+        return cls(
+            rsvd_slots = (value >> 128) & ((1 << 384) - 1),
+            payload = (value >> 64) & ((1 << 64) - 1),
+            static0 = (value >> 40) & ((1 << 24) - 1),
+            sub_type = (value >> 36) & ((1 << 4) - 1),
+            llctrl = (value >> 32) & ((1 << 4) - 1),
+            rsvd2 = (value >> 8) & ((1 << 24) - 1),
+            ctl_fmt = (value >> 5) & ((1 << 3) - 1),
+            rsvd = (value >> 1) & ((1 << 4) - 1),
+            flit_type = value & 0x1
+        )    
+    
+    def pack(self):
+        value = (
+            (self.rsvd_slots & ((1 << 384) - 1)) << 128 |
+            (self.payload & ((1 << 64) - 1)) << 64 |
+            (self.static0 & ((1 << 24) - 1)) << 40 |
+            (self.sub_type & ((1 << 4) - 1)) << 36 |
+            (self.llctrl & ((1 << 4) - 1)) << 32 |
+            (self.rsvd2 & ((1 << 24) - 1)) << 8 |
+            (self.ctl_fmt & ((1 << 3) - 1)) << 5 |
+            (self.rsvd & ((1 << 4) - 1)) << 1 |
+            (self.flit_type & 0x1) << 0
+        )
+        return value
 
 @dataclass
 class CXL_INIT_FLIT_PLD:
-    rsvd_slots: int  # 384-bit
-    payload: int  # 64-bit
-    static0: int  # 24-bit
-    sub_type: int  # 4-bit
-    llctrl: int  # 4-bit
-    rsvd2: int  # 24-bit
-    ctl_fmt: int  # 3-bit
-    rsvd: int  # 4-bit
-    flit_type: bool  # 1-bit
+    def __init__(self, rsvd_slots=0, payload=0, static0=0, sub_type=0, 
+                llctrl=0, rsvd2=0, ctl_fmt=0, rsvd=0, flit_type=0):
+        self.rsvd_slots = rsvd_slots # 384-bit
+        self.payload = payload # 64-bit
+        self.static0 = static0 # 24-bit
+        self.sub_type = sub_type # 4-bit
+        self.llctrl = llctrl # 4-bit
+        self.rsvd2 = rsvd2 # 24-bit
+        self.ctl_fmt = ctl_fmt # 3-bit
+        self.rsvd = rsvd # 4-bit
+        self.flit_type = flit_type # 1-bit
+
+    @classmethod
+    def unpack(cls, data: bytes):
+        value = int.from_bytes(data, byteorder='big')
+        return cls(
+            rsvd_slots = (value >> 128) & ((1 << 384) - 1),
+            payload = (value >> 64) & ((1 << 64) - 1),
+            static0 = (value >> 40) & ((1 << 24) - 1),
+            sub_type = (value >> 36) & ((1 << 4) - 1),
+            llctrl = (value >> 32) & ((1 << 4) - 1),
+            rsvd2 = (value >> 8) & ((1 << 24) - 1),
+            ctl_fmt = (value >> 5) & ((1 << 3) - 1),
+            rsvd = (value >> 1) & ((1 << 4) - 1),
+            flit_type = value & 0x1
+        )
+    
+    def pack(self):
+        value = (
+            (self.rsvd_slots & ((1 << 384) - 1)) << 128 |
+            (self.payload & ((1 << 64) - 1)) << 64 |
+            (self.static0 & ((1 << 24) - 1)) << 40 |
+            (self.sub_type & ((1 << 4) - 1)) << 36 |
+            (self.llctrl & ((1 << 4) - 1)) << 32 |
+            (self.rsvd2 & ((1 << 24) - 1)) << 8 |
+            (self.ctl_fmt & ((1 << 3) - 1)) << 5 |
+            (self.rsvd & ((1 << 4) - 1)) << 1 |
+            (self.flit_type & 0x1) << 0
+        )
+        return value
 
 @dataclass
 class CXL_IDE_FLIT_PLD:
@@ -1095,8 +1219,11 @@ class CXL_FLIT:
 
         return payload
 
-def is_control_flit(payload) -> bool:
-    return payload.flit_type == CXL_FLIT_TYPE.CXL_FLIT_TYPE_CONTROL
+def is_control_flit(payload: CXL_CONTROL_FLIT_PLD) -> bool:
+    # flit_type = CXL_CONTROL_FLIT_PLD.unpack(payload).flit_type
+    # return flit_type == CXL_FLIT_TYPE.CXL_FLIT_TYPE_CONTROL.value
+    payload = CXL_CONTROL_FLIT_PLD.unpack(payload)
+    return payload.flit_type == CXL_FLIT_TYPE.CXL_FLIT_TYPE_CONTROL.value
 
 def is_protocol_flit(payload) -> bool:
     return payload.flit_type == CXL_FLIT_TYPE.CXL_FLIT_TYPE_PROTOCOL
@@ -1106,10 +1233,18 @@ def is_llcrd_flit(payload) -> bool:
             payload.ctl_fmt == CXL_LINK_LLCRD_CTL_FMT and
             payload.llctrl == CXL_LINK_LLCRD_LLCTRL)
 
-def is_retry_flit(payload) -> bool:
-    return (payload.flit_type == CXL_FLIT_TYPE.CXL_FLIT_TYPE_CONTROL and
+def is_retry_flit(payload: CXL_CONTROL_FLIT_PLD) -> bool:
+    payload = CXL_RETRY_FLIT_PLD.unpack(payload)
+    return (payload.flit_type == CXL_FLIT_TYPE.CXL_FLIT_TYPE_CONTROL.value and
             payload.ctl_fmt == CXL_LINK_RETRY_CTL_FMT and
             payload.llctrl == CXL_LINK_RETRY_LLCTRL)
+
+def is_retry_idle_flit(payload: CXL_CONTROL_FLIT_PLD) -> bool:
+    payload = CXL_RETRY_FLIT_PLD.unpack(payload)
+    return (payload.flit_type == CXL_FLIT_TYPE.CXL_FLIT_TYPE_CONTROL.value and
+            payload.ctl_fmt == CXL_LINK_RETRY_CTL_FMT and
+            payload.llctrl == CXL_LINK_RETRY_LLCTRL and
+            payload.sub_type == CXL_LINK_RETRY_SUBTYPE_IDLE)
 
 def is_retry_req_flit(payload) -> bool:
     return (is_retry_flit(payload) and
@@ -1124,8 +1259,9 @@ def is_ide_flit(payload) -> bool:
             payload.ctl_fmt == CXL_LINK_IDE_CTL_FMT and
             payload.llctrl == CXL_LINK_IDE_LLCTRL)
 
-def is_init_flit(payload) -> bool:
-    return (payload.flit_type == CXL_FLIT_TYPE.CXL_FLIT_TYPE_CONTROL and
+def is_init_flit(payload: CXL_CONTROL_FLIT_PLD) -> bool:
+    payload = CXL_INIT_FLIT_PLD.unpack(payload)
+    return (payload.flit_type == CXL_FLIT_TYPE.CXL_FLIT_TYPE_CONTROL.value and
             payload.ctl_fmt == CXL_LINK_INIT_CTL_FMT and
             payload.llctrl == CXL_LINK_INIT_LLCTRL)
 
@@ -1136,6 +1272,28 @@ def is_static0_err(payload) -> bool:
     if is_llcrd_flit(payload) or is_retry_flit(payload) or is_init_flit(payload):
         return payload.static0 != 0
     return False
+
+@dataclass
+class CACHE_METADATA:
+    def __init__(self, rsvd=0, state=0, tag=0, ecc=0):
+        self.rsvd = rsvd # 128-bit
+        self.state = state # 2-bits
+        self.tag = tag # 62-bit
+        self.ecc = ecc # 64-bit
+    
+    def pack(self):
+        value = (
+            (self.rsvd &((1 << 128) - 1)) << 128 |
+            (self.state & ((1 << 2) - 1)) << 126 |
+            (self.tag & ((1 << 62) - 1)) << 64 |
+            (self.ecc & ((1 << 64) - 1))
+        )
+        #return value.to_bytes(32, 'big')
+        return value
+
+def get_cache_tag(core_addr: int, cache_size_lg2: int) -> int:
+    return (core_addr >> cache_size_lg2) & ((1 << 62) - 1)
+    #return (core_addr >> cache_size_lg2)
 
 CXL_CRC_COEFF = [
     0xEF9C_D9F9_C4BB_B83A_3E84_A97C_D7AE_DA13_FAEB_01B8_5B20_4A4C_AE1E_79D9_7753_5D21_DC7F_DD6A_38F0_3E77_F5F5_2A2C_636D_B05C_3978_EA30_CD50_E0D9_9B06_93D4_746B_2431,

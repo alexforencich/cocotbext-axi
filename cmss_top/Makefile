@@ -34,3 +34,11 @@ COMPILE_ARGS += +define+DEVEL_CXL
 
 include $(shell cocotb-config --makefiles)/Makefile.sim
 
+ex:
+	@$(MAKE) EXCLUSIVE_MODE=1
+
+cache:
+	@$(MAKE) CMSS_CACHE_TEST=1
+
+ex_cache:
+	@$(MAKE) EXCLUSIVE_MODE=1 CMSS_CACHE_TEST=1

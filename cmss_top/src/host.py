@@ -246,10 +246,10 @@ class ConstructH3:
         return slot_h3
 
 class FlitGen:
-    def __init__(self, h2d_rsp_queue, h2d_data_queue, flit_queue):
+    def __init__(self, h2d_rsp_queue, h2d_data_queue, flit_output_queue):
         self.h2d_rsp_queue = h2d_rsp_queue
         self.h2d_data_queue = h2d_data_queue
-        self.flit_queue = flit_queue
+        self.flit_output_queue = flit_output_queue
     
     async def generate_flit(self):
         x_flag = False
@@ -264,7 +264,6 @@ class FlitGen:
                 flit_payload = CXL_PROTOCOL_FLIT_PLD()
                 if rollover_data_queue.qsize() < 4: # No All-data-flit
                     if not self.h2d_rsp_queue.empty():
-                        slot0={}
                         h2d_rsp0 = await self.h2d_rsp_queue.get()
                         Counter.increment_rsp_cnt(1)
                         if not self.h2d_rsp_queue.empty():
@@ -279,10 +278,9 @@ class FlitGen:
                                 h2d_rsp1=h2d_rsp1.pack() if h2d_rsp1 is not None else 0,
                                 h2d_data=h2d_data_hdr.pack() if h2d_data_hdr is not None else 0
                             )
-                            packed_slot0 = slot0.pack()
                             flit_payload = ConstructFlitPayload.construct_flit_payload(
                                     SLOT_T_H.H1.value, SLOT_T_G.G0.value, SLOT_T_G.G0.value, SLOT_T_G.G0.value,
-                                    packed_slot0, 
+                                    slot0.pack(), 
                                     data_slot[0],
                                     data_slot[1],
                                     data_slot[2]
@@ -380,7 +378,6 @@ class FlitGen:
                         rollover_data2,
                         rollover_data3
                     )
-                
             else: # No rsp, data hdr
                 if (rollover_data_queue.qsize() > 3): #All Data Flit
                     rollover_data0 = await rollover_data_queue.get()
@@ -423,12 +420,7 @@ class FlitGen:
                                     0, # 128-bit 0
                                     0 # 128-bit 0
                                 )
-                else:
-                    if not x_flag:
-                        flit_payload = BinaryValue("X" * 512)
-                        x_flag = True
             if flit_payload is not None:
-                await self.flit_queue.put(flit_payload)
-
-            await Timer(1, "ns")
-
+                await self.flit_output_queue.put(flit_payload)
+            else:
+                await Timer(1, "ns")
