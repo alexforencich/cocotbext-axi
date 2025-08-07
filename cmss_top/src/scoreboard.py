@@ -4,16 +4,33 @@ from cocotb.triggers import RisingEdge, Timer
 from cocotb_bus.monitors import BusMonitor
 from cocotb.queue import Queue
 from cocotbext.axi.memory import Memory
+from cocotbext.axi.constants import *
+import copy
 
-
+ARCACHE_MAP = {
+        ARCACHE_DEVICE_NON_BUFFERABLE: "Device Non-bufferable",
+        ARCACHE_DEVICE_BUFFERABLE: "Device Bufferable",
+        ARCACHE_NORMAL_NON_CACHEABLE_NON_BUFFERABLE: "Normal Non-cacheable Non-bufferable",
+        ARCACHE_NORMAL_NON_CACHEABLE_BUFFERABLE: "Normal Non-cacheable Bufferable",
+        ARCACHE_WRITE_THROUGH_NO_ALLOC: "Write-through, No-allocate",
+        ARCACHE_WRITE_THROUGH_READ_ALLOC: "Write-through, Read-allocate",
+        ARCACHE_WRITE_THROUGH_WRITE_ALLOC: "Write-through, Write-allocate",
+        ARCACHE_WRITE_THROUGH_READ_AND_WRITE_ALLOC: "Write-through, Read & Write-allocate",
+        ARCACHE_WRITE_BACK_NO_ALLOC: "Write-back, No-allocate",
+        ARCACHE_WRITE_BACK_READ_ALLOC: "Write-back, Read-allocate",
+        ARCACHE_WRITE_BACK_WRITE_ALLOC: "Write-back, Write-allocate",
+        ARCACHE_WRITE_BACK_READ_AND_WRITE_ALLOC: "Write-back, Read & Write-allocate",
+    }
 
 class AxiScoreboard:
-    def __init__(self, ar_queue, r_queue, aw_queue, w_queue, b_queue, cache):
+    def __init__(self, ar_queue, r_queue, aw_queue, w_queue, b_queue,
+                test_mode: str = 'full_test', host_mem=None):
         self.log = cocotb.log
-        
         # Golden memory
-        self.golden_memory = Memory(size=2**63-1)
-        self.cache = cache
+        if test_mode == 'cache_test':
+            self.golden_memory = Memory(size=2**63-1)
+        elif test_mode == 'full_test':
+            self.golden_memory = copy.deepcopy(host_mem)
 
         self.aw_signal_queue = aw_queue
         self.w_data_queue = w_queue
@@ -29,6 +46,7 @@ class AxiScoreboard:
         self.fail_count = 0
         self.write_count = 0
         self.read_count = 0
+        self.pending_arcache = {}
         
         # Internal background process
         self._write_proc = None
@@ -94,6 +112,7 @@ class AxiScoreboard:
                 entry = self.pending_writes.pop(bid)
                 addr = entry["addr"]
                 data = entry["data"]
+                addr = addr << 6
                 self.golden_memory.write(addr, data)
 
     async def _ar_handler(self):
@@ -103,7 +122,9 @@ class AxiScoreboard:
             ar_trans = await self.ar_signal_queue.get()
             arid = int(ar_trans['arid']) 
             addr = int(ar_trans['araddr'])
+            arcache = int(ar_trans['arcache'])
             self.pending_reads[arid] = addr
+            self.pending_arcache[arid] = arcache
 
     async def _r_handler(self):
         # Receive the R signal and match it with the AR request to verify the final read transaction.
@@ -117,15 +138,19 @@ class AxiScoreboard:
             # Use RID to find the previously stored AR transaction
             if rid in self.pending_reads:
                 araddr = self.pending_reads.pop(rid)
+                araddr = araddr << 6
                 expected_data = self.golden_memory.read(araddr, len(read_data))
                 self.check_count += 1
+                arcache = self.pending_arcache.pop(rid)
+                arcache_type_str = ARCACHE_MAP.get(arcache, f"Unknown ARCACHE value ({arcache})")
 
                 # Compare the actual data with the expected data
                 if read_data == expected_data:
                     self.log.info(
                     f"[Scoreboard/Verifier #{self.check_count}] "
                     f"PASSED: Read data matches for ID {rid}, "
-                    f"Address: 0x{int(araddr):X}."
+                    f"Address: 0x{int(araddr):X}, "
+                    f"ARCACHE TYPE: {arcache_type_str}"
                 )
                     self.log.info(f"  - Expected: 0x{expected_data.hex().upper()}")
                     self.log.info(f"  - Actual:   0x{read_data.hex().upper()}")
@@ -134,7 +159,8 @@ class AxiScoreboard:
                     self.log.warning(
                     f"[Scoreboard/Verifier #{self.check_count}] "
                     f"FAILED: Read data mismatch for ID {rid}, "
-                    f"Address: 0x{int(araddr):X}."
+                    f"Address: 0x{int(araddr):X}, "
+                    f"ARCACHE TYPE: {arcache_type_str}"
                 )
                     self.log.warning(f"  - Expected: 0x{expected_data.hex().upper()}")
                     self.log.warning(f"  - Actual:   0x{read_data.hex().upper()}")
@@ -196,7 +222,7 @@ class CORE_W_Signal_Monitor(BusMonitor):
                     self.partial_wdata.clear()
 
 class CORE_AR_Signal_Monitor(BusMonitor):
-    _signals = ["arvalid", "arready", "arid", "araddr"]
+    _signals = ["arvalid", "arready", "arid", "araddr", "arcache"]
 
     def __init__(self, dut, name, clock, reset=None, reset_n=None, callback=None, event=None):
         """Initialization method for Monitor"""
@@ -214,7 +240,8 @@ class CORE_AR_Signal_Monitor(BusMonitor):
                 #self.log.info("AR Channel Activity Detected by Monitor!")
                 transaction = {
                         'arid': self.bus.arid.value,
-                        'araddr': self.bus.araddr.value
+                        'araddr': self.bus.araddr.value,
+                        'arcache' : self.bus.arcache.value
                     }
                 self._recv(transaction)
                 #self.log.info(f"[AR_Monitor]  ARID:({transaction['arid']}) : ARADDR:({transaction['araddr'].hex().upper()})")

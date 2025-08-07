@@ -49,10 +49,12 @@ class HostMemoryInterface:
         self.log = cocotb.logging.getLogger("HostWrite")
     
     async def write(self, addr, data: bytes):
+        addr = addr << 6
         self.memory.write(addr, data)
         self.log.info(f"[MEMORY WRITE] Stored {len(data)} bytes at 0x{addr:08X} Data : {data.hex()}")
 
     async def read(self, addr: int, length: int) -> bytes:
+        addr = addr << 6
         data = self.memory.read(addr, length)
         self.log.info(f"[MEMORY READ] {length} bytes from 0x{addr:08X} Data : {data.hex()}")
         return data

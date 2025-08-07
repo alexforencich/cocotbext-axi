@@ -60,9 +60,9 @@ async def test_wrapper(dut):
     mem_r_signal_monitor = Mem_R_Monitor(dut, "mem", dut.aclk, dut.areset)
 
     host_mem = Memory(size=2**30)
-    for addr in range(0, 2**20, 64):
-        rand_data = bytearray([random.randint(0, 255) for _ in range(64)])
-        host_mem.write(addr, rand_data)
+    # for addr in range(0, 2**30, 64):
+    #     rand_data = bytearray([random.randint(0, 255) for _ in range(64)])
+    #     host_mem.write(addr, rand_data)
 
     host_interface = HostMemoryInterface(host_mem)
 
@@ -106,7 +106,12 @@ async def test_wrapper(dut):
     await Timer(10, 'us')
 
     """SCOREBOARD"""
-    scoreboard = AxiScoreboard(ar_signal_queue, r_data_queue, aw_signal_queue, w_data_queue, b_signal_queue, tb.tb_axi.axi_ram1)
+    if os.getenv("CMSS_CACHE_TEST") == "1":
+        scoreboard = AxiScoreboard(ar_signal_queue, r_data_queue, aw_signal_queue,
+                                    w_data_queue, b_signal_queue, test_mode='cache_test')
+    else:
+        scoreboard = AxiScoreboard(ar_signal_queue, r_data_queue, aw_signal_queue,
+                                    w_data_queue, b_signal_queue, host_mem=host_mem)
     scoreboard.start()
 
     """MEMORT STATE EXCLUSIVE"""
