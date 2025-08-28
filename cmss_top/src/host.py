@@ -55,7 +55,7 @@ class RspGen:
                     rsp_data=CXL_CACHE_STATE_INVALID,
                     cqid=req.cqid,
                 )
-                addr = req.address * 0x1000
+                addr = req.address
                 await self.d2h_data_addr_queue.put(addr)
                 await self.h2d_rsp_queue.put(rsp)
 
@@ -64,7 +64,7 @@ class RspGen:
                     cqid=req.cqid,
                     valid=True
                 )
-                addr = req.address * 0x1000
+                addr = req.address
                 await self.h2d_data_addr_queue.put(addr)
                 await self.h2d_data_hdr_queue.put(data_hdr)
 
@@ -75,13 +75,13 @@ class RspGen:
                     rsp_data=CXL_CACHE_STATE_SHARED,
                     cqid=req.cqid
                 )
-                addr = req.address * 0x1000
+                addr = req.address
                 await self.h2d_data_addr_queue.put(addr)
                 await self.h2d_rsp_queue.put(rsp)
 
                 data_hdr = CXL_FLIT_H2D_DATA_HDR(
-                    valid=True,
-                    cqid=req.cqid
+                    cqid=req.cqid,
+                    valid=True
                 )
                 await self.h2d_data_hdr_queue.put(data_hdr)
 
@@ -188,7 +188,7 @@ class ConstructG1:
         return slot_g1
 
 def make_data_slot(data_bytes: bytes) -> list[int]:
-    value = int.from_bytes(data_bytes, byteorder='little')
+    value = int.from_bytes(data_bytes, byteorder='big')
     words = []
     for i in range(4):
         # little-endian: LSB first

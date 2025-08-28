@@ -18,10 +18,9 @@ class HostWriteData:
                 return
             d2h_data = [await self.d2h_data_slot_queue.get() for _ in range(4)]
             address = await self.d2h_data_addr_queue.get()
-            write_data = 0
+            write_data = b""
             for slot in reversed(d2h_data):
-                write_data = (write_data << 128) | (slot & ((1 << 128) - 1))
-            write_data = write_data.to_bytes(64, byteorder='little')
+                write_data += slot.to_bytes(16, byteorder='big')
             await self.host_interface.write(address, write_data)
 
 class HostReadData:
@@ -30,6 +29,7 @@ class HostReadData:
         self.h2d_data_queue = h2d_data_queue
         self.h2d_data_addr_queue = h2d_data_addr_queue
         self.host_interface = host_interface
+        self.log = cocotb.log
     
     async def process(self):
         while True:
@@ -46,15 +46,15 @@ class HostReadData:
 class HostMemoryInterface:
     def __init__(self, memory):
         self.memory = memory
-        self.log = cocotb.logging.getLogger("HostWrite")
+        self.log = cocotb.log
     
     async def write(self, addr, data: bytes):
         addr = addr << 6
         self.memory.write(addr, data)
-        self.log.info(f"[MEMORY WRITE] Stored {len(data)} bytes at 0x{addr:08X} Data : {data.hex()}")
+        self.log.info(f"[MEMORY WRITE] Stored {len(data)} bytes at 0x{addr:08X} Data : 0x{data.hex().upper()}")
 
     async def read(self, addr: int, length: int) -> bytes:
         addr = addr << 6
         data = self.memory.read(addr, length)
-        self.log.info(f"[MEMORY READ] {length} bytes from 0x{addr:08X} Data : {data.hex()}")
+        self.log.info(f"[MEMORY READ] {length} bytes from 0x{addr:08X} Data : 0x{data.hex().upper()}")
         return data

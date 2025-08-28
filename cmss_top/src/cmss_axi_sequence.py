@@ -403,7 +403,94 @@ async def cmss_cache_test(tb, size=None):
     await RisingEdge(tb.dut.aclk)
     await Timer(random.randint(1, 2), 'us')
 
-async def cxl_write_read_test (tb, size=None):
+async def cxl_write_and_read_test (tb, size=None):
+    tb_axi = tb.tb_axi
+    pending_writes = {}
+    recent_writes = set()
+    recent_reads = set()
+
+    if size is None:
+        size = tb_axi.axi_master.write_if.max_burst_size
+
+    # sequential write to random addr/data. save data in dict
+    await RisingEdge(tb.dut.aclk)
+    ADDR_RANGE = 2**10          # 1KB range
+    #ADDR_RANGE = 2**14
+    ALIGN = 64                  # 64B alignment
+    #NUM_TXNS = 1_000_000       # 1M transactions
+    NUM_TXNS = 10
+    LENGTH = 64                 # Fixed length
+    
+    def b_callback(transaction):
+        bid = int(transaction["bid"])
+        if bid in pending_writes and pending_writes[bid]:
+            awaddr = pending_writes[bid].pop(0)
+            recent_writes.discard(awaddr)
+
+    def aw_callback(transaction):
+        awid = int(transaction["awid"])
+        awaddr = int(transaction["awaddr"])
+        if awid not in pending_writes:
+            pending_writes[awid] = []
+        pending_writes[awid].append(awaddr)
+    
+    def ar_callback(tranction):
+        araddr = int(tranction["araddr"])
+        recent_reads.discard(araddr)
+
+    b_monitor = CORE_B_Signal_Monitor(tb.dut, "core", tb.dut.aclk, callback=b_callback)
+    aw_monitor = CORE_AW_Signal_Monitor(tb.dut, "core", tb.dut.aclk, callback=aw_callback)
+    ar_monitor = CORE_AR_Signal_Monitor(tb.dut, "core", tb.dut.aclk, callback=ar_callback)
+
+    sent_txns = 0
+    while sent_txns < NUM_TXNS:
+        while True:
+            addr = random.randrange(0, ADDR_RANGE, ALIGN)
+            if addr not in recent_writes and addr not in recent_reads:
+                await RisingEdge(tb.dut.aclk)
+                break
+            else:
+                await RisingEdge(tb.dut.aclk)
+        
+
+        test_data = bytearray([random.randint(0, 255) for _ in range(LENGTH)])
+        recent_writes.add(addr)
+        random_awcache = random.choice(AWCACHE_VALUES)
+        cocotb.start_soon(
+            tb_axi.axi_master.write(
+                addr, test_data, size=size,
+                cache=AWCACHE_WRITE_BACK_READ_AND_WRITE_ALLOC
+            )
+        )
+        sent_txns += 1
+    
+    await Timer(1000, "ns")
+    sent_txns = 0
+    while sent_txns < NUM_TXNS:
+        while True:
+            addr = random.randrange(0, ADDR_RANGE, ALIGN)
+            if addr not in recent_writes and addr not in recent_reads:
+                await RisingEdge(tb.dut.aclk)
+                break
+            else:
+                await RisingEdge(tb.dut.aclk)
+        
+        random_arcache = random.choice(ARCACHE_VALUES)
+        cocotb.start_soon(
+            tb_axi.axi_master.read(
+                addr, LENGTH, size=size,
+                cache=ARCACHE_WRITE_BACK_READ_AND_WRITE_ALLOC
+            )
+        )
+        recent_reads.add(addr)
+
+        sent_txns += 1
+
+
+    await RisingEdge(tb.dut.aclk)
+    await Timer(random.randint(1, 2), 'us')
+
+async def cxl_random_write_read_test (tb, size=None):
     tb_axi = tb.tb_axi
     pending_writes = {}
     recent_writes = set()

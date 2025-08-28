@@ -95,11 +95,13 @@ class AxiScoreboard:
             # Write Golden Memory
             awid = int(aw_trans['awid'])
             addr = int(aw_trans['awaddr'])
-
-            self.pending_writes[awid] = {
+            self.log.info(f"[CORE_WRITE_COMPLETE] WDATA 0x{addr:08X}. Complete WDATA: 0x{(bytes(data)).hex().upper()}")
+            if awid not in self.pending_writes:
+                self.pending_writes[awid] = []
+            self.pending_writes[awid].append({
                 "addr": addr,
                 "data": data
-            }
+            })
             self.write_count += 1
 
     async def _b_handler(self):
@@ -108,11 +110,14 @@ class AxiScoreboard:
             bid = int(b_trans['bid'])
             bresp = int(b_trans['bresp'])
 
-            if bresp == 0 and bid in self.pending_writes:
-                entry = self.pending_writes.pop(bid)
+            if bresp == 0 and bid in self.pending_writes and self.pending_writes[bid]:
+                #entry = self.pending_writes.pop(bid)
+                entry = self.pending_writes[bid].pop(0)
                 addr = entry["addr"]
                 data = entry["data"]
-                addr = addr << 6
+                #addr = addr << 6
+                self.log.info(f"[CORE_B_MONITOR] B Response for 0x{addr:08X}. Bid: {bid:08X} Complete WDATA: 0x{(bytes(data)).hex().upper()}")
+                self.log.info(f"[DEBUG] GOLDEN MEMORY WRITE DATA to 0x{addr:08X} : 0x{data.hex().upper()}")
                 self.golden_memory.write(addr, data)
 
     async def _ar_handler(self):
@@ -138,8 +143,9 @@ class AxiScoreboard:
             # Use RID to find the previously stored AR transaction
             if rid in self.pending_reads:
                 araddr = self.pending_reads.pop(rid)
-                araddr = araddr << 6
+                #araddr = araddr << 6
                 expected_data = self.golden_memory.read(araddr, len(read_data))
+                self.log.info(f"[DEBUG] GOLDEN MEMORY EXPECTED DATA from 0x{araddr:08X} : 0x{expected_data.hex().upper()}")
                 self.check_count += 1
                 arcache = self.pending_arcache.pop(rid)
                 arcache_type_str = ARCACHE_MAP.get(arcache, f"Unknown ARCACHE value ({arcache})")
@@ -149,7 +155,7 @@ class AxiScoreboard:
                     self.log.info(
                     f"[Scoreboard/Verifier #{self.check_count}] "
                     f"PASSED: Read data matches for ID {rid}, "
-                    f"Address: 0x{int(araddr):X}, "
+                    f"Address: 0x{araddr:08X}, "
                     f"ARCACHE TYPE: {arcache_type_str}"
                 )
                     self.log.info(f"  - Expected: 0x{expected_data.hex().upper()}")
@@ -159,13 +165,13 @@ class AxiScoreboard:
                     self.log.warning(
                     f"[Scoreboard/Verifier #{self.check_count}] "
                     f"FAILED: Read data mismatch for ID {rid}, "
-                    f"Address: 0x{int(araddr):X}, "
+                    f"Address: 0x{araddr:08X}, "
                     f"ARCACHE TYPE: {arcache_type_str}"
                 )
                     self.log.warning(f"  - Expected: 0x{expected_data.hex().upper()}")
                     self.log.warning(f"  - Actual:   0x{read_data.hex().upper()}")
                     self.fail_count += 1
-                    #assert read_data == expected_data
+                    assert read_data == expected_data
 
             else:
                 self.log.error(f"[Scoreboard/ERROR] Received R-channel data for unexpected RID: {rid}")
@@ -213,11 +219,12 @@ class CORE_W_Signal_Monitor(BusMonitor):
             
             if self.bus.wvalid.value and self.bus.wready.value:
                 wdata_value = self.bus.wdata.value
-                
+                #self.log.info(f"[CORE_W_Monitor] WDATA ({len(wdata_value)}B), 0x{wdata_value.hex().upper()}")
                 data_bytes = wdata_value.buff
                 self.partial_wdata.extend(data_bytes)
                 
                 if self.bus.wlast.value:
+                    self.log.info(f"[CORE_W_Monitor] WDATA ({len(self.partial_wdata)}B), 0x{self.partial_wdata.hex().upper()}")
                     self._recv(bytes(self.partial_wdata))
                     self.partial_wdata.clear()
 
@@ -313,15 +320,15 @@ class CORE_B_Signal_Monitor(BusMonitor):
 class Mem_W_Monitor(BusMonitor):
     _signals = ["wvalid", "wready", "wdata", "wlast"]
 
-    def __init__(self, dut, name, clock, reset=None, reset_n=None, callback=None, event=None):
+    def __init__(self, dut, name, clock, mem_aw_signal_queue, reset=None, reset_n=None, callback=None, event=None):
         """Initialization method for Monitor"""
         super().__init__(dut, name, clock, reset=reset, reset_n=reset_n, callback=callback, event=event)
+        self.mem_aw_signal_queue = mem_aw_signal_queue
         self.partial_wdata = bytearray()
         self.collected_beats = []
     
     async def _monitor_recv(self):
         """Automatically read data from W"""
-        await Timer(1, 'us')
         while True:
             await RisingEdge(self.clock)
 
@@ -330,24 +337,47 @@ class Mem_W_Monitor(BusMonitor):
             
             if self.bus.wvalid.value and self.bus.wready.value:
                 
-
-                #self.log.info(f"MEM W Monitor: Capturing data beat #{self.beat_count}")
                 wdata_value = self.bus.wdata.value
                 data_bytes = wdata_value.buff
                 self.collected_beats.append(data_bytes)
+                
                 if self.bus.wlast.value:
                     total_beats = len(self.collected_beats)
 
-                    # 3번 들어오면 첫 번째 256비트 제외
                     if total_beats == 3:
                         final_data = b''.join(self.collected_beats[1:])
-                    else:  # 2번이면 모두 사용
+                    else:
                         final_data = b''.join(self.collected_beats)
 
                     if final_data:
                         self._recv(final_data)
-                        #self.log.info(f"[MEM_W] Transaction finished. Complete WDATA: {(bytes(final_data)).hex().upper()}")
+                        aw_trans = await self.mem_aw_signal_queue.get()
+                        mem_addr = int(aw_trans['awaddr'])
+                        awid = int(aw_trans['awid'])
+                        core_addr = mem_addr//2
+                        self.log.info(f"[MEM_W] Transaction finished to 0x{core_addr:08X}. AW ID : {awid:08X} Complete WDATA: 0x{(bytes(final_data)).hex().upper()}")
                     self.collected_beats.clear()
+
+class Mem_AW_Monitor(BusMonitor):
+    _signals = ["awvalid", "awready", "awid", "awaddr"]
+
+    def __init__(self, dut, name, clock, reset=None, reset_n=None, callback=None, event=None):
+        """Initialization method for Monitor"""
+        super().__init__(dut, name, clock, reset=reset, reset_n=reset_n, callback=callback, event=event)
+
+    async def _monitor_recv(self):
+        """Automatically read data from W"""
+        while True:
+            await RisingEdge(self.clock)
+
+            if self.bus.awvalid.value and self.bus.awready.value:
+                aw_trans = {
+                    'awid': self.bus.awid.value,
+                    'awaddr': self.bus.awaddr.value
+                }
+                core_addr = int(self.bus.awaddr.value)//2
+                self.log.info(f"[MEM_AW] Addr: 0x{core_addr:08X}, AW_ID: 0x{int(self.bus.awid.value):08X}")
+                self._recv(aw_trans)
 
 class Mem_R_Monitor(BusMonitor):
     _signals = ["rvalid", "rready", "rdata", "rlast"]

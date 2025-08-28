@@ -45,6 +45,7 @@ async def test_wrapper(dut):
     aw_signal_queue         = Queue()
     b_signal_queue          = Queue()
     mem_w_data_queue        = Queue()
+    mem_aw_signal_queue     = Queue()
     mem_r_data_queue        = Queue()
     
     unpacker = Unpack(rx_flit_queue, d2h_req_queue, d2h_data_queue, d2h_data_slot_queue, rx_control_flit_queue)
@@ -56,13 +57,13 @@ async def test_wrapper(dut):
     aw_signal_monitor = CORE_AW_Signal_Monitor(dut, "core", dut.aclk, dut.areset)
     w_signal_monitor = CORE_W_Signal_Monitor(dut, "core", dut.aclk, dut.areset)
     b_signal_monitor = CORE_B_Signal_Monitor(dut, "core", dut.aclk, dut.areset)
-    mem_w_signal_monitor = Mem_W_Monitor(dut, "mem", dut.aclk, dut.areset)
+
     mem_r_signal_monitor = Mem_R_Monitor(dut, "mem", dut.aclk, dut.areset)
 
-    host_mem = Memory(size=2**30)
-    # for addr in range(0, 2**30, 64):
-    #     rand_data = bytearray([random.randint(0, 255) for _ in range(64)])
-    #     host_mem.write(addr, rand_data)
+    host_mem = Memory(size=2**21)
+    for addr in range(0, 2**21, 64):
+        rand_data = bytearray([random.randint(0, 255) for _ in range(64)])
+        host_mem.write(addr, rand_data)
 
     host_interface = HostMemoryInterface(host_mem)
 
@@ -84,7 +85,7 @@ async def test_wrapper(dut):
     aw_signal_monitor.add_callback(aw_signal_queue.put_nowait)
     w_signal_monitor.add_callback(w_data_queue.put_nowait)
     b_signal_monitor.add_callback(b_signal_queue.put_nowait)
-    mem_w_signal_monitor.add_callback(mem_w_data_queue.put_nowait)
+
     mem_r_signal_monitor.add_callback(mem_r_data_queue.put_nowait)
 
     cocotb.start_soon(HostWriteAdapter.process())
@@ -104,6 +105,10 @@ async def test_wrapper(dut):
     """INIT AXI"""
     tb = await axi_init(dut)
     await Timer(10, 'us')
+    mem_w_signal_monitor = Mem_W_Monitor(dut, "mem", dut.aclk, mem_aw_signal_queue, dut.areset)
+    mem_aw_signal_monitor = Mem_AW_Monitor(dut, "mem", dut.aclk, dut.areset)
+    mem_w_signal_monitor.add_callback(mem_w_data_queue.put_nowait)
+    mem_aw_signal_monitor.add_callback(mem_aw_signal_queue.put_nowait)
 
     """SCOREBOARD"""
     if os.getenv("CMSS_CACHE_TEST") == "1":
@@ -124,6 +129,6 @@ async def test_wrapper(dut):
     else:
         await axi_random_access(tb)
     
-    scoreboard.stop()
-
+    
     await Timer(1, "us")
+    scoreboard.stop()
