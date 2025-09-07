@@ -561,7 +561,7 @@ class AxiLiteMasterRead(Region, Reset):
                     stop = end_offset
 
                 for j in range(start, stop):
-                    data.extend(bytearray([(cycle_data >> j*8) & 0xff]))
+                    data.append((cycle_data >> j*8) & 0xff)
 
             if self.log.isEnabledFor(logging.INFO):
                 self.log.info("Read complete addr: 0x%08x prot: %s resp: %s data: %s",
