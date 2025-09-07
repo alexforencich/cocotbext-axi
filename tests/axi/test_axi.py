@@ -296,7 +296,7 @@ def cycle_pause():
     return itertools.cycle([1, 1, 1, 0])
 
 
-if cocotb.SIM_NAME:
+if getattr(cocotb, 'top', None) is not None:
 
     data_width = len(cocotb.top.axi_wdata)
     byte_lanes = data_width // 8

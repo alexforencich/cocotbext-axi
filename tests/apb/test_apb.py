@@ -277,7 +277,7 @@ def cycle_pause():
     return itertools.cycle([1, 1, 1, 0])
 
 
-if cocotb.SIM_NAME:
+if getattr(cocotb, 'top', None) is not None:
 
     for test in [run_test_write, run_test_read]:
 
