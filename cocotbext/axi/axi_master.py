@@ -1,6 +1,6 @@
 """
 
-Copyright (c) 2020 Alex Forencich
+Copyright (c) 2020-2025 Alex Forencich
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -205,7 +205,7 @@ class AxiMasterWrite(Region, Reset):
 
         self.log.info("AXI master (write)")
         self.log.info("cocotbext-axi version %s", __version__)
-        self.log.info("Copyright (c) 2020 Alex Forencich")
+        self.log.info("Copyright (c) 2020-2025 Alex Forencich")
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
         self.aw_channel = AxiAWSource(bus.aw, clock, reset, reset_active_level)
@@ -647,7 +647,7 @@ class AxiMasterRead(Region, Reset):
 
         self.log.info("AXI master (read)")
         self.log.info("cocotbext-axi version %s", __version__)
-        self.log.info("Copyright (c) 2020 Alex Forencich")
+        self.log.info("Copyright (c) 2020-2025 Alex Forencich")
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
         self.ar_channel = AxiARSource(bus.ar, clock, reset, reset_active_level)

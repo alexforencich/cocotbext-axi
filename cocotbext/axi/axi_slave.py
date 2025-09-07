@@ -1,6 +1,6 @@
 """
 
-Copyright (c) 2021 Alex Forencich
+Copyright (c) 2021-2025 Alex Forencich
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -45,7 +45,7 @@ class AxiSlaveWrite(Reset):
 
         self.log.info("AXI slave model (write)")
         self.log.info("cocotbext-axi version %s", __version__)
-        self.log.info("Copyright (c) 2021 Alex Forencich")
+        self.log.info("Copyright (c) 2021-2025 Alex Forencich")
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
         super().__init__(**kwargs)
@@ -216,7 +216,7 @@ class AxiSlaveRead(Reset):
 
         self.log.info("AXI slave model (read)")
         self.log.info("cocotbext-axi version %s", __version__)
-        self.log.info("Copyright (c) 2021 Alex Forencich")
+        self.log.info("Copyright (c) 2021-2025 Alex Forencich")
         self.log.info("https://github.com/alexforencich/cocotbext-axi")
 
         super().__init__(**kwargs)
