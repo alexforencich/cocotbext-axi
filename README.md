@@ -9,7 +9,7 @@ GitHub repository: https://github.com/alexforencich/cocotbext-axi
 
 ## Introduction
 
-AXI, AXI lite, and AXI stream simulation models for [cocotb](https://github.com/cocotb/cocotb).
+AXI, AXI lite, AXI stream, and APB simulation models for [cocotb](https://github.com/cocotb/cocotb).
 
 ## Installation
 
@@ -28,13 +28,13 @@ Installation for active development:
 
 ## Documentation and usage examples
 
-See the `tests` directory, [verilog-axi](https://github.com/alexforencich/verilog-axi), and [verilog-axis](https://github.com/alexforencich/verilog-axis) for complete testbenches using these modules.
+See the `tests` directory, [taxi](https://github.com/fpganinja/taxi), [verilog-axi](https://github.com/alexforencich/verilog-axi), and [verilog-axis](https://github.com/alexforencich/verilog-axis) for complete testbenches using these modules.
 
-### AXI and AXI lite master
+### AXI, AXI lite, and APB master
 
-The `AxiMaster` and `AxiLiteMaster` classes implement AXI masters and are capable of generating read and write operations against AXI slaves.  Requested operations will be split and aligned according to the AXI specification.  The `AxiMaster` module is capable of generating narrow bursts, handling multiple in-flight operations, and handling reordering and interleaving in responses across different transaction IDs.  `AxiMaster` and `AxiLiteMaster` and related objects all extend `Region`, so they can be attached to `AddressSpace` objects to handle memory operations in the specified region.
+The `AxiMaster`, `AxiLiteMaster`, and `ApbMaster` classes implement AXI, AXI-lite, and APB masters and are capable of generating read and write operations against the corresponding slaves.  Requested operations will be split and aligned according to the AXI specification.  The `AxiMaster` module is capable of generating narrow bursts, handling multiple in-flight operations, and handling reordering and interleaving in responses across different transaction IDs.  `AxiMaster` and `AxiLiteMaster` and related objects all extend `Region`, so they can be attached to `AddressSpace` objects to handle memory operations in the specified region.
 
-The `AxiMaster` is a wrapper around `AxiMasterWrite` and `AxiMasterRead`.  Similarly, `AxiLiteMaster` is a wrapper around `AxiLiteMasterWrite` and `AxiLiteMasterRead`.  If a read-only or write-only interface is required instead of a full interface, use the corresponding read-only or write-only variant, the usage and API are exactly the same.
+The `AxiMaster` is a wrapper around `AxiMasterWrite` and `AxiMasterRead`.  Similarly, `AxiLiteMaster` is a wrapper around `AxiLiteMasterWrite` and `AxiLiteMasterRead`.  If a read-only or write-only interface is required instead of a full interface, use the corresponding read-only or write-only variant, the usage and API are exactly the same.  APB is not channelized, so only `ApbSlave` is available.
 
 To use these modules, import the one you need and connect it to the DUT:
 
@@ -64,9 +64,9 @@ Alternatively, operations can be initiated with non-blocking `init_read()` and `
 
 With this method, it is possible to start multiple concurrent operations from the same coroutine.  It is also possible to use the events with `Combine`, `First`, and `with_timeout`.
 
-#### `AxiMaster` and `AxiLiteMaster` constructor parameters
+#### `AxiMaster`, `AxiLiteMaster`, and `ApbMaster` constructor parameters
 
-* _bus_: `AxiBus` or `AxiLiteBus` object containing AXI interface signals
+* _bus_: `AxiBus`, `AxiLiteBus`, or `ApbBus` object containing interface signals
 * _clock_: clock signal
 * _reset_: reset signal (optional)
 * _reset_active_level_: reset active level (optional, default `True`)
@@ -114,20 +114,20 @@ With this method, it is possible to start multiple concurrent operations from th
 * _wuser_: AXI wuser signal, default `0` (write-related methods only)
 * _event_: `Event` object used to wait on and retrieve result for specific operation, default `None`.  The event will be triggered when the operation completes and the result returned via `Event.data`.  (`init_read()` and `init_write()` only)
 
-#### Additional optional arguments for `AxiLiteMaster`
+#### Additional optional arguments for `AxiLiteMaster` and `ApbMaster`
 
 * _prot_: AXI protection flags, default `AxiProt.NONSECURE`
 * _event_: `Event` object used to wait on and retrieve result for specific operation, default `None`.  The event will be triggered when the operation completes and the result returned via `Event.data`.  (`init_read()` and `init_write()` only)
 
-#### `AxiBus` and `AxiLiteBus` objects
+#### `AxiBus`, `AxiLiteBus`, and `ApbBus` objects
 
-The `AxiBus`, `AxiLiteBus`, and related objects are containers for the interface signals.  These hold instances of bus objects for the individual channels, which are currently extensions of `cocotb_bus.bus.Bus`.  Class methods `from_entity` and `from_prefix` are provided to facilitate signal name matching.  For AXI interfaces use `AxiBus`, `AxiReadBus`, or `AxiWriteBus`, as appropriate.  For AXI lite interfaces, use `AxiLiteBus`, `AxiLiteReadBus`, or `AxiLiteWriteBus`, as appropriate.
+The `AxiBus`, `AxiLiteBus`, `ApbBus`, and related objects are containers for the interface signals.  These hold instances of bus objects for the individual channels, which are currently extensions of `cocotb_bus.bus.Bus`.  Class methods `from_entity` and `from_prefix` are provided to facilitate signal name matching.  For AXI interfaces use `AxiBus`, `AxiReadBus`, or `AxiWriteBus`, as appropriate.  For AXI lite interfaces, use `AxiLiteBus`, `AxiLiteReadBus`, or `AxiLiteWriteBus`, as appropriate.  For APB interfaces, use `ApbBus`.
 
-### AXI and AXI lite slave
+### AXI, AXI lite, and APB slave
 
-The `AxiSlave` and `AxiLiteSlave` classes implement AXI slaves and are capable of completing read and write operations from upstream AXI masters.  The `AxiSlave` module is capable of handling narrow bursts.  These modules can either be used to perform memory reads and writes on a `MemoryInterface` on behalf of the DUT, or they can be extended to implement customized functionality.
+The `AxiSlave`, `AxiLiteSlave`, and `ApbSlave` classes implement AXI, AXI-lite, and APB slaves and are capable of completing read and write operations from upstream AXI masters.  The `AxiSlave` module is capable of handling narrow bursts.  These modules can either be used to perform memory reads and writes on a `MemoryInterface` on behalf of the DUT, or they can be extended to implement customized functionality.
 
-The `AxiSlave` is a wrapper around `AxiSlaveWrite` and `AxiSlaveRead`.  Similarly, `AxiLiteSlave` is a wrapper around `AxiLiteSlaveWrite` and `AxiLiteSlaveRead`.  If a read-only or write-only interface is required instead of a full interface, use the corresponding read-only or write-only variant, the usage and API are exactly the same.
+The `AxiSlave` is a wrapper around `AxiSlaveWrite` and `AxiSlaveRead`.  Similarly, `AxiLiteSlave` is a wrapper around `AxiLiteSlaveWrite` and `AxiLiteSlaveRead`.  If a read-only or write-only interface is required instead of a full interface, use the corresponding read-only or write-only variant, the usage and API are exactly the same.  APB is not channelized, so only `ApbSlave` is available.
 
 To use these modules, import the one you need and connect it to the DUT:
 
@@ -137,13 +137,13 @@ To use these modules, import the one you need and connect it to the DUT:
     region = MemoryRegion(2**axi_slave.read_if.address_width)
     axi_slave.target = region
 
-The first argument to the constructor accepts an `AxiBus` or `AxiLiteBus` object.  These objects are containers for the interface signals and include class methods to automate connections.
+The first argument to the constructor accepts an `AxiBus`, `AxiLiteBus`, or `ApbBus` object.  These objects are containers for the interface signals and include class methods to automate connections.
 
 It is also possible to extend these modules; operation can be customized by overriding the internal `_read()` and `_write()` methods.  See `AxiRam` and `AxiLiteRam` for an example.
 
-#### `AxiSlave` and `AxiLiteSlave` constructor parameters
+#### `AxiSlave`, `AxiLiteSlave`, and `ApbSlave` constructor parameters
 
-* _bus_: `AxiBus` or `AxiLiteBus` object containing AXI interface signals
+* _bus_: `AxiBus`, `AxiLiteBus`, or `ApbBus` object containing interface signals
 * _clock_: clock signal
 * _reset_: reset signal (optional)
 * _reset_active_level_: reset active level (optional, default `True`)
@@ -153,11 +153,11 @@ It is also possible to extend these modules; operation can be customized by over
 
 * _target_: target region
 
-### AXI and AXI lite RAM
+### AXI, AXI lite, and APB RAM
 
-The `AxiRam` and `AxiLiteRam` classes implement AXI RAMs and are capable of completing read and write operations from upstream AXI masters.  The `AxiRam` module is capable of handling narrow bursts.  These modules are extensions of the corresponding `AxiSlave` and `AxiLiteSlave` modules.  Internally, `SparseMemory` is used to support emulating very large memories.
+The `AxiRam`, `AxiLiteRam`, and `ApbRam` classes implement AXI, AXI-lite, and APB RAMs and are capable of completing read and write operations from upstream AXI masters.  The `AxiRam` module is capable of handling narrow bursts.  These modules are extensions of the corresponding `AxiSlave`, `AxiLiteSlave`, and `ApbSlave` modules.  Internally, `SparseMemory` is used to support emulating very large memories.
 
-The `AxiRam` is a wrapper around `AxiRamWrite` and `AxiRamRead`.  Similarly, `AxiLiteRam` is a wrapper around `AxiLiteRamWrite` and `AxiLiteRamRead`.  If a read-only or write-only interface is required instead of a full interface, use the corresponding read-only or write-only variant, the usage and API are exactly the same.
+The `AxiRam` is a wrapper around `AxiRamWrite` and `AxiRamRead`.  Similarly, `AxiLiteRam` is a wrapper around `AxiLiteRamWrite` and `AxiLiteRamRead`.  If a read-only or write-only interface is required instead of a full interface, use the corresponding read-only or write-only variant, the usage and API are exactly the same.  APB is not channelized, so only `ApbRam` is available.
 
 To use these modules, import the one you need and connect it to the DUT:
 
@@ -165,9 +165,9 @@ To use these modules, import the one you need and connect it to the DUT:
 
     axi_ram = AxiRam(AxiBus.from_prefix(dut, "m_axi"), dut.clk, dut.rst, size=2**32)
 
-The first argument to the constructor accepts an `AxiBus` or `AxiLiteBus` object.  These objects are containers for the interface signals and include class methods to automate connections.
+The first argument to the constructor accepts an `AxiBus`, `AxiLiteBus`, or `ApbBus` object.  These objects are containers for the interface signals and include class methods to automate connections.
 
-Once the module is instantiated, the memory contents can be accessed in a couple of different ways.  First, the `mmap` object can be accessed directly via the `mem` attribute.  Second, `read()`, `write()`, and various word-access wrappers are available.  Hex dump helper methods are also provided for debugging.  For example:
+Once the module is instantiated, the memory contents can be accessed in a couple of different ways.  First, the `mmap`/`SparseMemory` object can be accessed directly via the `mem` attribute.  Second, `read()`, `write()`, and various word-access wrappers are available.  Hex dump helper methods are also provided for debugging.  For example:
 
     axi_ram.write(0x0000, b'test')
     data = axi_ram.read(0x0000, 4)
@@ -180,9 +180,9 @@ Multi-port memories can be constructed by passing the `mem` object of the first 
     axi_ram_p3 = AxiRam(AxiBus.from_prefix(dut, "m02_axi"), dut.clk, dut.rst, mem=axi_ram_p1.mem)
     axi_ram_p4 = AxiRam(AxiBus.from_prefix(dut, "m03_axi"), dut.clk, dut.rst, mem=axi_ram_p1.mem)
 
-#### `AxiRam` and `AxiLiteRam` constructor parameters
+#### `AxiRam`, `AxiLiteRam`, and `ApbRam` constructor parameters
 
-* _bus_: `AxiBus` or `AxiLiteBus` object containing AXI interface signals
+* _bus_: `AxiBus`, `AxiLiteBus`, or `ApbBus` object containing interface signals
 * _clock_: clock signal
 * _reset_: reset signal (optional)
 * _reset_active_level_: reset active level (optional, default `True`)
@@ -471,3 +471,16 @@ This is a simple example that shows how the address space abstraction components
 * `tid`: ID signal, can be used for routing
 * `tdest`: destination signal, can be used for routing
 * `tuser`: additional sideband data
+
+### APB signals
+
+* `paddr`: address
+* `pprot`: protection bits
+* `psel`: select signal, for selecting a target device
+* `penable`: enable signal, for performing an operation
+* `pwrite`: read/write control signal
+* `pwdata`: write data
+* `pstrb`: write strobe
+* `pready`: ready signal to stall bus
+* `prdata`: read data
+* `pslverr`: read/write response, indicating SLVERR

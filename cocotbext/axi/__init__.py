@@ -43,3 +43,5 @@ from .axi_channels import AxiWriteBus, AxiReadBus, AxiBus
 from .axi_master import AxiMasterWrite, AxiMasterRead, AxiMaster
 from .axi_slave import AxiSlaveWrite, AxiSlaveRead, AxiSlave
 from .axi_ram import AxiRamWrite, AxiRamRead, AxiRam
+
+from .apb import ApbBus, ApbMaster, ApbSlave, ApbRam
