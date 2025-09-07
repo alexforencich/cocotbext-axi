@@ -1,6 +1,6 @@
 # AXI interface modules for Cocotb
 
-[![Build Status](https://github.com/alexforencich/cocotbext-axi/workflows/Regression%20Tests/badge.svg?branch=master)](https://github.com/alexforencich/cocotbext-axi/actions/)
+[![Regression Tests](https://github.com/alexforencich/cocotbext-axi/actions/workflows/regression-tests.yml/badge.svg)](https://github.com/alexforencich/cocotbext-axi/actions/workflows/regression-tests.yml)
 [![codecov](https://codecov.io/gh/alexforencich/cocotbext-axi/branch/master/graph/badge.svg)](https://codecov.io/gh/alexforencich/cocotbext-axi)
 [![PyPI version](https://badge.fury.io/py/cocotbext-axi.svg)](https://pypi.org/project/cocotbext-axi)
 [![Downloads](https://pepy.tech/badge/cocotbext-axi)](https://pepy.tech/project/cocotbext-axi)
