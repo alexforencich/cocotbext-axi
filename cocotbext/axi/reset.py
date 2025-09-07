@@ -23,7 +23,7 @@ THE SOFTWARE.
 """
 
 import cocotb
-from cocotb.triggers import RisingEdge, FallingEdge
+from cocotb.triggers import Edge
 
 
 class Reset:
@@ -56,11 +56,14 @@ class Reset:
 
     async def _run_reset(self, reset_signal, active_level):
         while True:
-            if bool(reset_signal.value):
-                await FallingEdge(reset_signal)
-                self._ext_reset = not active_level
+            await Edge(reset_signal)
+            try:
+                level = bool(int(reset_signal.value))
+            except ValueError:
+                continue
+            if level:
+                self._ext_reset = active_level
                 self._update_reset()
             else:
-                await RisingEdge(reset_signal)
-                self._ext_reset = active_level
+                self._ext_reset = not active_level
                 self._update_reset()
