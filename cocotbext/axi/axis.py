@@ -30,6 +30,11 @@ from cocotb.triggers import RisingEdge, Timer, First, Event
 from cocotb.utils import get_sim_time
 from cocotb_bus.bus import Bus
 
+try:
+    from cocotb.types import LogicArray
+except ImportError:
+    pass
+
 from .version import __version__
 from .reset import Reset
 
@@ -301,9 +306,13 @@ class AxiStreamBase(Reset):
         for sig in self._signals+self._optional_signals:
             if hasattr(self.bus, sig):
                 if self._init_x and sig not in ("tvalid", "tready"):
-                    v = getattr(self.bus, sig).value
-                    v.binstr = 'x'*len(v)
-                    getattr(self.bus, sig).setimmediatevalue(v)
+                    s = getattr(self.bus, sig)
+                    try:
+                        v = LogicArray("x"*len(s.value))
+                    except NameError:
+                        v = s.value
+                        v.binstr = 'x'*len(v)
+                    s.setimmediatevalue(v)
 
         if hasattr(self.bus, "tkeep"):
             self.byte_lanes = len(self.bus.tkeep)
