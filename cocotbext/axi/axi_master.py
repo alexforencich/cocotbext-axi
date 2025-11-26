@@ -28,12 +28,12 @@ from typing import List, NamedTuple, Union
 
 import cocotb
 from cocotb.queue import Queue
-from cocotb.triggers import Event
 
 from .version import __version__
 from .constants import AxiBurstType, AxiLockType, AxiProt, AxiResp
 from .axi_channels import AxiAWSource, AxiWSource, AxiBSink, AxiARSource, AxiRSink
 from .address_space import Region
+from .event import Event
 from .reset import Reset
 
 
@@ -129,7 +129,7 @@ class TagContext:
     def _flush(self):
         flushed_cmds = []
         if self._cr is not None:
-            self._cr.kill()
+            self._cr.cancel()
             self._cr = None
         self._manager._set_idle(self)
         if self._current_cmd is not None:
@@ -431,10 +431,10 @@ class AxiMasterWrite(Region, Reset):
         if state:
             self.log.info("Reset asserted")
             if self._process_write_cr is not None:
-                self._process_write_cr.kill()
+                self._process_write_cr.cancel()
                 self._process_write_cr = None
             if self._process_write_resp_cr is not None:
-                self._process_write_resp_cr.kill()
+                self._process_write_resp_cr.cancel()
                 self._process_write_resp_cr = None
 
             self.aw_channel.clear()
@@ -842,10 +842,10 @@ class AxiMasterRead(Region, Reset):
         if state:
             self.log.info("Reset asserted")
             if self._process_read_cr is not None:
-                self._process_read_cr.kill()
+                self._process_read_cr.cancel()
                 self._process_read_cr = None
             if self._process_read_resp_cr is not None:
-                self._process_read_resp_cr.kill()
+                self._process_read_resp_cr.cancel()
                 self._process_read_resp_cr = None
 
             self.ar_channel.clear()

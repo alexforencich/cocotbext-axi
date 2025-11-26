@@ -39,7 +39,7 @@ export PARAM_ADDR_WIDTH := 32
 export PARAM_STRB_WIDTH := $(shell expr $(PARAM_DATA_WIDTH) / 8 )
 
 ifeq ($(SIM), icarus)
-	PLUSARGS += -fst
+	COCOTB_PLUSARGS += -fst
 
 	COMPILE_ARGS += $(foreach v,$(filter PARAM_%,$(.VARIABLES)),-P $(COCOTB_TOPLEVEL).$(subst PARAM_,,$(v))=$($(v)))
 else ifeq ($(SIM), verilator)

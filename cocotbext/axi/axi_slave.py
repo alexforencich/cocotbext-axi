@@ -99,7 +99,7 @@ class AxiSlaveWrite(Reset):
         if state:
             self.log.info("Reset asserted")
             if self._process_write_cr is not None:
-                self._process_write_cr.kill()
+                self._process_write_cr.cancel()
                 self._process_write_cr = None
 
             self.aw_channel.clear()
@@ -263,7 +263,7 @@ class AxiSlaveRead(Reset):
         if state:
             self.log.info("Reset asserted")
             if self._process_read_cr is not None:
-                self._process_read_cr.kill()
+                self._process_read_cr.cancel()
                 self._process_read_cr = None
 
             self.ar_channel.clear()

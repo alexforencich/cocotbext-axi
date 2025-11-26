@@ -56,7 +56,7 @@ class Reset:
 
     async def _run_reset(self, reset_signal, active_level):
         while True:
-            await Edge(reset_signal)
+            await reset_signal.value_change
             try:
                 level = bool(int(reset_signal.value))
             except ValueError:

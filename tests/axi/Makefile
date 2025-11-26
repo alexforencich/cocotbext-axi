@@ -45,7 +45,7 @@ export PARAM_ARUSER_WIDTH := 1
 export PARAM_RUSER_WIDTH := 1
 
 ifeq ($(SIM), icarus)
-	PLUSARGS += -fst
+	COCOTB_PLUSARGS += -fst
 
 	COMPILE_ARGS += $(foreach v,$(filter PARAM_%,$(.VARIABLES)),-P $(COCOTB_TOPLEVEL).$(subst PARAM_,,$(v))=$($(v)))
 else ifeq ($(SIM), verilator)

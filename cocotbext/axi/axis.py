@@ -25,6 +25,7 @@ THE SOFTWARE.
 import logging
 
 import cocotb
+from cocotb.handle import Immediate
 from cocotb.queue import Queue, QueueFull
 from cocotb.triggers import RisingEdge, Timer, First, Event
 from cocotb.utils import get_sim_time
@@ -299,9 +300,9 @@ class AxiStreamBase(Reset):
         self.byte_lanes = self.width // 8
 
         if self._valid_init is not None and hasattr(self.bus, "tvalid"):
-            self.bus.tvalid.setimmediatevalue(self._valid_init)
+            self.bus.tvalid.set(Immediate(self._valid_init))
         if self._ready_init is not None and hasattr(self.bus, "tready"):
-            self.bus.tready.setimmediatevalue(self._ready_init)
+            self.bus.tready.set(Immediate(self._ready_init))
 
         for sig in self._signals+self._optional_signals:
             if hasattr(self.bus, sig):
@@ -312,7 +313,7 @@ class AxiStreamBase(Reset):
                     except NameError:
                         v = s.value
                         v.binstr = 'x'*len(v)
-                    s.setimmediatevalue(v)
+                    s.set(Immediate(v))
 
         if hasattr(self.bus, "tkeep"):
             self.byte_lanes = len(self.bus.tkeep)
@@ -369,7 +370,7 @@ class AxiStreamBase(Reset):
         if state:
             self.log.info("Reset asserted")
             if self._run_cr is not None:
-                self._run_cr.kill()
+                self._run_cr.cancel()
                 self._run_cr = None
 
             self.active = False
@@ -408,7 +409,7 @@ class AxiStreamPause:
 
     def set_pause_generator(self, generator=None):
         if self._pause_cr is not None:
-            self._pause_cr.kill()
+            self._pause_cr.cancel()
             self._pause_cr = None
 
         self._pause_generator = generator
@@ -527,8 +528,8 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
             await clock_edge_event
 
             # read handshake signals
-            tready_sample = (not has_tready) or self.bus.tready.value
-            tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
+            tready_sample = (not has_tready) or self.bus.tready.value.resolve("zeros")
+            tvalid_sample = (not has_tvalid) or self.bus.tvalid.value.resolve("zeros")
 
             if (tready_sample and tvalid_sample) or not tvalid_sample:
                 if not frame and not self.queue.empty():
@@ -697,8 +698,8 @@ class AxiStreamMonitor(AxiStreamBase):
             await clock_edge_event
 
             # read handshake signals
-            tready_sample = (not has_tready) or self.bus.tready.value
-            tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
+            tready_sample = (not has_tready) or self.bus.tready.value.resolve("zeros")
+            tvalid_sample = (not has_tvalid) or self.bus.tvalid.value.resolve("zeros")
 
             if tready_sample and tvalid_sample:
                 if not frame:
@@ -798,8 +799,8 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
             await clock_edge_event
 
             # read handshake signals
-            tready_sample = (not has_tready) or self.bus.tready.value
-            tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
+            tready_sample = (not has_tready) or self.bus.tready.value.resolve("zeros")
+            tvalid_sample = (not has_tvalid) or self.bus.tvalid.value.resolve("zeros")
 
             if tready_sample and tvalid_sample:
                 if not frame:

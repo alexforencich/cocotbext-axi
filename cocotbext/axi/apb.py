@@ -26,13 +26,15 @@ import logging
 from typing import NamedTuple
 
 import cocotb
+from cocotb.handle import Immediate
 from cocotb.queue import Queue
-from cocotb.triggers import RisingEdge, Event
+from cocotb.triggers import RisingEdge
 from cocotb_bus.bus import Bus
 
 from .version import __version__
 from .constants import AxiResp, AxiProt
 from .address_space import Region
+from .event import Event
 from .reset import Reset
 from .memory import Memory
 
@@ -108,7 +110,7 @@ class ApbPause:
 
     def set_pause_generator(self, generator=None):
         if self._pause_cr is not None:
-            self._pause_cr.kill()
+            self._pause_cr.cancel()
             self._pause_cr = None
 
         self._pause_generator = generator
@@ -178,15 +180,15 @@ class ApbMaster(ApbPause, Region, Reset):
             assert self.byte_lanes == len(self.bus.pstrb)
         assert self.byte_lanes * self.byte_size == self.width
 
-        self.bus.paddr.setimmediatevalue(0)
+        self.bus.paddr.set(Immediate(0))
         if self.pprot_present:
-            self.bus.pprot.setimmediatevalue(0)
-        self.bus.psel.setimmediatevalue(False)
-        self.bus.penable.setimmediatevalue(False)
-        self.bus.pwrite.setimmediatevalue(False)
-        self.bus.pwdata.setimmediatevalue(0)
+            self.bus.pprot.set(Immediate(0))
+        self.bus.psel.set(Immediate(False))
+        self.bus.penable.set(Immediate(False))
+        self.bus.pwrite.set(Immediate(False))
+        self.bus.pwdata.set(Immediate(0))
         if self.pstrb_present:
-            self.bus.pstrb.setimmediatevalue(0)
+            self.bus.pstrb.set(Immediate(0))
 
         self._run_cr = None
 
@@ -307,7 +309,7 @@ class ApbMaster(ApbPause, Region, Reset):
             self.bus.penable.value = False
 
             if self._run_cr is not None:
-                self._run_cr.kill()
+                self._run_cr.cancel()
                 self._run_cr = None
 
             def flush_cmd(cmd):
@@ -418,7 +420,7 @@ class ApbMaster(ApbPause, Region, Reset):
 
                 self.bus.penable.value = False
 
-                cycle_data = int(self.bus.prdata.value)
+                cycle_data = int(self.bus.prdata.value.resolve("zeros"))
                 if self.pslverr_present and int(self.bus.pslverr.value):
                     resp = AxiResp.SLVERR
 
@@ -499,10 +501,10 @@ class ApbSlave(ApbPause, Reset):
             assert self.byte_lanes == len(self.bus.pstrb)
         assert self.byte_lanes * self.byte_size == self.width
 
-        self.bus.pready.setimmediatevalue(False)
-        self.bus.prdata.setimmediatevalue(0)
+        self.bus.pready.set(Immediate(False))
+        self.bus.prdata.set(Immediate(0))
         if self.pslverr_present:
-            self.bus.pslverr.setimmediatevalue(0)
+            self.bus.pslverr.set(Immediate(0))
 
         self._run_cr = None
 
@@ -518,7 +520,7 @@ class ApbSlave(ApbPause, Reset):
             self.bus.pready.value = False
 
             if self._run_cr is not None:
-                self._run_cr.kill()
+                self._run_cr.cancel()
                 self._run_cr = None
         else:
             self.log.info("Reset de-asserted")
@@ -536,8 +538,9 @@ class ApbSlave(ApbPause, Reset):
             if self.pause:
                 continue
 
-            if not int(self.bus.psel.value) or not int(self.bus.penable.value):
-                continue
+            if (not int(self.bus.psel.value.resolve("zeros")) or
+                not int(self.bus.penable.value.resolve("zeros"))):
+                    continue
 
             addr = (int(self.bus.paddr.value) // self.byte_lanes) * self.byte_lanes
             if self.pprot_present:

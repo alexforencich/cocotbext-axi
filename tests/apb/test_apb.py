@@ -32,10 +32,14 @@ import pytest
 
 import cocotb
 from cocotb.clock import Clock
+from cocotb.handle import Immediate
 from cocotb.triggers import RisingEdge, Timer
-from cocotb.regression import TestFactory
 
 from cocotbext.axi import ApbBus, ApbMaster, ApbRam
+
+
+def cycle_pause():
+    return itertools.cycle([1, 1, 1, 0])
 
 
 class TB:
@@ -45,7 +49,7 @@ class TB:
         self.log = logging.getLogger("cocotb.tb")
         self.log.setLevel(logging.DEBUG)
 
-        cocotb.start_soon(Clock(dut.clk, 2, units="ns").start())
+        cocotb.start_soon(Clock(dut.clk, 2, unit="ns").start())
 
         self.apb_master = ApbMaster(ApbBus.from_prefix(dut, "apb"), dut.clk, dut.rst)
         self.apb_ram = ApbRam(ApbBus.from_prefix(dut, "apb"), dut.clk, dut.rst, size=2**16)
@@ -59,7 +63,7 @@ class TB:
             self.apb_ram.set_pause_generator(generator())
 
     async def cycle_reset(self):
-        self.dut.rst.setimmediatevalue(0)
+        self.dut.rst.set(Immediate(0))
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
         self.dut.rst.value = 1
@@ -70,6 +74,11 @@ class TB:
         await RisingEdge(self.dut.clk)
 
 
+@cocotb.test()
+@cocotb.parametrize(
+    idle_inserter=[None, cycle_pause],
+    backpressure_inserter=[None, cycle_pause]
+)
 async def run_test_write(dut, data_in=None, idle_inserter=None, backpressure_inserter=None):
 
     tb = TB(dut)
@@ -101,6 +110,11 @@ async def run_test_write(dut, data_in=None, idle_inserter=None, backpressure_ins
     await RisingEdge(dut.clk)
 
 
+@cocotb.test()
+@cocotb.parametrize(
+    idle_inserter=[None, cycle_pause],
+    backpressure_inserter=[None, cycle_pause]
+)
 async def run_test_read(dut, data_in=None, idle_inserter=None, backpressure_inserter=None):
 
     tb = TB(dut)
@@ -128,6 +142,7 @@ async def run_test_read(dut, data_in=None, idle_inserter=None, backpressure_inse
     await RisingEdge(dut.clk)
 
 
+@cocotb.test()
 async def run_test_write_words(dut):
 
     tb = TB(dut)
@@ -182,6 +197,7 @@ async def run_test_write_words(dut):
     await RisingEdge(dut.clk)
 
 
+@cocotb.test()
 async def run_test_read_words(dut):
 
     tb = TB(dut)
@@ -237,6 +253,7 @@ async def run_test_read_words(dut):
     await RisingEdge(dut.clk)
 
 
+@cocotb.test()
 async def run_stress_test(dut, idle_inserter=None, backpressure_inserter=None):
 
     tb = TB(dut)
@@ -267,41 +284,17 @@ async def run_stress_test(dut, idle_inserter=None, backpressure_inserter=None):
         workers.append(cocotb.start_soon(worker(tb.apb_master, k*0x1000, 0x1000, count=16)))
 
     while workers:
-        await workers.pop(0).join()
+        await workers.pop(0)
 
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
-
-
-def cycle_pause():
-    return itertools.cycle([1, 1, 1, 0])
-
-
-if getattr(cocotb, 'top', None) is not None:
-
-    for test in [run_test_write, run_test_read]:
-
-        factory = TestFactory(test)
-        factory.add_option("idle_inserter", [None, cycle_pause])
-        factory.add_option("backpressure_inserter", [None, cycle_pause])
-        factory.generate_tests()
-
-    for test in [run_test_write_words, run_test_read_words]:
-
-        factory = TestFactory(test)
-        factory.generate_tests()
-
-    factory = TestFactory(run_stress_test)
-    factory.generate_tests()
 
 
 # cocotb-test
 
-tests_dir = os.path.dirname(__file__)
-
-
 @pytest.mark.parametrize("data_w", [8, 16, 32])
 def test_apb(request, data_w):
+    tests_dir = os.path.dirname(__file__)
     dut = "test_apb"
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
