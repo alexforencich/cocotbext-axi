@@ -405,7 +405,10 @@ class ApbMaster(ApbPause, Region, Reset):
                     self.bus.paddr.value = cmd.address
                 else:
                     self.bus.paddr.value = word_addr + k*self.byte_lanes
-                self.bus.pprot.value = cmd.prot
+
+                if self.pprot_present:
+                    self.bus.pprot.value = cmd.prot
+
                 self.bus.penable.value = True
                 self.bus.pwrite.value = pwrite
                 self.bus.pwdata.value = val
