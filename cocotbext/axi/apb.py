@@ -370,6 +370,8 @@ class ApbMaster(ApbPause, Region, Reset):
                     self.log.info("Read start addr: 0x%08x prot: %s length: %d",
                             cmd.address, cmd.prot, cmd.length)
 
+            await clock_edge_event
+
             for k in range(cycles):
                 start = 0
                 stop = self.byte_lanes
@@ -395,8 +397,6 @@ class ApbMaster(ApbPause, Region, Reset):
 
                 while self.pause:
                     await clock_edge_event
-
-                await clock_edge_event
 
                 if k == 0:
                     self.bus.paddr.value = cmd.address
