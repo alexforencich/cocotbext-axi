@@ -334,8 +334,14 @@ class ApbMaster(ApbPause, Region, Reset):
     async def _run(self):
         clock_edge_event = RisingEdge(self.clock)
 
+        await clock_edge_event
+
         while True:
-            cmd = await self.command_queue.get()
+            if self.command_queue.empty():
+                cmd = await self.command_queue.get()
+                await clock_edge_event
+            else:
+                cmd = self.command_queue.get_nowait()
             self.current_command = cmd
 
             length = 0
@@ -369,8 +375,6 @@ class ApbMaster(ApbPause, Region, Reset):
                 else:
                     self.log.info("Read start addr: 0x%08x prot: %s length: %d",
                             cmd.address, cmd.prot, cmd.length)
-
-            await clock_edge_event
 
             for k in range(cycles):
                 start = 0
