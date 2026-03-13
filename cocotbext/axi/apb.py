@@ -540,10 +540,7 @@ class ApbSlave(ApbPause, Reset):
         while True:
             await clock_edge_event
 
-            if self.pause:
-                continue
-
-            if not int(self.bus.psel.value) or not int(self.bus.penable.value):
+            if not int(self.bus.psel.value):
                 continue
 
             addr = (int(self.bus.paddr.value) // self.byte_lanes) * self.byte_lanes
@@ -553,6 +550,9 @@ class ApbSlave(ApbPause, Reset):
                 prot = AxiProt.NONSECURE
 
             pslverr = False
+
+            while self.pause:
+                await clock_edge_event
 
             if (int(self.bus.pwrite.value)):
                 data = int(self.bus.pwdata.value)
@@ -608,15 +608,17 @@ class ApbSlave(ApbPause, Reset):
 
                 self.bus.prdata.value = int.from_bytes(data, 'little')
 
-            await clock_edge_event
             if self.pslverr_present:
                 self.bus.pslverr.value = pslverr
             self.bus.pready.value = True
             await clock_edge_event
-            self.bus.pready.value = False
-            if self.pslverr_present:
-                self.bus.pslverr.value = False
 
+            if not int(self.bus.psel.value):
+                self.log.warning("psel deasserted early")
+            if not int(self.bus.penable.value):
+                self.log.warning("penable not asserted")
+
+            self.bus.pready.value = False
 
 class ApbRam(ApbSlave, Memory):
     def __init__(self, bus, clock, reset=None, reset_active_level=True, size=2**64, mem=None, **kwargs):
