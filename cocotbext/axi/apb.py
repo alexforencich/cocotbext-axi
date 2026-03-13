@@ -518,6 +518,9 @@ class ApbSlave(ApbPause, Reset):
     async def _write(self, address, data):
         await self.target.write(address, data)
 
+    async def _read(self, address, length):
+        return await self.target.read(address, length)
+
     def _handle_reset(self, state):
         if state:
             self.log.info("Reset asserted")
