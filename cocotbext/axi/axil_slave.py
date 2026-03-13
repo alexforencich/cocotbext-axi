@@ -151,8 +151,8 @@ class AxiLiteSlaveWrite(Reset):
             try:
                 for addr, data in write_ops:
                     await self._write(addr, data)
-            except Exception:
-                self.log.warning("Write operation failed")
+            except Exception as e:
+                self.log.warning(f"Write operation failed: {e}")
                 b.bresp = AxiResp.SLVERR
 
             await self.b_channel.send(b)
@@ -234,8 +234,8 @@ class AxiLiteSlaveRead(Reset):
 
             try:
                 data = await self._read(addr, self.byte_lanes)
-            except Exception:
-                self.log.warning("Read operation failed")
+            except Exception as e:
+                self.log.warning(f"Read operation failed: {e}")
                 data = bytes(self.byte_lanes)
                 r.rresp = AxiResp.SLVERR
 
