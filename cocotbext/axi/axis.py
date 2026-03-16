@@ -755,6 +755,10 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
 
         super().__init__(bus, clock, reset, reset_active_level, byte_size, byte_lanes, *args, **kwargs)
 
+    def clear(self):
+        while not self.empty():
+            self.recv_nowait()
+    
     def full(self):
         if self.queue_occupancy_limit_bytes > 0 and self.queue_occupancy_bytes > self.queue_occupancy_limit_bytes:
             return True
