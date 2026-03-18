@@ -28,6 +28,7 @@ import cocotb
 from cocotb.queue import Queue, QueueFull
 from cocotb.triggers import RisingEdge, Event, First, Timer
 from cocotb_bus.bus import Bus
+from cocotb.handle import Immediate
 
 try:
     from cocotb.types import LogicArray
@@ -112,12 +113,12 @@ class StreamBase(Reset):
         if self._ready_signal is not None and hasattr(self.bus, self._ready_signal):
             self.ready = getattr(self.bus, self._ready_signal)
             if self._ready_init is not None:
-                self.ready.setimmediatevalue(self._ready_init)
+                self.ready.value = Immediate(self._ready_init)
 
         if self._valid_signal is not None and hasattr(self.bus, self._valid_signal):
             self.valid = getattr(self.bus, self._valid_signal)
             if self._valid_init is not None:
-                self.valid.setimmediatevalue(self._valid_init)
+                self.valid.value = Immediate(self._valid_init)
 
         for sig in self._signals+self._optional_signals:
             if hasattr(self.bus, sig):
