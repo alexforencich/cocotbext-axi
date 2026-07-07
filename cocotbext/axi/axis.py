@@ -695,6 +695,7 @@ class AxiStreamMonitor(AxiStreamBase):
 
         while True:
             await clock_edge_event
+            await cocotb.triggers.ReadOnly()
 
             # read handshake signals
             tready_sample = (not has_tready) or self.bus.tready.value
