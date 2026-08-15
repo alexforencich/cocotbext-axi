@@ -34,11 +34,11 @@ TOPLEVEL = $(COCOTB_TOPLEVEL)
 VERILOG_SOURCES += $(DUT).v
 
 # module parameters
-export PARAM_DATA_WIDTH := 8
-export PARAM_KEEP_WIDTH := $(shell expr $(PARAM_DATA_WIDTH) / 8 )
-export PARAM_ID_WIDTH := 8
-export PARAM_DEST_WIDTH := 8
-export PARAM_USER_WIDTH := 1
+export PARAM_DATA_W := 8
+export PARAM_KEEP_W := $(shell expr $(PARAM_DATA_W) / 8 )
+export PARAM_ID_W := 8
+export PARAM_DEST_W := 8
+export PARAM_USER_W := 1
 
 ifeq ($(SIM), icarus)
 	PLUSARGS += -fst

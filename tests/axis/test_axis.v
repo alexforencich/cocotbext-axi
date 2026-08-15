@@ -31,24 +31,24 @@ THE SOFTWARE.
  */
 module test_axis #
 (
-    parameter DATA_WIDTH = 8,
-    parameter KEEP_WIDTH = (DATA_WIDTH/8),
-    parameter ID_WIDTH = 8,
-    parameter DEST_WIDTH = 8,
-    parameter USER_WIDTH = 1
+    parameter DATA_W = 8,
+    parameter KEEP_W = (DATA_W/8),
+    parameter ID_W = 8,
+    parameter DEST_W = 8,
+    parameter USER_W = 1
 )
 (
-    input  wire                   clk,
-    input  wire                   rst,
+    input  wire               clk,
+    input  wire               rst,
 
-    inout  wire [DATA_WIDTH-1:0]  axis_tdata,
-    inout  wire [KEEP_WIDTH-1:0]  axis_tkeep,
-    inout  wire                   axis_tvalid,
-    inout  wire                   axis_tready,
-    inout  wire                   axis_tlast,
-    inout  wire [ID_WIDTH-1:0]    axis_tid,
-    inout  wire [DEST_WIDTH-1:0]  axis_tdest,
-    inout  wire [USER_WIDTH-1:0]  axis_tuser
+    inout  wire [DATA_W-1:0]  axis_tdata,
+    inout  wire [KEEP_W-1:0]  axis_tkeep,
+    inout  wire               axis_tvalid,
+    inout  wire               axis_tready,
+    inout  wire               axis_tlast,
+    inout  wire [ID_W-1:0]    axis_tid,
+    inout  wire [DEST_W-1:0]  axis_tdest,
+    inout  wire [USER_W-1:0]  axis_tuser
 );
 
 endmodule

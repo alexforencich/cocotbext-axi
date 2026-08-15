@@ -31,33 +31,33 @@ THE SOFTWARE.
  */
 module test_axil #
 (
-    parameter DATA_WIDTH = 32,
-    parameter ADDR_WIDTH = 16,
-    parameter STRB_WIDTH = (DATA_WIDTH/8)
+    parameter DATA_W = 32,
+    parameter ADDR_W = 16,
+    parameter STRB_W = (DATA_W/8)
 )
 (
-    input  wire                   clk,
-    input  wire                   rst,
+    input  wire               clk,
+    input  wire               rst,
 
-    inout  wire [ADDR_WIDTH-1:0]  axil_awaddr,
-    inout  wire [2:0]             axil_awprot,
-    inout  wire                   axil_awvalid,
-    inout  wire                   axil_awready,
-    inout  wire [DATA_WIDTH-1:0]  axil_wdata,
-    inout  wire [STRB_WIDTH-1:0]  axil_wstrb,
-    inout  wire                   axil_wvalid,
-    inout  wire                   axil_wready,
-    inout  wire [1:0]             axil_bresp,
-    inout  wire                   axil_bvalid,
-    inout  wire                   axil_bready,
-    inout  wire [ADDR_WIDTH-1:0]  axil_araddr,
-    inout  wire [2:0]             axil_arprot,
-    inout  wire                   axil_arvalid,
-    inout  wire                   axil_arready,
-    inout  wire [DATA_WIDTH-1:0]  axil_rdata,
-    inout  wire [1:0]             axil_rresp,
-    inout  wire                   axil_rvalid,
-    inout  wire                   axil_rready
+    inout  wire [ADDR_W-1:0]  axil_awaddr,
+    inout  wire [2:0]         axil_awprot,
+    inout  wire               axil_awvalid,
+    inout  wire               axil_awready,
+    inout  wire [DATA_W-1:0]  axil_wdata,
+    inout  wire [STRB_W-1:0]  axil_wstrb,
+    inout  wire               axil_wvalid,
+    inout  wire               axil_wready,
+    inout  wire [1:0]         axil_bresp,
+    inout  wire               axil_bvalid,
+    inout  wire               axil_bready,
+    inout  wire [ADDR_W-1:0]  axil_araddr,
+    inout  wire [2:0]         axil_arprot,
+    inout  wire               axil_arvalid,
+    inout  wire               axil_arready,
+    inout  wire [DATA_W-1:0]  axil_rdata,
+    inout  wire [1:0]         axil_rresp,
+    inout  wire               axil_rvalid,
+    inout  wire               axil_rready
 );
 
 endmodule

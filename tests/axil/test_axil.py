@@ -308,8 +308,8 @@ if getattr(cocotb, 'top', None) is not None:
 tests_dir = os.path.dirname(__file__)
 
 
-@pytest.mark.parametrize("data_width", [8, 16, 32])
-def test_axil(request, data_width):
+@pytest.mark.parametrize("data_w", [8, 16, 32])
+def test_axil(request, data_w):
     dut = "test_axil"
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -320,9 +320,9 @@ def test_axil(request, data_width):
 
     parameters = {}
 
-    parameters['DATA_WIDTH'] = data_width
-    parameters['ADDR_WIDTH'] = 32
-    parameters['STRB_WIDTH'] = parameters['DATA_WIDTH'] // 8
+    parameters['DATA_W'] = data_w
+    parameters['ADDR_W'] = 32
+    parameters['STRB_W'] = parameters['DATA_W'] // 8
 
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
 

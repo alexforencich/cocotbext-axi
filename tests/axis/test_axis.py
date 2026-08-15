@@ -150,8 +150,8 @@ if getattr(cocotb, 'top', None) is not None:
 tests_dir = os.path.dirname(__file__)
 
 
-@pytest.mark.parametrize("data_width", [8, 16, 32])
-def test_axis(request, data_width):
+@pytest.mark.parametrize("data_w", [8, 16, 32])
+def test_axis(request, data_w):
     dut = "test_axis"
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -162,11 +162,11 @@ def test_axis(request, data_width):
 
     parameters = {}
 
-    parameters['DATA_WIDTH'] = data_width
-    parameters['KEEP_WIDTH'] = parameters['DATA_WIDTH'] // 8
-    parameters['ID_WIDTH'] = 8
-    parameters['DEST_WIDTH'] = 8
-    parameters['USER_WIDTH'] = 1
+    parameters['DATA_W'] = data_w
+    parameters['KEEP_W'] = parameters['DATA_W'] // 8
+    parameters['ID_W'] = 8
+    parameters['DEST_W'] = 8
+    parameters['USER_W'] = 1
 
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
 

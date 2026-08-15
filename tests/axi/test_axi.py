@@ -324,8 +324,8 @@ if getattr(cocotb, 'top', None) is not None:
 tests_dir = os.path.dirname(__file__)
 
 
-@pytest.mark.parametrize("data_width", [8, 16, 32])
-def test_axi(request, data_width):
+@pytest.mark.parametrize("data_w", [8, 16, 32])
+def test_axi(request, data_w):
     dut = "test_axi"
     module = os.path.splitext(os.path.basename(__file__))[0]
     toplevel = dut
@@ -336,15 +336,15 @@ def test_axi(request, data_width):
 
     parameters = {}
 
-    parameters['DATA_WIDTH'] = data_width
-    parameters['ADDR_WIDTH'] = 32
-    parameters['STRB_WIDTH'] = parameters['DATA_WIDTH'] // 8
-    parameters['ID_WIDTH'] = 8
-    parameters['AWUSER_WIDTH'] = 1
-    parameters['WUSER_WIDTH'] = 1
-    parameters['BUSER_WIDTH'] = 1
-    parameters['ARUSER_WIDTH'] = 1
-    parameters['RUSER_WIDTH'] = 1
+    parameters['DATA_W'] = data_w
+    parameters['ADDR_W'] = 32
+    parameters['STRB_W'] = parameters['DATA_W'] // 8
+    parameters['ID_W'] = 8
+    parameters['AWUSER_W'] = 1
+    parameters['WUSER_W'] = 1
+    parameters['BUSER_W'] = 1
+    parameters['ARUSER_W'] = 1
+    parameters['RUSER_W'] = 1
 
     extra_env = {f'PARAM_{k}': str(v) for k, v in parameters.items()}
 
