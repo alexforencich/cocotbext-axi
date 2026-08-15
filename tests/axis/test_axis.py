@@ -33,7 +33,6 @@ import pytest
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge
-from cocotb.regression import TestFactory
 
 from cocotbext.axi import AxiStreamFrame, AxiStreamBus, AxiStreamSource, AxiStreamSink, AxiStreamMonitor
 
@@ -71,6 +70,27 @@ class TB:
         await RisingEdge(self.dut.clk)
 
 
+def cycle_pause():
+    return itertools.cycle([1, 1, 1, 0])
+
+
+def size_list():
+    data_width = len(cocotb.top.axis_tdata)
+    byte_width = data_width // 8
+    return list(range(1, byte_width*4+1)) + [512] + [1]*64
+
+
+def incrementing_payload(length):
+    return bytearray(itertools.islice(itertools.cycle(range(256)), length))
+
+
+@cocotb.test()
+@cocotb.parametrize(
+    ("payload_lengths", [size_list]),
+    ("payload_data", [incrementing_payload]),
+    ("idle_inserter", [None, cycle_pause]),
+    ("backpressure_inserter", [None, cycle_pause]),
+)
 async def run_test(dut, payload_lengths=None, payload_data=None, idle_inserter=None, backpressure_inserter=None):
 
     tb = TB(dut)
@@ -119,30 +139,6 @@ async def run_test(dut, payload_lengths=None, payload_data=None, idle_inserter=N
 
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
-
-
-def cycle_pause():
-    return itertools.cycle([1, 1, 1, 0])
-
-
-def size_list():
-    data_width = len(cocotb.top.axis_tdata)
-    byte_width = data_width // 8
-    return list(range(1, byte_width*4+1)) + [512] + [1]*64
-
-
-def incrementing_payload(length):
-    return bytearray(itertools.islice(itertools.cycle(range(256)), length))
-
-
-if getattr(cocotb, 'top', None) is not None:
-
-    factory = TestFactory(run_test)
-    factory.add_option("payload_lengths", [size_list])
-    factory.add_option("payload_data", [incrementing_payload])
-    factory.add_option("idle_inserter", [None, cycle_pause])
-    factory.add_option("backpressure_inserter", [None, cycle_pause])
-    factory.generate_tests()
 
 
 # cocotb-test
