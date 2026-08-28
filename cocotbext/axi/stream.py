@@ -149,6 +149,14 @@ class StreamBase(Reset):
         self.idle_event.set()
         self.active_event.clear()
 
+    def invalidate_outputs(self):
+        for sig in self._signals+self._optional_signals:
+            if hasattr(self.bus, sig):
+                if sig not in (self._valid_signal, self._ready_signal):
+                    v = getattr(self.bus, sig).value
+                    v.binstr = 'x'*len(v)
+                    getattr(self.bus, sig).value = v
+
     def _handle_reset(self, state):
         if state:
             self.log.info("Reset asserted")
@@ -262,6 +270,7 @@ class StreamSource(StreamBase, StreamPause):
         has_ready = self.ready is not None
 
         clock_edge_event = RisingEdge(self.clock)
+        valid_outputs = False
 
         while True:
             await clock_edge_event
@@ -273,11 +282,15 @@ class StreamSource(StreamBase, StreamPause):
             if (ready_sample and valid_sample) or (not valid_sample):
                 if not self.queue.empty() and not self.pause:
                     self.bus.drive(self.queue.get_nowait())
+                    valid_outputs = True
                     self.dequeue_event.set()
                     if has_valid:
                         self.valid.value = 1
                     self.active = True
                 else:
+                    if valid_outputs:
+                        self.invalidate_outputs()
+                        valid_outputs = False
                     if has_valid:
                         self.valid.value = 0
                     self.active = not self.queue.empty()
