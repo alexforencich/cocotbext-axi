@@ -710,7 +710,12 @@ class AxiStreamMonitor(AxiStreamBase):
                     self.active = True
 
                 for offset in range(self.byte_lanes):
-                    frame.tdata.append((int(self.bus.tdata.value) >> (offset * self.byte_size)) & self.byte_mask)
+                    keep_mask = LogicArray("1"*self.width)
+                    if has_tkeep:
+                        for i in range(self.byte_lanes):
+                            for j in range(8):
+                                keep_mask[i*8 + j] = self.bus.tkeep.value[i]
+                    frame.tdata.append((int(self.bus.tdata.value & keep_mask) >> (offset * self.byte_size)) & self.byte_mask)
                     if has_tkeep:
                         frame.tkeep.append((int(self.bus.tkeep.value) >> offset) & 1)
                     if has_tid:
@@ -811,7 +816,12 @@ class AxiStreamSink(AxiStreamMonitor, AxiStreamPause):
                     self.active = True
 
                 for offset in range(self.byte_lanes):
-                    frame.tdata.append((int(self.bus.tdata.value) >> (offset * self.byte_size)) & self.byte_mask)
+                    keep_mask = LogicArray("1"*self.width)
+                    if has_tkeep:
+                        for i in range(self.byte_lanes):
+                            for j in range(8):
+                                keep_mask[i*8 + j] = self.bus.tkeep.value[i]
+                    frame.tdata.append((int(self.bus.tdata.value & keep_mask) >> (offset * self.byte_size)) & self.byte_mask)
                     if has_tkeep:
                         frame.tkeep.append((int(self.bus.tkeep.value) >> offset) & 1)
                     if has_tid:
