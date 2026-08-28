@@ -124,12 +124,15 @@ class StreamBase(Reset):
                 if sig in self._signal_widths:
                     assert len(getattr(self.bus, sig)) == self._signal_widths[sig]
                 if self._init_x and sig not in (self._valid_signal, self._ready_signal):
-                    s = getattr(self.bus, sig)
                     try:
+                        s = getattr(self.bus, sig)
                         v = LogicArray("x"*len(s.value))
                     except NameError:
                         v = s.value
                         v.binstr = 'x'*len(v)
+                    except AttributeError:
+                        self.log.fatal(f"signal {sig} does not exist")
+                        raise
                     s.setimmediatevalue(v)
 
         self._run_cr = None
