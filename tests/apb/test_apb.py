@@ -284,7 +284,7 @@ async def run_stress_test(dut, idle_inserter=None, backpressure_inserter=None):
         workers.append(cocotb.start_soon(worker(tb.apb_master, k*0x1000, 0x1000, count=16)))
 
     while workers:
-        await workers.pop(0).join()
+        await workers.pop(0)
 
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
