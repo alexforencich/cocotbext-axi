@@ -31,6 +31,7 @@ import sys
 import pytest
 import cocotb
 from cocotb.clock import Clock
+from cocotb.handle import Immediate
 from cocotb.triggers import RisingEdge, Timer
 from cocotb_tools.runner import get_runner
 
@@ -58,7 +59,7 @@ class TB:
             self.apb_ram.set_pause_generator(generator())
 
     async def cycle_reset(self):
-        self.dut.rst.setimmediatevalue(0)
+        self.dut.rst.set(Immediate(0))
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
         self.dut.rst.value = 1

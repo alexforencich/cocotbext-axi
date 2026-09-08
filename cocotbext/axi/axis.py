@@ -25,6 +25,7 @@ THE SOFTWARE.
 import logging
 
 import cocotb
+from cocotb.handle import Immediate
 from cocotb.queue import Queue, QueueFull
 from cocotb.triggers import RisingEdge, Timer, First, Event
 from cocotb.utils import get_sim_time
@@ -299,9 +300,9 @@ class AxiStreamBase(Reset):
         self.byte_lanes = self.width // 8
 
         if self._valid_init is not None and hasattr(self.bus, "tvalid"):
-            self.bus.tvalid.setimmediatevalue(self._valid_init)
+            self.bus.tvalid.set(Immediate(self._valid_init))
         if self._ready_init is not None and hasattr(self.bus, "tready"):
-            self.bus.tready.setimmediatevalue(self._ready_init)
+            self.bus.tready.set(Immediate(self._ready_init))
 
         for sig in self._signals+self._optional_signals:
             if hasattr(self.bus, sig):
@@ -312,7 +313,7 @@ class AxiStreamBase(Reset):
                     except NameError:
                         v = s.value
                         v.binstr = 'x'*len(v)
-                    s.setimmediatevalue(v)
+                    s.set(Immediate(v))
 
         if hasattr(self.bus, "tkeep"):
             self.byte_lanes = len(self.bus.tkeep)
