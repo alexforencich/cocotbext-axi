@@ -153,7 +153,7 @@ class StreamBase(Reset):
         if state:
             self.log.info("Reset asserted")
             if self._run_cr is not None:
-                self._run_cr.kill()
+                self._run_cr.cancel()
                 self._run_cr = None
 
             self.active = False
@@ -192,7 +192,7 @@ class StreamPause:
 
     def set_pause_generator(self, generator=None):
         if self._pause_cr is not None:
-            self._pause_cr.kill()
+            self._pause_cr.cancel()
             self._pause_cr = None
 
         self._pause_generator = generator

@@ -211,10 +211,10 @@ class AxiLiteMasterWrite(Region, Reset):
         if state:
             self.log.info("Reset asserted")
             if self._process_write_cr is not None:
-                self._process_write_cr.kill()
+                self._process_write_cr.cancel()
                 self._process_write_cr = None
             if self._process_write_resp_cr is not None:
-                self._process_write_resp_cr.kill()
+                self._process_write_resp_cr.cancel()
                 self._process_write_resp_cr = None
 
             self.aw_channel.clear()
@@ -463,10 +463,10 @@ class AxiLiteMasterRead(Region, Reset):
         if state:
             self.log.info("Reset asserted")
             if self._process_read_cr is not None:
-                self._process_read_cr.kill()
+                self._process_read_cr.cancel()
                 self._process_read_cr = None
             if self._process_read_resp_cr is not None:
-                self._process_read_resp_cr.kill()
+                self._process_read_resp_cr.cancel()
                 self._process_read_resp_cr = None
 
             self.ar_channel.clear()

@@ -108,7 +108,7 @@ class ApbPause:
 
     def set_pause_generator(self, generator=None):
         if self._pause_cr is not None:
-            self._pause_cr.kill()
+            self._pause_cr.cancel()
             self._pause_cr = None
 
         self._pause_generator = generator
@@ -307,7 +307,7 @@ class ApbMaster(ApbPause, Region, Reset):
             self.bus.penable.value = False
 
             if self._run_cr is not None:
-                self._run_cr.kill()
+                self._run_cr.cancel()
                 self._run_cr = None
 
             def flush_cmd(cmd):
@@ -528,7 +528,7 @@ class ApbSlave(ApbPause, Reset):
             self.bus.pready.value = False
 
             if self._run_cr is not None:
-                self._run_cr.kill()
+                self._run_cr.cancel()
                 self._run_cr = None
         else:
             self.log.info("Reset de-asserted")
