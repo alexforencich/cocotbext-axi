@@ -26,7 +26,6 @@ import logging
 from typing import NamedTuple
 
 import cocotb
-from cocotb.handle import Immediate
 from cocotb.queue import Queue
 from cocotb.triggers import RisingEdge, Event
 from cocotb_bus.bus import Bus
@@ -179,15 +178,15 @@ class ApbMaster(ApbPause, Region, Reset):
             assert self.byte_lanes == len(self.bus.pstrb)
         assert self.byte_lanes * self.byte_size == self.width
 
-        self.bus.paddr.set(Immediate(0))
+        self.bus.paddr.value = 0
         if self.pprot_present:
-            self.bus.pprot.set(Immediate(0))
-        self.bus.psel.set(Immediate(False))
-        self.bus.penable.set(Immediate(False))
-        self.bus.pwrite.set(Immediate(False))
-        self.bus.pwdata.set(Immediate(0))
+            self.bus.pprot.value = 0
+        self.bus.psel.value = False
+        self.bus.penable.value = False
+        self.bus.pwrite.value = False
+        self.bus.pwdata.value = 0
         if self.pstrb_present:
-            self.bus.pstrb.set(Immediate(0))
+            self.bus.pstrb.value = 0
 
         self._run_cr = None
 
@@ -507,10 +506,10 @@ class ApbSlave(ApbPause, Reset):
             assert self.byte_lanes == len(self.bus.pstrb)
         assert self.byte_lanes * self.byte_size == self.width
 
-        self.bus.pready.set(Immediate(False))
-        self.bus.prdata.set(Immediate(0))
+        self.bus.pready.value = False
+        self.bus.prdata.value = 0
         if self.pslverr_present:
-            self.bus.pslverr.set(Immediate(0))
+            self.bus.pslverr.value = 0
 
         self._run_cr = None
 
