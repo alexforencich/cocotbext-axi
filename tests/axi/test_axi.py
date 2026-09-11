@@ -69,7 +69,7 @@ class TB:
             self.axi_ram.read_if.ar_channel.set_pause_generator(generator())
 
     async def cycle_reset(self):
-        self.dut.rst.setimmediatevalue(0)
+        self.dut.rst.value = 0
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
         self.dut.rst.value = 1
@@ -312,7 +312,7 @@ async def run_stress_test(dut, idle_inserter=None, backpressure_inserter=None):
         workers.append(cocotb.start_soon(worker(tb.axi_master, k*0x1000, 0x1000, count=16)))
 
     while workers:
-        await workers.pop(0).join()
+        await workers.pop(0)
 
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)

@@ -108,7 +108,7 @@ class ApbPause:
 
     def set_pause_generator(self, generator=None):
         if self._pause_cr is not None:
-            self._pause_cr.kill()
+            self._pause_cr.cancel()
             self._pause_cr = None
 
         self._pause_generator = generator
@@ -178,15 +178,15 @@ class ApbMaster(ApbPause, Region, Reset):
             assert self.byte_lanes == len(self.bus.pstrb)
         assert self.byte_lanes * self.byte_size == self.width
 
-        self.bus.paddr.setimmediatevalue(0)
+        self.bus.paddr.value = 0
         if self.pprot_present:
-            self.bus.pprot.setimmediatevalue(0)
-        self.bus.psel.setimmediatevalue(False)
-        self.bus.penable.setimmediatevalue(False)
-        self.bus.pwrite.setimmediatevalue(False)
-        self.bus.pwdata.setimmediatevalue(0)
+            self.bus.pprot.value = 0
+        self.bus.psel.value = False
+        self.bus.penable.value = False
+        self.bus.pwrite.value = False
+        self.bus.pwdata.value = 0
         if self.pstrb_present:
-            self.bus.pstrb.setimmediatevalue(0)
+            self.bus.pstrb.value = 0
 
         self._run_cr = None
 
@@ -307,7 +307,7 @@ class ApbMaster(ApbPause, Region, Reset):
             self.bus.penable.value = False
 
             if self._run_cr is not None:
-                self._run_cr.kill()
+                self._run_cr.cancel()
                 self._run_cr = None
 
             def flush_cmd(cmd):
@@ -506,10 +506,10 @@ class ApbSlave(ApbPause, Reset):
             assert self.byte_lanes == len(self.bus.pstrb)
         assert self.byte_lanes * self.byte_size == self.width
 
-        self.bus.pready.setimmediatevalue(False)
-        self.bus.prdata.setimmediatevalue(0)
+        self.bus.pready.value = False
+        self.bus.prdata.value = 0
         if self.pslverr_present:
-            self.bus.pslverr.setimmediatevalue(0)
+            self.bus.pslverr.value = 0
 
         self._run_cr = None
 
@@ -528,7 +528,7 @@ class ApbSlave(ApbPause, Reset):
             self.bus.pready.value = False
 
             if self._run_cr is not None:
-                self._run_cr.kill()
+                self._run_cr.cancel()
                 self._run_cr = None
         else:
             self.log.info("Reset de-asserted")

@@ -59,7 +59,7 @@ class TB:
             self.sink.set_pause_generator(generator())
 
     async def reset(self):
-        self.dut.rst.setimmediatevalue(0)
+        self.dut.rst.value = 0
         await RisingEdge(self.dut.clk)
         await RisingEdge(self.dut.clk)
         self.dut.rst.value = 1

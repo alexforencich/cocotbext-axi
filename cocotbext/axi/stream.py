@@ -112,12 +112,12 @@ class StreamBase(Reset):
         if self._ready_signal is not None and hasattr(self.bus, self._ready_signal):
             self.ready = getattr(self.bus, self._ready_signal)
             if self._ready_init is not None:
-                self.ready.setimmediatevalue(self._ready_init)
+                self.ready.value = self._ready_init
 
         if self._valid_signal is not None and hasattr(self.bus, self._valid_signal):
             self.valid = getattr(self.bus, self._valid_signal)
             if self._valid_init is not None:
-                self.valid.setimmediatevalue(self._valid_init)
+                self.valid.value = self._valid_init
 
         for sig in self._signals+self._optional_signals:
             if hasattr(self.bus, sig):
@@ -130,7 +130,7 @@ class StreamBase(Reset):
                     except NameError:
                         v = s.value
                         v.binstr = 'x'*len(v)
-                    s.setimmediatevalue(v)
+                    s.value = v
 
         self._run_cr = None
 
@@ -153,7 +153,7 @@ class StreamBase(Reset):
         if state:
             self.log.info("Reset asserted")
             if self._run_cr is not None:
-                self._run_cr.kill()
+                self._run_cr.cancel()
                 self._run_cr = None
 
             self.active = False
@@ -192,7 +192,7 @@ class StreamPause:
 
     def set_pause_generator(self, generator=None):
         if self._pause_cr is not None:
-            self._pause_cr.kill()
+            self._pause_cr.cancel()
             self._pause_cr = None
 
         self._pause_generator = generator

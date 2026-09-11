@@ -299,9 +299,9 @@ class AxiStreamBase(Reset):
         self.byte_lanes = self.width // 8
 
         if self._valid_init is not None and hasattr(self.bus, "tvalid"):
-            self.bus.tvalid.setimmediatevalue(self._valid_init)
+            self.bus.tvalid.value = self._valid_init
         if self._ready_init is not None and hasattr(self.bus, "tready"):
-            self.bus.tready.setimmediatevalue(self._ready_init)
+            self.bus.tready.value = self._ready_init
 
         for sig in self._signals+self._optional_signals:
             if hasattr(self.bus, sig):
@@ -312,7 +312,7 @@ class AxiStreamBase(Reset):
                     except NameError:
                         v = s.value
                         v.binstr = 'x'*len(v)
-                    s.setimmediatevalue(v)
+                    s.value = v
 
         if hasattr(self.bus, "tkeep"):
             self.byte_lanes = len(self.bus.tkeep)
@@ -369,7 +369,7 @@ class AxiStreamBase(Reset):
         if state:
             self.log.info("Reset asserted")
             if self._run_cr is not None:
-                self._run_cr.kill()
+                self._run_cr.cancel()
                 self._run_cr = None
 
             self.active = False
@@ -408,7 +408,7 @@ class AxiStreamPause:
 
     def set_pause_generator(self, generator=None):
         if self._pause_cr is not None:
-            self._pause_cr.kill()
+            self._pause_cr.cancel()
             self._pause_cr = None
 
         self._pause_generator = generator
