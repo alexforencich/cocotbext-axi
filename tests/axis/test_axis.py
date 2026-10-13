@@ -31,7 +31,8 @@ import sys
 import pytest
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import RisingEdge
+from cocotb.triggers import Event, FallingEdge, RisingEdge
+from cocotb.utils import get_sim_time
 from cocotb_tools.runner import get_runner
 
 from cocotbext.axi import AxiStreamFrame, AxiStreamBus, AxiStreamSource, AxiStreamSink, AxiStreamMonitor
@@ -139,6 +140,56 @@ async def run_test(dut, payload_lengths=None, payload_data=None, idle_inserter=N
 
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
+
+
+@cocotb.test(timeout_time=1000, timeout_unit="ns")
+@cocotb.parametrize(("beat_count", [1, 3]))
+async def run_test_tx_complete(dut, beat_count):
+
+    dut.rst.setimmediatevalue(1)
+    dut.axis_tready.value = 0
+    cocotb.start_soon(Clock(dut.clk, 2, units="ns").start())
+    source = AxiStreamSource(AxiStreamBus.from_prefix(dut, "axis"), dut.clk, dut.rst)
+
+    await RisingEdge(dut.clk)
+    await RisingEdge(dut.clk)
+    dut.rst.value = 0
+    await RisingEdge(dut.clk)
+    await RisingEdge(dut.clk)
+
+    tx_complete = Event()
+    payload = incrementing_payload((beat_count-1)*source.byte_lanes+1)
+    await source.send(AxiStreamFrame(payload, tx_complete=tx_complete))
+
+    for _ in range(beat_count-1):
+        await FallingEdge(dut.clk)
+        while not dut.axis_tvalid.value:
+            await FallingEdge(dut.clk)
+        assert not dut.axis_tlast.value
+        dut.axis_tready.value = 1
+        await RisingEdge(dut.clk)
+        await FallingEdge(dut.clk)
+        dut.axis_tready.value = 0
+
+    await FallingEdge(dut.clk)
+    while not dut.axis_tvalid.value:
+        await FallingEdge(dut.clk)
+
+    for _ in range(4):
+        await FallingEdge(dut.clk)
+        assert dut.axis_tvalid.value
+        assert dut.axis_tlast.value
+        assert not dut.axis_tready.value
+        assert not tx_complete.is_set()
+        assert not source.idle()
+
+    dut.axis_tready.value = 1
+    await RisingEdge(dut.clk)
+    sim_time_end = get_sim_time()
+    await FallingEdge(dut.clk)
+
+    assert tx_complete.is_set()
+    assert tx_complete.data.sim_time_end == sim_time_end
 
 
 # cocotb-test
