@@ -531,6 +531,12 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
             tvalid_sample = (not has_tvalid) or self.bus.tvalid.value
 
             if (tready_sample and tvalid_sample) or not tvalid_sample:
+                if frame and frame_offset >= len(frame.tdata):
+                    frame.sim_time_end = get_sim_time()
+                    frame.handle_tx_complete()
+                    frame = None
+                    self.current_frame = None
+
                 if not frame and not self.queue.empty():
                     frame = self.queue.get_nowait()
                     self.dequeue_event.set()
@@ -562,10 +568,6 @@ class AxiStreamSource(AxiStreamBase, AxiStreamPause):
 
                         if frame_offset >= len(frame.tdata):
                             tlast_val = 1
-                            frame.sim_time_end = get_sim_time()
-                            frame.handle_tx_complete()
-                            frame = None
-                            self.current_frame = None
                             break
 
                     self.bus.tdata.value = tdata_val
