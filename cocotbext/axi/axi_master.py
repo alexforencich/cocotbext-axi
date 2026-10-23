@@ -528,8 +528,9 @@ class AxiMasterWrite(Region, Reset):
 
                     # split on burst length
                     burst_length = min(cycles-k, min(max(self.max_burst_len, 1), 256))
-                    # split on 4k address boundary
-                    burst_length = (min(burst_length*num_bytes, 0x1000-(cur_addr & 0xfff))+num_bytes-1)//num_bytes
+                    # split INCR bursts on 4k address boundaries
+                    if cmd.burst == AxiBurstType.INCR:
+                        burst_length = (min(burst_length*num_bytes, 0x1000-(cur_addr & 0xfff))+num_bytes-1)//num_bytes
 
                     burst_list.append(burst_length)
 
@@ -914,8 +915,9 @@ class AxiMasterRead(Region, Reset):
 
                     # split on burst length
                     burst_length = min(cycles-k, min(max(self.max_burst_len, 1), 256))
-                    # split on 4k address boundary
-                    burst_length = (min(burst_length*num_bytes, 0x1000-(cur_addr & 0xfff))+num_bytes-1)//num_bytes
+                    # split INCR bursts on 4k address boundaries
+                    if cmd.burst == AxiBurstType.INCR:
+                        burst_length = (min(burst_length*num_bytes, 0x1000-(cur_addr & 0xfff))+num_bytes-1)//num_bytes
 
                     burst_list.append(burst_length)
 

@@ -34,7 +34,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 from cocotb_tools.runner import get_runner
 
-from cocotbext.axi import AxiBus, AxiMaster, AxiRam
+from cocotbext.axi import AxiBus, AxiBurstType, AxiMaster, AxiRam
 
 
 class TB:
@@ -168,6 +168,28 @@ async def run_test_read(dut, idle_inserter=None, backpressure_inserter=None, siz
 
     await RisingEdge(dut.clk)
     await RisingEdge(dut.clk)
+
+
+@cocotb.test()
+async def run_test_wrap_burst_4k_boundary(dut):
+
+    tb = TB(dut)
+    await tb.cycle_reset()
+
+    size = tb.axi_master.write_if.max_burst_size
+    beat_bytes = 1 << size
+    length = beat_bytes * 16
+    address = 0x1000 - beat_bytes
+    wrap_address = address & ~(length - 1)
+    test_data = bytes(range(length))
+    expected_memory = test_data[beat_bytes:] + test_data[:beat_bytes]
+
+    await tb.axi_master.write(address, test_data, burst=AxiBurstType.WRAP, size=size)
+    assert tb.axi_ram.read(wrap_address, length) == expected_memory
+
+    tb.axi_ram.write(wrap_address, expected_memory)
+    read_resp = await tb.axi_master.read(address, length, burst=AxiBurstType.WRAP, size=size)
+    assert read_resp.data == test_data
 
 
 @cocotb.test()
